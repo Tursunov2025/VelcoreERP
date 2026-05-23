@@ -117,6 +117,26 @@ def login(data: LoginData):
     ).first()
 
     if user:
-        return {"success": True}
+        return {
+    "success": True,
+    "role": user.role,
+    "username": user.username
+}
 
     return {"success": False}
+@app.get("/create-admin")
+def create_admin():
+
+    db = SessionLocal()
+
+    user = User(
+        username="admin",
+        password="1234",
+        role="admin"
+    )
+
+    db.add(user)
+
+    db.commit()
+
+    return {"message": "Admin created"}

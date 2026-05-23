@@ -1,3 +1,8 @@
+const [loggedIn, setLoggedIn] = useState(false)
+
+const [username, setUsername] = useState("")
+
+const [password, setPassword] = useState("")
 import { useEffect, useState } from "react";
 
 function App() {
