@@ -86,7 +86,7 @@ if (!isLoggedIn) {
 
   return (
 
-    <div className="min-h-screen bg-black flex items-center justify-center">
+    <div className="min-h-screen bg-[#f5f6fa] flex flex-col lg:flex-row">
 
       <div className="bg-white w-[450px] rounded-[40px] p-10 shadow-2xl">
 
@@ -172,7 +172,7 @@ if (!isLoggedIn) {
 
       </div>
 
-      <div className="flex-1 p-10">
+      <div className="flex-1 p-4 md:p-6 lg:p-10">
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
 
