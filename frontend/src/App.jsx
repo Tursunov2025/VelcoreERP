@@ -1,8 +1,6 @@
 
 import { useEffect, useState } from "react";
-
 function App() {
-
   const [showModal, setShowModal] = useState(false);
 const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -84,14 +82,12 @@ const [search, setSearch] = useState("");
 
   };
 if (!isLoggedIn) {
-
   return (
-
-    <div className="min-h-screen bg-[#f5f6fa] flex flex-col lg:flex-row">
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f6fa]">
 
       <div className="bg-white w-[450px] rounded-[40px] p-10 shadow-2xl">
 
-        <h1 className="text-3xl md:text-5xl font-black mb-8 text-center">
+        <h1 className="text-4xl font-black mb-8 text-center">
           Azmus CRM
         </h1>
 
@@ -114,14 +110,31 @@ if (!isLoggedIn) {
 
           <button
 
-            onClick={() => {
+            onClick={async () => {
 
-              if (
-                loginUser === "admin" &&
-                loginPassword === "1234"
-              ) {
+              const res = await fetch(
+                "https://azmus-crm.onrender.com/login",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({
+                    username: loginUser,
+                    password: loginPassword
+                  })
+                }
+              )
 
-                setIsLoggedIn(true);
+              const data = await res.json()
+
+              if (data.success) {
+
+                setIsLoggedIn(true)
+
+              } else {
+
+                alert("Login yoki parol xato")
 
               }
 
@@ -137,9 +150,7 @@ if (!isLoggedIn) {
       </div>
 
     </div>
-
-  );
-
+  )
 }
   return (
 
