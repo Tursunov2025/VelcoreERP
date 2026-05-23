@@ -140,3 +140,19 @@ def create_admin():
     db.commit()
 
     return {"message": "Admin created"}
+@app.get("/create-operator")
+def create_operator():
+
+    db = SessionLocal()
+
+    user = User(
+        username="operator1",
+        password="1111",
+        role="operator"
+    )
+
+    db.add(user)
+
+    db.commit()
+
+    return {"message": "Operator created"}
