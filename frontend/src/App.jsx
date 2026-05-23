@@ -146,11 +146,11 @@ if (!isLoggedIn) {
 
       <div className="w-[90px] md:w-[260px] bg-black text-white p-6 rounded-r-[40px] shadow-2xl">
 
-        <h1 className="text-5xl font-black mb-14 tracking-tight">
-          Azmus furniture
-        </h1>
+        <h1 className="text-2xl md:text-5xl font-black mb-14 tracking-tight leading-tight">
+  Azmus furniture
+</h1>
 
-        <div className="space-y-3">
+        <div className="space-y-5 mt-10">
 
           <span className="hidden md:block">
   Dashboard
@@ -220,43 +220,53 @@ if (!isLoggedIn) {
 
         <div className="bg-white rounded-[40px] shadow-xl p-8">
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 mb-6">
-<input
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
 
-  value={search}
+  <div className="w-full xl:w-auto">
 
-  onChange={(e) => setSearch(e.target.value)}
+    <input
 
-  placeholder="Qidirish..."
+      value={search}
 
-  className="w-full md:w-[400px]border rounded-2xl px-5 py-4"
-/>
-  <div className="flex items-center gap-4">
+      onChange={(e) => setSearch(e.target.value)}
 
-  <h2 className="text-3xl font-black">
-    Zakazlar
-  </h2>
+      placeholder="Qidirish..."
 
+      className="w-full xl:w-[420px] border border-gray-300 rounded-[20px] px-5 py-4 outline-none focus:ring-2 focus:ring-black"
 
-</div>
-<button
+    />
 
-  onClick={() => {
+  </div>
 
-    setIsLoggedIn(false);
+  <div className="flex flex-wrap items-center gap-3">
 
-  }}
+    <h2 className="text-2xl md:text-3xl font-black mr-2">
+      Zakazlar
+    </h2>
 
-  className="bg-red-500 text-white px-6 py-3 rounded-[24px]"
->
-  Chiqish
-</button>
-  <button
-    onClick={() => setShowModal(true)}
-    className="bg-black text-white px-6 py-3 rounded-[24px]"
-  >
-    + Yangi Zakaz
-  </button>
+    <button
+
+      onClick={() => {
+
+        setIsLoggedIn(false);
+
+      }}
+
+      className="bg-red-500 hover:bg-red-600 transition-all text-white px-6 py-3 rounded-[20px] shadow-lg"
+    >
+      Chiqish
+    </button>
+
+    <button
+
+      onClick={() => setShowModal(true)}
+
+      className="bg-black hover:bg-gray-800 transition-all text-white px-6 py-3 rounded-[20px] shadow-lg"
+    >
+      + Yangi Zakaz
+    </button>
+
+  </div>
 
 </div>
 
@@ -291,7 +301,7 @@ if (!isLoggedIn) {
 
               <div
                 key={index}
-                className="border border-gray-200 rounded-[28px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="border border-gray-200 rounded-[28px] p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 hover:shadow-lg transition-all"
               >
 
                 <div>
@@ -398,7 +408,7 @@ if (!isLoggedIn) {
 
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
 
-          <div className="bg-white rounded-[40px] p-8 w-[500px]">
+          <div className="bg-white rounded-[40px] p-8 w-[95%] md:w-[500px]">
 
 
             <div className="space-y-4">
