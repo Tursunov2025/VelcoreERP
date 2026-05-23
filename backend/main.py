@@ -60,19 +60,30 @@ def delete_order(order_id: int):
 
     db = SessionLocal()
 
-    order = db.query(Order).filter(
-        Order.id == order_id
-    ).first()
+    try:
 
-    if order:
+        order = db.query(Order).filter(
+            Order.id == order_id
+        ).first()
+
+        if not order:
+            return {"error": "Order not found"}
 
         db.delete(order)
 
         db.commit()
 
-        return {"message": "Deleted"}
+        return {"message": "Deleted successfully"}
 
-    return {"error": "Order not found"}
+    except Exception as e:
+
+        db.rollback()
+
+        return {"error": str(e)}
+
+    finally:
+
+        db.close()
 @app.put("/orders/{order_id}")
 def update_order(order_id: int, status: str):
 
