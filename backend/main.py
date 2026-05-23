@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from database import engine, Base
 from models import Order
-
+from models import User
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
@@ -25,7 +25,9 @@ class OrderCreate(BaseModel):
     client: str
     phone: str
     amount: str
-
+class LoginData(BaseModel):
+    username: str
+    password: str
 @app.get("/orders")
 def get_orders():
 
@@ -104,3 +106,17 @@ def update_order(order_id: int, status: str):
         return order
 
     return {"error": "Order not found"}
+@app.post("/login")
+def login(data: LoginData):
+
+    db = SessionLocal()
+
+    user = db.query(User).filter(
+        User.username == data.username,
+        User.password == data.password
+    ).first()
+
+    if user:
+        return {"success": True}
+
+    return {"success": False}
