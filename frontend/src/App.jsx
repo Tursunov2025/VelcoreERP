@@ -38,7 +38,7 @@ const [search, setSearch] = useState("");
 
   useEffect(() => {
 
-    fetch("http://127.0.0.1:8000/orders")
+    fetch("https://azmus-crm.onrender.com/orders")
       .then((res) => res.json())
       .then((data) => {
         setOrders(data);
@@ -53,7 +53,7 @@ const [search, setSearch] = useState("");
     }
 
     const response = await fetch(
-      "http://127.0.0.1:8000/orders",
+      "https://azmus-crm.onrender.com/orders",
       {
 
         method: "POST",
@@ -327,7 +327,7 @@ if (!isLoggedIn) {
   setOrders(updated);
 
   await fetch(
-    `http://127.0.0.1:8000/orders/${order.id}?status=${newStatus}`,
+    `https://azmus-crm.onrender.com/orders/${order.id}?status=${newStatus}`,
     {
       method: "PUT",
     }
@@ -367,7 +367,7 @@ if (!isLoggedIn) {
                       try {
 
                         await fetch(
-                          `http://127.0.0.1:8000/orders/${order.id}`,
+                          `https://azmus-crm.onrender.com/orders/${order.id}`,
                           {
                             method: "DELETE",
                           }
