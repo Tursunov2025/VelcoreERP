@@ -14,6 +14,7 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
 const [loginUser, setLoginUser] = useState("");
 
 const [loginPassword, setLoginPassword] = useState("");
+const [users, setUsers] = useState([])
   const [client, setClient] = useState("");
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
@@ -50,7 +51,11 @@ const [role, setRole] = useState("")
       .then((data) => {
         setOrders(data);
       });
-
+fetch("https://azmus-crm.onrender.com/users")
+  .then(res => res.json())
+  .then(data => {
+    setUsers(data)
+  })
   }, []);
 
   const addOrder = async () => {
@@ -101,12 +106,32 @@ if (!isLoggedIn) {
 
         <div className="space-y-5">
 
-          <input
-            value={loginUser}
-            onChange={(e) => setLoginUser(e.target.value)}
-            placeholder="Login"
-            className="w-full border rounded-2xl px-5 py-4"
-          />
+          <select
+
+  value={loginUser}
+
+  onChange={(e) => setLoginUser(e.target.value)}
+
+  className="w-full border rounded-2xl px-5 py-4"
+
+>
+
+  <option value="">
+    User tanlang
+  </option>
+
+  {users.map((user) => (
+
+    <option
+      key={user.id}
+      value={user.username}
+    >
+      {user.username}
+    </option>
+
+  ))}
+
+</select>
 
           <input
             type="password"
