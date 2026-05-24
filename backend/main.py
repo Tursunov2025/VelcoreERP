@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from database import engine, Base
 from models import Order, User
-from models import User
+
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
@@ -163,4 +163,14 @@ def get_users():
 
     users = db.query(User).all()
 
-    return users
+    result = []
+
+    for user in users:
+
+        result.append({
+            "id": user.id,
+            "username": user.username,
+            "role": user.role
+        })
+
+    return result
