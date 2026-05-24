@@ -2,6 +2,13 @@
 import { useEffect, useState } from "react";
 function App() {
   const [showModal, setShowModal] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false)
+
+const [newUsername, setNewUsername] = useState("")
+
+const [newPassword, setNewPassword] = useState("")
+
+const [newRole, setNewRole] = useState("operator")
 const [isLoggedIn, setIsLoggedIn] = useState(false);
 
 const [loginUser, setLoginUser] = useState("");
@@ -277,7 +284,18 @@ if (!isLoggedIn) {
     >
       + Yangi Zakaz
     </button>
+{role === "admin" && (
 
+  <button
+
+    onClick={() => setShowUserModal(true)}
+
+    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-[20px]"
+  >
+    + User
+  </button>
+
+)}
   </div>
 
 </div>
@@ -460,7 +478,81 @@ if (!isLoggedIn) {
         </div>
 
       )}
+{showUserModal && (
 
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div className="bg-white rounded-[40px] p-8 w-[95%] md:w-[500px]">
+
+      <h1 className="text-3xl font-black mb-6">
+        Yangi User
+      </h1>
+
+      <div className="space-y-4">
+
+        <input
+          value={newUsername}
+          onChange={(e) => setNewUsername(e.target.value)}
+          placeholder="Login"
+          className="w-full border rounded-2xl px-5 py-4"
+        />
+
+        <input
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Parol"
+          className="w-full border rounded-2xl px-5 py-4"
+        />
+
+        <select
+          value={newRole}
+          onChange={(e) => setNewRole(e.target.value)}
+          className="w-full border rounded-2xl px-5 py-4"
+        >
+          <option value="operator">
+            Operator
+          </option>
+
+          <option value="admin">
+            Admin
+          </option>
+        </select>
+
+        <button
+
+          onClick={async () => {
+
+            await fetch(
+              "https://azmus-crm.onrender.com/create-user",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  username: newUsername,
+                  password: newPassword,
+                  role: newRole
+                })
+              }
+            )
+
+            setShowUserModal(false)
+
+          }}
+
+          className="w-full bg-black text-white py-4 rounded-2xl font-bold"
+        >
+          Saqlash
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+)}
     </div>
 
   );
