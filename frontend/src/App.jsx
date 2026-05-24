@@ -123,7 +123,7 @@ if (!isLoggedIn) {
   {users.map((user) => (
 
     <option
-      key={user.id}
+      key={user.username}
       value={user.username}
     >
       {user.username}
@@ -163,7 +163,7 @@ if (!isLoggedIn) {
 
               if (data.success) {
 
-               setRole("admin")
+               setRole(data.role)
 
                  setIsLoggedIn(true)
 

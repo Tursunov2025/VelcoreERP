@@ -168,7 +168,6 @@ def get_users():
     for user in users:
 
         result.append({
-            "id": user.id,
             "username": user.username,
             "role": user.role
         })
