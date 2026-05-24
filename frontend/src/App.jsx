@@ -138,7 +138,9 @@ if (!isLoggedIn) {
 
               if (data.success) {
 
-                setIsLoggedIn(true)
+               setRole(data.role)
+
+                 setIsLoggedIn(true)
 
               } else {
 
