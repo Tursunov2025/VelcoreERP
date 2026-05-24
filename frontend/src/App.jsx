@@ -389,38 +389,42 @@ if (!isLoggedIn) {
                   <div className="font-black text-green-600 text-xl">
                     {order.amount} so'm
                   </div>
+                
+                  {role === "admin" && (
 
-                  <button
+  <button
 
-                    onClick={async () => {
+    onClick={async () => {
 
-                      try {
+      try {
 
-                        await fetch(
-                          `https://azmus-crm.onrender.com/orders/${order.id}`,
-                          {
-                            method: "DELETE",
-                          }
-                        );
+        await fetch(
+          `https://azmus-crm.onrender.com/orders/${order.id}`,
+          {
+            method: "DELETE",
+          }
+        );
 
-                        const filtered = orders.filter(
-                          (item) => item.id !== order.id
-                        );
+        const filtered = orders.filter(
+          (item) => item.id !== order.id
+        );
 
-                        setOrders(filtered);
+        setOrders(filtered);
 
-                      } catch (error) {
+      } catch (error) {
 
-                        console.log(error);
+        console.log(error);
 
-                      }
+      }
 
-                    }}
+    }}
 
-                    className="bg-red-500 text-white px-5 py-3 rounded-2xl"
-                  >
-                    O‘chirish
-                  </button>
+    className="bg-red-500 text-white px-5 py-3 rounded-2xl"
+  >
+    O‘chirish
+  </button>
+
+)}
 
                 </div>
 
