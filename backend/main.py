@@ -1,5 +1,5 @@
 from database import SessionLocal
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -28,6 +28,12 @@ class OrderCreate(BaseModel):
 class LoginData(BaseModel):
     username: str
     password: str
+
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    role: str
 @app.get("/orders")
 def get_orders():
 
@@ -179,6 +185,48 @@ def get_users():
         return {
             "error": str(e)
         }
+
+
+@app.post("/create-user")
+def create_user(user: UserCreate):
+
+    db = SessionLocal()
+
+    try:
+        existing = db.query(User).filter(
+            User.username == user.username
+        ).first()
+
+        if existing:
+            raise HTTPException(status_code=400, detail="User already exists")
+
+        if user.role not in ("admin", "operator"):
+            raise HTTPException(status_code=400, detail="Invalid role")
+
+        new_user = User(
+            username=user.username,
+            password=user.password,
+            role=user.role,
+        )
+
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+
+        return {
+            "success": True,
+            "username": new_user.username,
+            "role": new_user.role,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    finally:
+        db.close()
     
 @app.on_event("startup")
 def startup():
