@@ -156,20 +156,26 @@ def create_operator():
     db.commit()
 
     return {"message": "Operator created"}
+
 @app.get("/users")
 def get_users():
 
     db = SessionLocal()
 
-    users = db.query(User).all()
+    try:
 
-    result = []
+        users = db.query(User).all()
 
-    for user in users:
+        return [
+            {
+                "username": user.username,
+                "role": user.role
+            }
+            for user in users
+        ]
 
-        result.append({
-            "username": user.username,
-            "role": user.role
-        })
+    except Exception as e:
 
-    return result
+        return {
+            "error": str(e)
+        }
