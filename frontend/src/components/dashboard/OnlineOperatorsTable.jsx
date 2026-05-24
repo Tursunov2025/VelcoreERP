@@ -1,4 +1,8 @@
-export default function OnlineOperatorsTable({ operators = [], loading }) {
+export default function OnlineOperatorsTable({
+  operators = [],
+  loading,
+  showLoginTime = false,
+}) {
   if (loading) {
     return (
       <div className="animate-pulse space-y-3">
@@ -22,6 +26,7 @@ export default function OnlineOperatorsTable({ operators = [], loading }) {
             <th className="py-3 pr-4">Bo&apos;lim</th>
             <th className="py-3 pr-4">Holat</th>
             <th className="py-3 pr-4">Faol zakazlar</th>
+            {showLoginTime && <th className="py-3 pr-4">Kirish vaqti</th>}
             <th className="py-3">Oxirgi faollik</th>
           </tr>
         </thead>
@@ -47,6 +52,11 @@ export default function OnlineOperatorsTable({ operators = [], loading }) {
                 </span>
               </td>
               <td className="py-3 font-bold">{op.active_orders_count}</td>
+              {showLoginTime && (
+                <td className="py-3 text-xs text-gray-500">
+                  {op.login_at ? new Date(op.login_at).toLocaleString() : "—"}
+                </td>
+              )}
               <td className="py-3 text-gray-500 text-xs">
                 {op.last_activity
                   ? new Date(op.last_activity).toLocaleString()

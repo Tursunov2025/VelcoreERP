@@ -220,3 +220,70 @@ class FinanceSummary(BaseModel):
     total_income: float
     total_expenses: float
     net_profit: float
+
+
+class UserAdminResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+    department: str
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdminUserCreate(BaseModel):
+    username: str
+    password: str
+    role: str = "operator"
+    department: str = "Kesish"
+    is_active: bool = True
+
+
+class AdminUserUpdate(BaseModel):
+    username: Optional[str] = None
+    role: Optional[str] = None
+    department: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class PasswordResetRequest(BaseModel):
+    password: str
+
+
+class AdminOrderUpdate(BaseModel):
+    client: Optional[str] = None
+    phone: Optional[str] = None
+    amount: Optional[str] = None
+    comment: Optional[str] = None
+    destination: Optional[str] = None
+    status: Optional[str] = None
+    estimated_finish_at: Optional[datetime] = None
+
+
+class SystemSettingsUpdate(BaseModel):
+    company_name: Optional[str] = None
+    company_phone: Optional[str] = None
+    company_logo_url: Optional[str] = None
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+    notifications_enabled: Optional[str] = None
+    jwt_access_minutes: Optional[str] = None
+    jwt_refresh_days: Optional[str] = None
+    auto_backup_enabled: Optional[str] = None
+    auto_backup_interval_hours: Optional[str] = None
+
+
+class AuditLogResponse(BaseModel):
+    id: int
+    username: str
+    action: str
+    entity_type: str
+    entity_id: Optional[int] = None
+    details: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

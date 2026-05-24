@@ -36,6 +36,9 @@ def run_migrations():
         "ALTER TABLE orders ADD COLUMN destination VARCHAR",
         "ALTER TABLE orders ADD COLUMN estimated_finish_at DATETIME",
         "ALTER TABLE orders ADD COLUMN in_warehouse BOOLEAN DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1",
+        "ALTER TABLE orders ADD COLUMN deleted_at DATETIME",
+        "ALTER TABLE operator_activity ADD COLUMN login_at DATETIME",
     ]
 
     with engine.connect() as conn:

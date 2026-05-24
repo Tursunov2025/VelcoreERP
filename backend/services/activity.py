@@ -15,10 +15,16 @@ def touch_activity(db: Session, user: User):
     )
     active_count = (
         db.query(Order)
-        .filter(Order.status == user.department, Order.in_warehouse.is_(False))
+        .filter(
+            Order.status == user.department,
+            Order.in_warehouse.is_(False),
+            Order.deleted_at.is_(None),
+        )
         .count()
         if user.role != "admin" and user.department != "Admin"
-        else db.query(Order).filter(Order.in_warehouse.is_(False)).count()
+        else db.query(Order)
+        .filter(Order.in_warehouse.is_(False), Order.deleted_at.is_(None))
+        .count()
     )
 
     if not activity:
@@ -37,7 +43,34 @@ def touch_activity(db: Session, user: User):
     db.commit()
 
 
+def record_login(db: Session, user: User):
+    activity = (
+        db.query(OperatorActivity)
+        .filter(OperatorActivity.user_id == user.id)
+        .first()
+    )
+    now = datetime.utcnow()
+    if not activity:
+        activity = OperatorActivity(
+            user_id=user.id,
+            username=user.username,
+            department=user.department or "Admin",
+            login_at=now,
+            last_activity=now,
+        )
+        db.add(activity)
+    else:
+        activity.login_at = now
+        activity.last_activity = now
+        activity.is_online = True
+    db.commit()
+
+
 def get_online_operators(db: Session):
+    return get_online_operators_detailed(db)
+
+
+def get_online_operators_detailed(db: Session):
     threshold = datetime.utcnow() - timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
     rows = db.query(OperatorActivity).all()
     result = []
@@ -49,6 +82,7 @@ def get_online_operators(db: Session):
                 "department": row.department,
                 "is_online": online,
                 "last_activity": row.last_activity,
+                "login_at": row.login_at,
                 "active_orders_count": row.active_orders_count,
             }
         )

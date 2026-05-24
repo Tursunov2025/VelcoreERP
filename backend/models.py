@@ -19,6 +19,7 @@ class User(Base):
     password_hash = Column(String, nullable=True)
     role = Column(String, default="operator")
     department = Column(String, default="Kesish")
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utcnow)
 
 
@@ -38,6 +39,7 @@ class Order(Base):
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
     estimated_finish_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
 
     history = relationship("OrderHistory", back_populates="order", cascade="all, delete-orphan")
     images = relationship("OrderImage", back_populates="order", cascade="all, delete-orphan")
@@ -105,7 +107,28 @@ class OperatorActivity(Base):
     department = Column(String, nullable=False)
     is_online = Column(Boolean, default=True)
     last_activity = Column(DateTime, default=utcnow)
+    login_at = Column(DateTime, nullable=True)
     active_orders_count = Column(Integer, default=0)
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    value = Column(Text, default="")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False)
+    entity_type = Column(String, nullable=False)
+    entity_id = Column(Integer, nullable=True)
+    details = Column(Text, default="")
+    created_at = Column(DateTime, default=utcnow)
 
 
 class Material(Base):

@@ -181,6 +181,49 @@ export const api = {
     const data = await request("/uploads/image", { method: "POST", body: form });
     return { ...data, url: uploadUrl(data.url) };
   },
+
+  adminGetUsers: () => request("/admin/users"),
+  adminCreateUser: (body) =>
+    request("/admin/users", { method: "POST", body: JSON.stringify(body) }),
+  adminUpdateUser: (id, body) =>
+    request(`/admin/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
+  adminResetPassword: (id, body) =>
+    request(`/admin/users/${id}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  adminSearchOrders: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) {
+        q.set(k, String(v));
+      }
+    });
+    return request(`/admin/orders/search?${q.toString()}`);
+  },
+  adminUpdateOrder: (id, body) =>
+    request(`/admin/orders/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  adminDeleteOrder: (id) => request(`/admin/orders/${id}`, { method: "DELETE" }),
+  adminRestoreOrder: (id) =>
+    request(`/admin/orders/${id}/restore`, { method: "POST" }),
+
+  adminGetSystemSettings: () => request("/admin/settings/system"),
+  adminUpdateSystemSettings: (body) =>
+    request("/admin/settings/system", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  adminGetOnlineUsers: () => request("/admin/operators/online"),
+  adminGetAuditLogs: () => request("/admin/audit-logs"),
+
+  adminImportBackup: async (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request("/admin/backup/import", { method: "POST", body: form });
+  },
 };
 
 export { API_BASE };

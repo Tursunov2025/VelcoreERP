@@ -1,7 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { NAV_ITEMS } from "../../constants/workflow";
+import { ADMIN_NAV_ITEM, NAV_ITEMS } from "../../constants/workflow";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Sidebar({ username, role }) {
+  const { isAdmin } = useAuth();
+  const items = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
+
   return (
     <aside className="hidden w-[260px] shrink-0 flex-col bg-black p-6 text-white shadow-2xl md:flex md:rounded-r-[40px]">
       <h1 className="mb-8 text-4xl font-black leading-tight">Azmus ERP</h1>
@@ -13,7 +17,7 @@ export default function Sidebar({ username, role }) {
         </div>
       )}
       <nav className="flex-1 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => (
+        {items.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}

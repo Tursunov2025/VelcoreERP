@@ -48,7 +48,7 @@ def list_orders(
     query = db.query(Order).options(
         joinedload(Order.history),
         joinedload(Order.images),
-    ).filter(Order.in_warehouse.is_(False))
+    ).filter(Order.in_warehouse.is_(False), Order.deleted_at.is_(None))
 
     if user.role != "admin" and user.department != "Admin":
         if user.department == "Ombor":
@@ -67,6 +67,7 @@ def kanban_board(
 ):
     query = db.query(Order).filter(
         Order.in_warehouse.is_(False),
+        Order.deleted_at.is_(None),
         Order.status != "Tayyor",
     )
     if user.role != "admin" and user.department != "Admin":

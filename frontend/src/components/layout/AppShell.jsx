@@ -3,11 +3,11 @@ import MobileNav from "./MobileNav";
 import Sidebar from "./Sidebar";
 
 export default function AppShell({ children }) {
-  const { username, role, logout } = useAuth();
+  const { username, role, department, logout } = useAuth();
 
   return (
     <div className="flex min-h-screen bg-[#f5f6fa]">
-      <Sidebar username={username} role={role} />
+      <Sidebar username={username} role={department || role} />
       <div className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/90 px-4 py-3 backdrop-blur md:hidden">
           <div>

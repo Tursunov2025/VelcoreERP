@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
         setUser({
           username: data.username,
           role: data.role,
-          department: data.department,
+          department: data.department || (data.role === "admin" ? "Admin" : "Kesish"),
           id: data.id,
         });
       })

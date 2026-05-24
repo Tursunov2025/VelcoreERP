@@ -1,0 +1,402 @@
+import os
+import shutil
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
+
+from auth.deps import require_admin
+from auth.security import hash_password
+from constants import DEPARTMENTS, PRODUCTION_STAGES
+from database import DATABASE_URL, get_db
+from models import AuditLog, Order, OrderHistory, OrderImage, User, WarehouseItem
+from schemas import (
+    AdminOrderUpdate,
+    AdminUserCreate,
+    AdminUserUpdate,
+    AuditLogResponse,
+    PasswordResetRequest,
+    SystemSettingsUpdate,
+    UserAdminResponse,
+)
+from services.activity import get_online_operators_detailed
+from services.audit import log_action
+from services.settings_store import get_settings_for_admin, update_settings
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _serialize_order(order: Order) -> dict:
+    return {
+        "id": order.id,
+        "client": order.client,
+        "phone": order.phone or "",
+        "amount": order.amount or "0",
+        "comment": order.comment or "",
+        "destination": order.destination or "",
+        "status": order.status,
+        "operator_id": order.operator_id,
+        "image_url": order.image_url,
+        "in_warehouse": bool(order.in_warehouse),
+        "deleted_at": order.deleted_at,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
+        "estimated_finish_at": order.estimated_finish_at,
+        "history": [
+            {
+                "id": h.id,
+                "stage": h.stage,
+                "operator_username": h.operator_username,
+                "action": h.action,
+                "comment": h.comment,
+                "completed_at": h.completed_at,
+            }
+            for h in (order.history or [])
+        ],
+        "images": [{"id": i.id, "url": i.url} for i in (order.images or [])],
+    }
+
+
+# --- Users ---
+@router.get("/users", response_model=list[UserAdminResponse])
+def admin_list_users(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return db.query(User).order_by(User.username).all()
+
+
+@router.post("/users", response_model=UserAdminResponse)
+def admin_create_user(
+    data: AdminUserCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if data.department not in DEPARTMENTS:
+        raise HTTPException(status_code=400, detail="Invalid department")
+    if db.query(User).filter(User.username == data.username).first():
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    user = User(
+        username=data.username,
+        password_hash=hash_password(data.password),
+        role=data.role,
+        department=data.department,
+        is_active=data.is_active,
+    )
+    db.add(user)
+    log_action(db, admin.username, "create", "user", details=f"Created {data.username}")
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.put("/users/{user_id}", response_model=UserAdminResponse)
+def admin_update_user(
+    user_id: int,
+    data: AdminUserUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if data.username is not None:
+        user.username = data.username
+    if data.role is not None:
+        user.role = data.role
+    if data.department is not None:
+        if data.department not in DEPARTMENTS:
+            raise HTTPException(status_code=400, detail="Invalid department")
+        user.department = data.department
+    if data.is_active is not None:
+        user.is_active = data.is_active
+
+    log_action(db, admin.username, "update", "user", user_id, f"Updated {user.username}")
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.delete("/users/{user_id}")
+def admin_delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.username == admin.username:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    name = user.username
+    db.delete(user)
+    log_action(db, admin.username, "delete", "user", user_id, f"Deleted {name}")
+    db.commit()
+    return {"message": "User deleted"}
+
+
+@router.post("/users/{user_id}/reset-password")
+def admin_reset_password(
+    user_id: int,
+    data: PasswordResetRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.password_hash = hash_password(data.password)
+    user.password = None
+    log_action(db, admin.username, "reset_password", "user", user_id, user.username)
+    db.commit()
+    return {"message": "Password updated"}
+
+
+# --- Orders ---
+@router.get("/orders/search")
+def admin_search_orders(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+    client: str = Query(""),
+    operator: str = Query(""),
+    stage: str = Query(""),
+    department: str = Query(""),
+    status: str = Query(""),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    include_deleted: bool = Query(False),
+):
+    query = db.query(Order).options(
+        joinedload(Order.history),
+        joinedload(Order.images),
+    )
+
+    if include_deleted:
+        query = query.filter(Order.deleted_at.isnot(None))
+    else:
+        query = query.filter(Order.deleted_at.is_(None))
+
+    if client.strip():
+        query = query.filter(Order.client.ilike(f"%{client}%"))
+    if stage.strip():
+        query = query.filter(Order.status == stage)
+    elif department.strip():
+        query = query.filter(Order.status == department)
+    elif status.strip():
+        query = query.filter(Order.status == status)
+
+    if date_from:
+        try:
+            dt = datetime.fromisoformat(date_from.replace("Z", ""))
+            query = query.filter(Order.created_at >= dt)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt = datetime.fromisoformat(date_to.replace("Z", ""))
+            query = query.filter(Order.created_at <= dt)
+        except ValueError:
+            pass
+
+    orders = query.order_by(Order.id.desc()).limit(200).all()
+
+    if operator.strip():
+        op_lower = operator.lower()
+        filtered = []
+        for order in orders:
+            if any(
+                op_lower in (h.operator_username or "").lower()
+                for h in (order.history or [])
+            ):
+                filtered.append(order)
+        orders = filtered
+
+    return [_serialize_order(o) for o in orders]
+
+
+@router.put("/orders/{order_id}")
+def admin_update_order(
+    order_id: int,
+    data: AdminOrderUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.history), joinedload(Order.images))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    old_status = order.status
+    for field in (
+        "client",
+        "phone",
+        "amount",
+        "comment",
+        "destination",
+        "status",
+        "estimated_finish_at",
+    ):
+        val = getattr(data, field, None)
+        if val is not None:
+            setattr(order, field, val)
+
+    order.updated_at = datetime.utcnow()
+
+    if data.status and data.status != old_status:
+        if data.status not in PRODUCTION_STAGES:
+            raise HTTPException(status_code=400, detail="Invalid stage")
+        db.add(
+            OrderHistory(
+                order_id=order.id,
+                stage=data.status,
+                operator_username=admin.username,
+                action="admin_status_change",
+                comment=f"Admin changed: {old_status} → {data.status}",
+            )
+        )
+
+    log_action(
+        db,
+        admin.username,
+        "update",
+        "order",
+        order_id,
+        f"Admin edited order #{order_id}",
+    )
+    db.commit()
+    db.refresh(order)
+    return _serialize_order(order)
+
+
+@router.delete("/orders/{order_id}")
+def admin_soft_delete_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.deleted_at = datetime.utcnow()
+    log_action(db, admin.username, "delete", "order", order_id, f"Soft deleted #{order_id}")
+    db.commit()
+    return {"message": "Order moved to trash"}
+
+
+@router.post("/orders/{order_id}/restore")
+def admin_restore_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.deleted_at = None
+    log_action(db, admin.username, "restore", "order", order_id, f"Restored #{order_id}")
+    db.commit()
+    return {"message": "Order restored"}
+
+
+# --- System settings ---
+@router.get("/settings/system")
+def get_system_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_settings_for_admin(db)
+
+
+@router.put("/settings/system")
+def put_system_settings(
+    data: SystemSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    payload = data.model_dump(exclude_none=True)
+    result = update_settings(db, payload)
+    log_action(db, admin.username, "update", "settings", details="System settings updated")
+    db.commit()
+    return result
+
+
+# --- Online users ---
+@router.get("/operators/online")
+def admin_online_users(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return {"operators": get_online_operators_detailed(db)}
+
+
+# --- Audit logs ---
+@router.get("/audit-logs", response_model=list[AuditLogResponse])
+def list_audit_logs(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    limit: int = Query(100, le=500),
+):
+    return (
+        db.query(AuditLog)
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+# --- Backup ---
+@router.get("/backup/export")
+def export_backup(
+    _: User = Depends(require_admin),
+):
+    if not DATABASE_URL.startswith("sqlite"):
+        raise HTTPException(status_code=400, detail="Backup only supported for SQLite")
+
+    db_path = DATABASE_URL.replace("sqlite:///", "").replace("sqlite://", "")
+    if not os.path.isfile(db_path):
+        raise HTTPException(status_code=404, detail="Database file not found")
+
+    backup_dir = os.getenv("BACKUP_DIR", "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"azmus_backup_{timestamp}.db"
+    backup_path = os.path.join(backup_dir, backup_name)
+    shutil.copy2(db_path, backup_path)
+
+    return FileResponse(
+        backup_path,
+        media_type="application/octet-stream",
+        filename=backup_name,
+    )
+
+
+@router.post("/backup/import")
+async def import_backup(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if not DATABASE_URL.startswith("sqlite"):
+        raise HTTPException(status_code=400, detail="Import only supported for SQLite")
+
+    db_path = DATABASE_URL.replace("sqlite:///", "").replace("sqlite://", "")
+    content = await file.read()
+
+    pre_backup = f"{db_path}.pre_import.bak"
+    if os.path.isfile(db_path):
+        shutil.copy2(db_path, pre_backup)
+
+    with open(db_path, "wb") as f:
+        f.write(content)
+
+    log_action(db, admin.username, "import", "backup", details=file.filename or "backup.db")
+    db.commit()
+    return {"message": "Backup imported. Restart API to apply fully."}

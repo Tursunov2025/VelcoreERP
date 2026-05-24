@@ -13,7 +13,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("", response_model=list[UserPublic])
 def list_users(db: Session = Depends(get_db)):
-    return db.query(User).all()
+    return db.query(User).filter(User.is_active.is_(True)).all()
 
 
 @router.post("", response_model=UserPublic)

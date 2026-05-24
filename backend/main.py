@@ -21,6 +21,7 @@ from models import (
     WarehouseItem,
 )
 from routers import (
+    admin_router,
     analytics_router,
     auth_router,
     finance_router,
@@ -70,6 +71,7 @@ app.include_router(analytics_router.router)
 app.include_router(finance_router.router)
 app.include_router(uploads_router.router)
 app.include_router(shipping_router.router)
+app.include_router(admin_router.router)
 
 
 @app.get("/")

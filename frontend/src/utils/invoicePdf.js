@@ -48,6 +48,7 @@ export async function downloadInvoice(order) {
 
 export async function printInvoice(order) {
   const doc = await generateInvoicePdf(order);
-  doc.autoPrint();
-  window.open(doc.output("bloburl"), "_blank");
+  const url = doc.output("bloburl");
+  const win = window.open(url, "_blank");
+  if (win) win.focus();
 }

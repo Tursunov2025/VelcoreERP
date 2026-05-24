@@ -38,3 +38,10 @@ export const NAV_ITEMS = [
   { path: "/analytics", label: "Analitika", icon: "📈" },
   { path: "/finance", label: "Moliya", icon: "💰" },
 ];
+
+export const ADMIN_NAV_ITEM = {
+  path: "/settings",
+  label: "Sozlamalar",
+  icon: "⚙️",
+  adminOnly: true,
+};

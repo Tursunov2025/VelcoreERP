@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from auth.deps import get_current_user
+from services.activity import record_login
 from auth.security import (
     create_access_token,
     create_refresh_token,
@@ -19,6 +20,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def _authenticate_user(db: Session, username: str, password: str) -> User | None:
     user = db.query(User).filter(User.username == username).first()
     if not user:
+        return None
+
+    if user.is_active is False:
         return None
 
     if user.password_hash:
@@ -55,6 +59,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Login yoki parol xato",
         )
+    record_login(db, user)
     return _token_response(user)
 
 
