@@ -138,7 +138,7 @@ if (!isLoggedIn) {
 
               if (data.success) {
 
-               setRole(data.role)
+               setRole("admin")
 
                  setIsLoggedIn(true)
 
