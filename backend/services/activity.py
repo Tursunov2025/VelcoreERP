@@ -1,0 +1,55 @@
+from datetime import datetime, timedelta
+
+from sqlalchemy.orm import Session
+
+from models import OperatorActivity, Order, User
+
+ONLINE_THRESHOLD_MINUTES = 5
+
+
+def touch_activity(db: Session, user: User):
+    activity = (
+        db.query(OperatorActivity)
+        .filter(OperatorActivity.user_id == user.id)
+        .first()
+    )
+    active_count = (
+        db.query(Order)
+        .filter(Order.status == user.department, Order.in_warehouse.is_(False))
+        .count()
+        if user.role != "admin" and user.department != "Admin"
+        else db.query(Order).filter(Order.in_warehouse.is_(False)).count()
+    )
+
+    if not activity:
+        activity = OperatorActivity(
+            user_id=user.id,
+            username=user.username,
+            department=user.department or "Admin",
+        )
+        db.add(activity)
+
+    activity.username = user.username
+    activity.department = user.department or user.role
+    activity.is_online = True
+    activity.last_activity = datetime.utcnow()
+    activity.active_orders_count = active_count
+    db.commit()
+
+
+def get_online_operators(db: Session):
+    threshold = datetime.utcnow() - timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
+    rows = db.query(OperatorActivity).all()
+    result = []
+    for row in rows:
+        online = row.last_activity and row.last_activity >= threshold
+        result.append(
+            {
+                "username": row.username,
+                "department": row.department,
+                "is_online": online,
+                "last_activity": row.last_activity,
+                "active_orders_count": row.active_orders_count,
+            }
+        )
+    return sorted(result, key=lambda x: (not x["is_online"], x["username"]))

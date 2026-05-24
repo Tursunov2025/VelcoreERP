@@ -36,12 +36,14 @@ def _authenticate_user(db: Session, username: str, password: str) -> User | None
 
 
 def _token_response(user: User) -> TokenResponse:
-    data = {"sub": user.username, "role": user.role}
+    dept = user.department or ("Admin" if user.role == "admin" else "Kesish")
+    data = {"sub": user.username, "role": user.role, "department": dept}
     return TokenResponse(
         access_token=create_access_token(data),
         refresh_token=create_refresh_token(data),
         username=user.username,
         role=user.role,
+        department=dept,
     )
 
 

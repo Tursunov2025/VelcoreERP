@@ -1,41 +1,112 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from auth.deps import get_current_user, require_admin
+from constants import FIRST_STAGE, INSPECTION_STAGE, user_can_access_stage
 from database import get_db
-from models import Income, Order, ProductionLog, User
-from schemas import OrderCreate, OrderResponse, OrderUpdate, PRODUCTION_STAGES
-from services.telegram import (
-    format_new_order_alert,
-    format_ready_order_alert,
-    send_telegram_message,
+from models import Income, Order, OrderHistory, OrderImage, User
+from schemas import (
+    CompleteStageRequest,
+    OrderCreate,
+    OrderResponse,
+    OrderUpdate,
+    VerifyOrderRequest,
 )
+from services.telegram import format_new_order_alert, format_ready_order_alert, send_telegram_message
+from services.workflow import add_history, complete_stage, verify_and_finish
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
-def _log_stage(db: Session, order_id: int, stage: str, username: str, notes: str = ""):
-    db.add(
-        ProductionLog(
-            order_id=order_id,
-            stage=stage,
-            changed_by=username,
-            notes=notes,
-        )
-    )
+def _serialize_order(order: Order) -> dict:
+    return OrderResponse(
+        id=order.id,
+        client=order.client,
+        phone=order.phone or "",
+        amount=order.amount or "0",
+        comment=order.comment or "",
+        destination=order.destination or "",
+        status=order.status,
+        operator_id=order.operator_id,
+        image_url=order.image_url,
+        images=order.images or [],
+        history=sorted(order.history or [], key=lambda h: h.completed_at or datetime.min),
+        in_warehouse=bool(order.in_warehouse),
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+        estimated_finish_at=order.estimated_finish_at,
+    ).model_dump()
 
 
-@router.get("", response_model=list[OrderResponse])
+@router.get("")
 def list_orders(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    return db.query(Order).order_by(Order.id.desc()).all()
+    query = db.query(Order).options(
+        joinedload(Order.history),
+        joinedload(Order.images),
+    ).filter(Order.in_warehouse.is_(False))
+
+    if user.role != "admin" and user.department != "Admin":
+        if user.department == "Ombor":
+            query = query.filter(Order.status == "Tayyor")
+        else:
+            query = query.filter(Order.status == user.department)
+
+    orders = query.order_by(Order.id.desc()).all()
+    return [_serialize_order(o) for o in orders]
 
 
-@router.post("", response_model=OrderResponse)
+@router.get("/kanban")
+def kanban_board(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    query = db.query(Order).filter(
+        Order.in_warehouse.is_(False),
+        Order.status != "Tayyor",
+    )
+    if user.role != "admin" and user.department != "Admin":
+        if user.department != "Ombor":
+            query = query.filter(Order.status == user.department)
+
+    orders = query.order_by(Order.updated_at.desc()).all()
+    from constants import PRODUCTION_STAGES
+
+    board = {stage: [] for stage in PRODUCTION_STAGES if stage != "Tayyor"}
+    for order in orders:
+        if order.status in board:
+            board[order.status].append(_serialize_order(order))
+    return board
+
+
+@router.get("/{order_id}")
+def get_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.history), joinedload(Order.images))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    dept = user.department or "Admin"
+    if not user_can_access_stage(dept, user.role, order.status) and not order.in_warehouse:
+        if user.department != "Ombor":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    return _serialize_order(order)
+
+
+@router.post("")
 async def create_order(
     data: OrderCreate,
     db: Session = Depends(get_db),
@@ -45,17 +116,25 @@ async def create_order(
         client=data.client,
         phone=data.phone,
         amount=data.amount,
-        status="Yangi",
+        comment=data.comment,
+        destination=data.destination,
+        status=FIRST_STAGE,
         operator_id=user.id,
         image_url=data.image_url,
+        estimated_finish_at=data.estimated_finish_at,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
     db.add(order)
-    db.commit()
-    db.refresh(order)
+    db.flush()
 
-    _log_stage(db, order.id, "Yangi", user.username, "Zakaz yaratildi")
+    urls = list(data.image_urls or [])
+    if data.image_url and data.image_url not in urls:
+        urls.insert(0, data.image_url)
+    for url in urls:
+        db.add(OrderImage(order_id=order.id, url=url))
+
+    add_history(db, order.id, FIRST_STAGE, user.username, "created", "Zakaz yaratildi — Kesish")
     db.add(
         Income(
             title=f"Zakaz #{order.id} - {order.client}",
@@ -64,17 +143,21 @@ async def create_order(
         )
     )
     db.commit()
+    db.refresh(order)
 
     await send_telegram_message(format_new_order_alert(order))
-    await send_telegram_message(
-        f"📢 <b>Admin bildirishnoma</b>\nYangi zakaz operator: {user.username}"
+
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.history), joinedload(Order.images))
+        .filter(Order.id == order.id)
+        .first()
     )
+    return _serialize_order(order)
 
-    return order
 
-
-@router.put("/{order_id}", response_model=OrderResponse)
-async def update_order(
+@router.put("/{order_id}")
+def update_order(
     order_id: int,
     data: OrderUpdate,
     db: Session = Depends(get_db),
@@ -84,45 +167,100 @@ async def update_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    old_status = order.status
-    if data.client is not None:
-        order.client = data.client
-    if data.phone is not None:
-        order.phone = data.phone
-    if data.amount is not None:
-        order.amount = data.amount
-    if data.image_url is not None:
-        order.image_url = data.image_url
-    if data.status is not None:
-        if data.status not in PRODUCTION_STAGES:
-            raise HTTPException(status_code=400, detail="Invalid status")
-        order.status = data.status
-
+    for field in ("client", "phone", "amount", "comment", "destination", "estimated_finish_at"):
+        val = getattr(data, field, None)
+        if val is not None:
+            setattr(order, field, val)
     order.updated_at = datetime.utcnow()
-
-    if data.status and data.status != old_status:
-        _log_stage(db, order.id, data.status, user.username)
-        if data.status == "Tayyor":
-            await send_telegram_message(format_ready_order_alert(order))
-
     db.commit()
     db.refresh(order)
-    return order
+    return _serialize_order(order)
 
 
-@router.put("/{order_id}/status", response_model=OrderResponse)
-async def update_status(
+@router.post("/{order_id}/complete")
+async def complete_order_stage(
     order_id: int,
-    status: str,
+    body: CompleteStageRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    return await update_order(
-        order_id,
-        OrderUpdate(status=status),
-        db,
-        user,
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    dept = user.department or user.role
+    if not user_can_access_stage(dept, user.role, order.status):
+        raise HTTPException(status_code=403, detail="Wrong department for this order")
+
+    if order.status == INSPECTION_STAGE:
+        raise HTTPException(
+            status_code=400,
+            detail="Use Tekshirildi button for Tekshiruv stage",
+        )
+
+    _, new_stage, moved_to_wh = complete_stage(db, order, user.username, body.comment)
+    db.commit()
+
+    if moved_to_wh:
+        await send_telegram_message(format_ready_order_alert(order))
+
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.history), joinedload(Order.images))
+        .filter(Order.id == order_id)
+        .first()
     )
+    return _serialize_order(order)
+
+
+@router.post("/{order_id}/verify")
+async def verify_order(
+    order_id: int,
+    body: VerifyOrderRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != INSPECTION_STAGE:
+        raise HTTPException(status_code=400, detail="Order not in Tekshiruv")
+
+    dept = user.department or ""
+    if user.role != "admin" and dept not in ("Tekshiruv", "Admin"):
+        raise HTTPException(status_code=403, detail="Only Tekshiruv can verify")
+
+    try:
+        verify_and_finish(db, order, user.username, body.comment)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    db.commit()
+    await send_telegram_message(format_ready_order_alert(order))
+
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.history), joinedload(Order.images))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    return _serialize_order(order)
+
+
+@router.get("/{order_id}/history")
+def order_history(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    logs = (
+        db.query(OrderHistory)
+        .filter(OrderHistory.order_id == order_id)
+        .order_by(OrderHistory.completed_at.asc())
+        .all()
+    )
+    return logs
 
 
 @router.delete("/{order_id}")
@@ -134,7 +272,8 @@ def delete_order(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    db.query(ProductionLog).filter(ProductionLog.order_id == order_id).delete()
+    db.query(OrderHistory).filter(OrderHistory.order_id == order_id).delete()
+    db.query(OrderImage).filter(OrderImage.order_id == order_id).delete()
     db.delete(order)
     db.commit()
     return {"message": "Deleted"}

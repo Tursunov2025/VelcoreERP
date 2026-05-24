@@ -3,8 +3,10 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
 from auth.security import decode_token
+from constants import user_can_access_stage
 from database import get_db
 from models import User
+from services.activity import touch_activity
 
 security = HTTPBearer(auto_error=False)
 
@@ -33,13 +35,33 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
+
+    try:
+        touch_activity(db, user)
+    except Exception:
+        pass
+
     return user
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role != "admin":
+    if user.role != "admin" and user.department != "Admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
     return user
+
+
+def require_department_access(stage: str):
+    def checker(user: User = Depends(get_current_user)) -> User:
+        dept = user.department or "Admin"
+        if not user_can_access_stage(dept, user.role, stage):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"No access to {stage} department",
+            )
+        return user
+
+    return checker
+

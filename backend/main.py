@@ -9,7 +9,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from database import Base, engine, run_migrations
-from models import Expense, Income, Material, Order, ProductionLog, StockMovement, User
+from models import (
+    Expense,
+    Income,
+    Material,
+    Order,
+    OrderHistory,
+    ShipmentArchive,
+    StockMovement,
+    User,
+    WarehouseItem,
+)
 from routers import (
     analytics_router,
     auth_router,
@@ -17,6 +27,7 @@ from routers import (
     operators_router,
     orders_router,
     production_router,
+    shipping_router,
     uploads_router,
     users_router,
     warehouse_router,
@@ -58,6 +69,7 @@ app.include_router(operators_router.router)
 app.include_router(analytics_router.router)
 app.include_router(finance_router.router)
 app.include_router(uploads_router.router)
+app.include_router(shipping_router.router)
 
 
 @app.get("/")

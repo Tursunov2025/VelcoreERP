@@ -1,29 +1,16 @@
 import { useEffect, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { Link } from "react-router-dom";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api/client";
+import OnlineOperatorsTable from "../components/dashboard/OnlineOperatorsTable";
 import Card from "../components/ui/Card";
 import ErrorAlert from "../components/ui/ErrorAlert";
-import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
-import StatsCards from "../components/dashboard/StatsCards";
-
-const COLORS = ["#22c55e", "#ef4444", "#3b82f6", "#f59e0b", "#a855f7", "#ec4899"];
+import { CardSkeleton } from "../components/ui/Skeleton";
 
 export default function DashboardPage() {
-  const [data, setData] = useState(null);
-  const [orders, setOrders] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [operators, setOperators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -31,12 +18,12 @@ export default function DashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [analytics, ordersData] = await Promise.all([
+      const [a, o] = await Promise.all([
         api.getDashboardAnalytics(),
-        api.getOrders(),
+        api.getOnlineOperators(),
       ]);
-      setData(analytics);
-      setOrders(ordersData);
+      setAnalytics(a);
+      setOperators(o.operators || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -46,71 +33,59 @@ export default function DashboardPage() {
 
   useEffect(() => {
     load();
+    const id = setInterval(load, 20000);
+    return () => clearInterval(id);
   }, []);
 
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorAlert message={error} onRetry={load} />;
+  const summary = analytics?.summary || {};
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle="Umumiy ko'rinish va analitika" />
-      <StatsCards orders={orders} />
+      <PageHeader title="Dashboard" subtitle="ERP boshqaruv paneli" />
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <h2 className="mb-4 text-lg font-bold">Oylik savdo</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.monthly_sales || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="sales" fill="#000" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card>
-          <h2 className="mb-4 text-lg font-bold">Ishlab chiqarish bosqichlari</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data?.production_stats || []}
-                  dataKey="count"
-                  nameKey="stage"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  label
-                >
-                  {(data?.production_stats || []).map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {loading
+          ? [1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)
+          : [
+              { label: "Jami zakaz", value: summary.total_orders },
+              { label: "Faol", value: summary.active_orders },
+              { label: "Tayyor", value: summary.completed_orders },
+              { label: "Sof foyda", value: `${Number(summary.net_profit || 0).toLocaleString()} so'm` },
+            ].map((item) => (
+              <Card key={item.label}>
+                <p className="text-sm text-gray-500">{item.label}</p>
+                <p className="mt-2 text-2xl font-black">{item.value}</p>
+              </Card>
+            ))}
       </div>
 
-      <Card className="mt-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-gray-500">Sof foyda</p>
-            <p className="text-3xl font-black text-green-600">
-              {Number(data?.summary?.net_profit || 0).toLocaleString()} so&apos;m
-            </p>
-          </div>
-          <Link
-            to="/analytics"
-            className="rounded-2xl bg-black px-5 py-3 text-sm font-bold text-white"
-          >
-            Batafsil analitika
+      <Card className="mb-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">Online operatorlar</h2>
+          <Link to="/operators" className="text-sm text-blue-600 hover:underline">
+            Batafsil
           </Link>
+        </div>
+        <ErrorAlert message={error} onRetry={load} />
+        <OnlineOperatorsTable operators={operators} loading={loading} />
+      </Card>
+
+      <Card>
+        <h2 className="mb-4 text-lg font-bold">Ishlab chiqarish statistikasi</h2>
+        <div className="h-64">
+          {loading ? (
+            <div className="h-full animate-pulse rounded-2xl bg-gray-100" />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics?.production_stats || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="stage" tick={{ fontSize: 10 }} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#000" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </Card>
     </div>

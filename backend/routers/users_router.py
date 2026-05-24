@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from auth.deps import require_admin
 from auth.security import hash_password
+from constants import DEPARTMENTS
 from database import get_db
 from models import User
 from schemas import UserCreate, UserPublic
@@ -23,6 +24,8 @@ def create_user(
 ):
     if data.role not in ("admin", "operator"):
         raise HTTPException(status_code=400, detail="Invalid role")
+    if data.department not in DEPARTMENTS:
+        raise HTTPException(status_code=400, detail="Invalid department")
 
     existing = db.query(User).filter(User.username == data.username).first()
     if existing:
@@ -32,6 +35,7 @@ def create_user(
         username=data.username,
         password_hash=hash_password(data.password),
         role=data.role,
+        department=data.department,
     )
     db.add(user)
     db.commit()

@@ -1,15 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from auth.deps import get_current_user, require_admin
 from database import get_db
-from models import Material, StockMovement, User
-from schemas import (
-    MaterialCreate,
-    MaterialResponse,
-    StockMovementCreate,
-    StockMovementResponse,
-)
+from models import Material, Order, StockMovement, User, WarehouseItem
+from schemas import MaterialCreate, MaterialResponse, StockMovementCreate, StockMovementResponse, WarehouseItemResponse
 
 router = APIRouter(prefix="/warehouse", tags=["warehouse"])
 
@@ -23,6 +20,30 @@ def _material_response(material: Material) -> MaterialResponse:
         min_quantity=material.min_quantity,
         low_stock=material.quantity <= material.min_quantity,
     )
+
+
+@router.get("/ready", response_model=list[WarehouseItemResponse])
+def ready_products(
+    search: str = Query("", alias="q"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != "admin" and user.department not in ("Ombor", "Admin"):
+        raise HTTPException(status_code=403, detail="Ombor access required")
+
+    query = db.query(WarehouseItem).order_by(WarehouseItem.stored_at.desc())
+    items = query.all()
+
+    if search.strip():
+        q = search.lower()
+        items = [
+            i
+            for i in items
+            if q in (i.client or "").lower()
+            or q in (i.destination or "").lower()
+            or q in str(i.order_id)
+        ]
+    return items
 
 
 @router.get("/materials", response_model=list[MaterialResponse])

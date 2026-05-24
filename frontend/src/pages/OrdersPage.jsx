@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import OrderList from "../components/dashboard/OrderList";
-import DashboardHeader from "../components/dashboard/DashboardHeader";
+import WorkflowOrderCard from "../components/workflow/WorkflowOrderCard";
 import OrderModal from "../components/modals/OrderModal";
 import UserModal from "../components/modals/UserModal";
 import ErrorAlert from "../components/ui/ErrorAlert";
@@ -34,46 +33,81 @@ export default function OrdersPage() {
     load();
   }, []);
 
-  const addOrder = async (data) => {
-    const order = await api.createOrder(data);
-    setOrders((prev) => [order, ...prev]);
-  };
-
-  const updateStatus = async (id, status) => {
-    const updated = await api.updateOrderStatus(id, status);
-    setOrders((prev) => prev.map((o) => (o.id === id ? updated : o)));
-  };
-
-  const deleteOrder = async (id) => {
-    await api.deleteOrder(id);
-    setOrders((prev) => prev.filter((o) => o.id !== id));
-  };
+  const filtered = orders.filter((o) => {
+    const q = search.toLowerCase();
+    if (!q) return true;
+    return (
+      o.client?.toLowerCase().includes(q) ||
+      o.destination?.toLowerCase().includes(q) ||
+      String(o.id).includes(q)
+    );
+  });
 
   if (loading) return <LoadingSpinner />;
 
   return (
     <div>
-      <PageHeader title="Zakazlar" subtitle="Barcha mijoz zakazlari" />
+      <PageHeader
+        title="Zakazlar"
+        subtitle="Bo'limingizdagi faol zakazlar"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowOrderModal(true)}
+              className="rounded-2xl bg-black px-5 py-2 text-sm text-white"
+            >
+              + Yangi zakaz
+            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setShowUserModal(true)}
+                className="rounded-2xl bg-blue-600 px-5 py-2 text-sm text-white"
+              >
+                + User
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-2xl bg-red-500 px-5 py-2 text-sm text-white"
+            >
+              Chiqish
+            </button>
+          </div>
+        }
+      />
+
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Qidirish..."
+        className="mb-6 w-full rounded-2xl border px-5 py-4 md:max-w-md"
+      />
+
       <ErrorAlert message={error} onRetry={load} />
-      <section className="rounded-[40px] bg-white p-5 shadow-xl md:p-8">
-        <DashboardHeader
-          search={search}
-          onSearchChange={setSearch}
-          isAdmin={isAdmin}
-          onLogout={logout}
-          onAddOrder={() => setShowOrderModal(true)}
-          onAddUser={() => setShowUserModal(true)}
-        />
-        <OrderList
-          orders={orders}
-          search={search}
-          isAdmin={isAdmin}
-          onStatusChange={updateStatus}
-          onDelete={deleteOrder}
-        />
-      </section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {filtered.map((order) => (
+          <WorkflowOrderCard
+            key={order.id}
+            order={order}
+            onComplete={(id, body) => api.completeOrder(id, body).then(load)}
+            onVerify={(id, body) => api.verifyOrder(id, body).then(load)}
+            onRefresh={load}
+          />
+        ))}
+      </div>
+
       {showOrderModal && (
-        <OrderModal onClose={() => setShowOrderModal(false)} onSave={addOrder} />
+        <OrderModal
+          onClose={() => setShowOrderModal(false)}
+          onSave={async (data) => {
+            await api.createOrder(data);
+            load();
+          }}
+        />
       )}
       {showUserModal && isAdmin && (
         <UserModal

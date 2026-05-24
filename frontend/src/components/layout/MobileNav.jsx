@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { NAV_ITEMS } from "../../constants/orderStatuses";
+import { NAV_ITEMS } from "../../constants/workflow";
 
 export default function MobileNav() {
   return (

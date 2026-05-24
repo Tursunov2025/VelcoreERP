@@ -5,9 +5,18 @@ from sqlalchemy.orm import Session
 
 from auth.deps import get_current_user
 from database import get_db
-from models import Order, User
+from models import Order, OrderHistory, User
+from services.activity import get_online_operators
 
 router = APIRouter(prefix="/operators", tags=["operators"])
+
+
+@router.get("/online")
+def online_operators(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return {"operators": get_online_operators(db)}
 
 
 @router.get("/stats")
@@ -15,35 +24,24 @@ def operator_statistics(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    orders = db.query(Order).all()
-    users = {u.id: u.username for u in db.query(User).all()}
+    history = db.query(OrderHistory).filter(OrderHistory.action == "completed").all()
+    stats = defaultdict(lambda: {"completed": 0, "stages": defaultdict(int)})
 
-    stats = defaultdict(lambda: {"completed": 0, "active": 0, "total": 0})
-
-    for order in orders:
-        key = users.get(order.operator_id, "Noma'lum")
-        stats[key]["total"] += 1
-        if order.status == "Tayyor":
-            stats[key]["completed"] += 1
-        else:
-            stats[key]["active"] += 1
+    for entry in history:
+        key = entry.operator_username
+        stats[key]["completed"] += 1
+        stats[key]["stages"][entry.stage] += 1
 
     rankings = sorted(
         [
             {
                 "operator": name,
                 "completed": data["completed"],
-                "active": data["active"],
-                "total": data["total"],
-                "performance": round(
-                    (data["completed"] / data["total"] * 100) if data["total"] else 0,
-                    1,
-                ),
+                "stages": dict(data["stages"]),
             }
             for name, data in stats.items()
         ],
         key=lambda x: x["completed"],
         reverse=True,
     )
-
     return {"operators": rankings}

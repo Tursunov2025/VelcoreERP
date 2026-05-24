@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import OnlineOperatorsTable from "../components/dashboard/OnlineOperatorsTable";
 import Card from "../components/ui/Card";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
 
 export default function OperatorsPage() {
-  const [operators, setOperators] = useState([]);
+  const [online, setOnline] = useState([]);
+  const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -14,8 +16,12 @@ export default function OperatorsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await api.getOperatorStats();
-      setOperators(data.operators || []);
+      const [o, s] = await Promise.all([
+        api.getOnlineOperators(),
+        api.getOperatorStats(),
+      ]);
+      setOnline(o.operators || []);
+      setRankings(s.operators || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -25,48 +31,41 @@ export default function OperatorsPage() {
 
   useEffect(() => {
     load();
+    const id = setInterval(load, 15000);
+    return () => clearInterval(id);
   }, []);
 
-  if (loading) return <LoadingSpinner />;
+  if (loading && !online.length) return <LoadingSpinner />;
 
   return (
     <div>
-      <PageHeader title="Operatorlar" subtitle="Samaradorlik va reyting" />
+      <PageHeader title="Operatorlar" subtitle="Online holat va samaradorlik" />
       <ErrorAlert message={error} onRetry={load} />
 
-      <div className="space-y-4">
-        {operators.map((op, index) => (
-          <Card key={op.operator}>
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-lg font-black text-white">
-                  {index + 1}
+      <Card className="mb-6">
+        <h2 className="mb-4 font-bold">Online operatorlar</h2>
+        <OnlineOperatorsTable operators={online} loading={loading} />
+      </Card>
+
+      <Card>
+        <h2 className="mb-4 font-bold">Reyting (tugatilgan bosqichlar)</h2>
+        <div className="space-y-3">
+          {rankings.map((op, i) => (
+            <div
+              key={op.operator}
+              className="flex items-center justify-between rounded-2xl border p-4"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black font-bold text-white">
+                  {i + 1}
                 </span>
-                <div>
-                  <p className="text-lg font-bold">{op.operator}</p>
-                  <p className="text-sm text-gray-500">
-                    Samaradorlik: {op.performance}%
-                  </p>
-                </div>
+                <span className="font-bold">{op.operator}</span>
               </div>
-              <div className="grid grid-cols-3 gap-4 text-center text-sm">
-                <div>
-                  <p className="font-black text-green-600">{op.completed}</p>
-                  <p className="text-gray-500">Tayyor</p>
-                </div>
-                <div>
-                  <p className="font-black text-yellow-600">{op.active}</p>
-                  <p className="text-gray-500">Faol</p>
-                </div>
-                <div>
-                  <p className="font-black">{op.total}</p>
-                  <p className="text-gray-500">Jami</p>
-                </div>
-              </div>
+              <span className="text-green-600 font-black">{op.completed} ta</span>
             </div>
-          </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

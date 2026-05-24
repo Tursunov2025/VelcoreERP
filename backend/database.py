@@ -21,17 +21,21 @@ def get_db():
 
 
 def run_migrations():
-    """Add new columns to existing SQLite tables when upgrading."""
     if not DATABASE_URL.startswith("sqlite"):
         return
 
     migrations = [
         "ALTER TABLE orders ADD COLUMN operator_id INTEGER",
         "ALTER TABLE orders ADD COLUMN image_url VARCHAR",
-        "ALTER TABLE orders ADD COLUMN created_at VARCHAR",
-        "ALTER TABLE orders ADD COLUMN updated_at VARCHAR",
+        "ALTER TABLE orders ADD COLUMN created_at DATETIME",
+        "ALTER TABLE orders ADD COLUMN updated_at DATETIME",
         "ALTER TABLE users ADD COLUMN password_hash VARCHAR",
-        "ALTER TABLE users ADD COLUMN created_at VARCHAR",
+        "ALTER TABLE users ADD COLUMN created_at DATETIME",
+        "ALTER TABLE users ADD COLUMN department VARCHAR DEFAULT 'Kesish'",
+        "ALTER TABLE orders ADD COLUMN comment TEXT",
+        "ALTER TABLE orders ADD COLUMN destination VARCHAR",
+        "ALTER TABLE orders ADD COLUMN estimated_finish_at DATETIME",
+        "ALTER TABLE orders ADD COLUMN in_warehouse BOOLEAN DEFAULT 0",
     ]
 
     with engine.connect() as conn:
@@ -41,3 +45,11 @@ def run_migrations():
                 conn.commit()
             except Exception:
                 pass
+
+        try:
+            conn.execute(
+                text("UPDATE orders SET status = 'Kesish' WHERE status IN ('Yangi', 'Upakofka')")
+            )
+            conn.commit()
+        except Exception:
+            pass

@@ -6,7 +6,10 @@ export default function OrderModal({ onClose, onSave }) {
   const [client, setClient] = useState("");
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [comment, setComment] = useState("");
+  const [destination, setDestination] = useState("");
+  const [estimatedFinish, setEstimatedFinish] = useState("");
+  const [imageUrls, setImageUrls] = useState([]);
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -17,13 +20,11 @@ export default function OrderModal({ onClose, onSave }) {
     if (!file) return;
     setPreview(URL.createObjectURL(file));
     setUploading(true);
-    setError("");
     try {
       const result = await api.uploadImage(file);
-      setImageUrl(result.url);
+      setImageUrls((prev) => [...prev, result.url]);
     } catch (err) {
       setError(err.message || "Rasm yuklanmadi");
-      setPreview("");
     } finally {
       setUploading(false);
     }
@@ -43,7 +44,13 @@ export default function OrderModal({ onClose, onSave }) {
         client: client.trim(),
         phone: phone.trim(),
         amount: amount.trim(),
-        image_url: imageUrl || null,
+        comment: comment.trim(),
+        destination: destination.trim(),
+        image_urls: imageUrls,
+        image_url: imageUrls[0] || null,
+        estimated_finish_at: estimatedFinish
+          ? new Date(estimatedFinish).toISOString()
+          : null,
       });
       onClose();
     } catch (err) {
@@ -55,59 +62,59 @@ export default function OrderModal({ onClose, onSave }) {
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="mb-6 text-2xl font-black md:text-3xl">Yangi zakaz</h2>
+      <h2 className="mb-6 text-2xl font-black">Yangi zakaz</h2>
+      <p className="mb-4 text-sm text-gray-500">Avtomatik Kesish bo&apos;limiga tushadi</p>
 
       <div className="space-y-4">
         <input
           value={client}
           onChange={(e) => setClient(e.target.value)}
-          placeholder="Mijoz nomi"
-          className="w-full rounded-2xl border px-5 py-4 outline-none focus:ring-2 focus:ring-black"
+          placeholder="Mijoz nomi *"
+          className="w-full rounded-2xl border px-5 py-4"
         />
-
         <input
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="Telefon"
-          className="w-full rounded-2xl border px-5 py-4 outline-none focus:ring-2 focus:ring-black"
+          className="w-full rounded-2xl border px-5 py-4"
         />
-
         <input
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="Summa"
+          placeholder="Summa *"
           type="number"
-          min="0"
-          className="w-full rounded-2xl border px-5 py-4 outline-none focus:ring-2 focus:ring-black"
+          className="w-full rounded-2xl border px-5 py-4"
         />
-
-        <div>
-          <label className="mb-2 block text-sm font-medium text-gray-600">
-            Rasm yuklash
-          </label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImage}
-            className="w-full text-sm"
-          />
-          {uploading && <p className="mt-2 text-sm text-gray-500">Yuklanmoqda...</p>}
-          {preview && (
-            <img
-              src={preview}
-              alt="Preview"
-              className="mt-3 h-32 w-full rounded-2xl object-cover"
-            />
-          )}
-        </div>
-
+        <input
+          value={destination}
+          onChange={(e) => setDestination(e.target.value)}
+          placeholder="Manzil / destination"
+          className="w-full rounded-2xl border px-5 py-4"
+        />
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Izoh"
+          rows={2}
+          className="w-full rounded-2xl border px-5 py-4"
+        />
+        <input
+          type="date"
+          value={estimatedFinish}
+          onChange={(e) => setEstimatedFinish(e.target.value)}
+          className="w-full rounded-2xl border px-5 py-4"
+        />
+        <input type="file" accept="image/*" onChange={handleImage} />
+        {uploading && <p className="text-sm text-gray-500">Yuklanmoqda...</p>}
+        {preview && (
+          <img src={preview} alt="" className="h-24 rounded-2xl object-cover" />
+        )}
         {error && <p className="text-sm text-red-500">{error}</p>}
-
         <button
           type="button"
           onClick={handleSave}
           disabled={saving || uploading}
-          className="w-full rounded-2xl bg-black py-4 font-bold text-white transition hover:bg-gray-800 disabled:opacity-60"
+          className="w-full rounded-2xl bg-black py-4 font-bold text-white disabled:opacity-60"
         >
           {saving ? "Saqlanmoqda..." : "Saqlash"}
         </button>

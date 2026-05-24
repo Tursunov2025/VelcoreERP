@@ -19,11 +19,14 @@ export function AuthProvider({ children }) {
     api
       .getMe()
       .then((data) => {
-        setUser({ username: data.username, role: data.role, id: data.id });
+        setUser({
+          username: data.username,
+          role: data.role,
+          department: data.department,
+          id: data.id,
+        });
       })
-      .catch(() => {
-        setStoredTokens(null);
-      })
+      .catch(() => setStoredTokens(null))
       .finally(() => setLoading(false));
   }, []);
 
@@ -40,8 +43,13 @@ export function AuthProvider({ children }) {
         refresh_token: data.refresh_token,
         username: data.username,
         role: data.role,
+        department: data.department,
       });
-      setUser({ username: data.username, role: data.role });
+      setUser({
+        username: data.username,
+        role: data.role,
+        department: data.department,
+      });
     } catch (err) {
       setLoginError(err.message || "Login yoki parol xato");
     } finally {
@@ -59,7 +67,9 @@ export function AuthProvider({ children }) {
     user,
     username: user?.username ?? "",
     role: user?.role ?? "",
-    isAdmin: user?.role === "admin",
+    department: user?.department ?? "",
+    isAdmin: user?.role === "admin" || user?.department === "Admin",
+    isOmbor: user?.department === "Ombor",
     isLoggedIn: Boolean(user),
     loading,
     loginError,

@@ -1,4 +1,5 @@
 from auth.security import hash_password
+from constants import DEPARTMENTS
 from models import Material, User
 
 
@@ -9,23 +10,40 @@ def seed_defaults(db):
             username="admin",
             password_hash=hash_password("1234"),
             role="admin",
+            department="Admin",
         )
         db.add(admin)
-    elif not admin.password_hash:
-        admin.password_hash = hash_password(admin.password or "1234")
-        admin.password = None
+    else:
+        admin.role = "admin"
+        admin.department = "Admin"
+        if not admin.password_hash:
+            admin.password_hash = hash_password(admin.password or "1234")
+            admin.password = None
 
-    operator = db.query(User).filter(User.username == "operator1").first()
-    if not operator:
-        operator = User(
-            username="operator1",
-            password_hash=hash_password("1111"),
-            role="operator",
-        )
-        db.add(operator)
-    elif not operator.password_hash:
-        operator.password_hash = hash_password(operator.password or "1111")
-        operator.password = None
+    demo_users = [
+        ("kesish1", "1111", "Kesish"),
+        ("svarka1", "1111", "Svarka"),
+        ("kraska1", "1111", "Kraska"),
+        ("upakovka1", "1111", "Upakovka"),
+        ("tekshiruv1", "1111", "Tekshiruv"),
+        ("ombor1", "1111", "Ombor"),
+    ]
+    for username, password, department in demo_users:
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            db.add(
+                User(
+                    username=username,
+                    password_hash=hash_password(password),
+                    role="operator",
+                    department=department,
+                )
+            )
+        else:
+            user.department = department
+            if not user.password_hash:
+                user.password_hash = hash_password(password)
+                user.password = None
 
     default_materials = [
         ("Temir profil", "m", 100, 20),

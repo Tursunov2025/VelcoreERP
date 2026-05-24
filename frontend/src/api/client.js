@@ -40,6 +40,7 @@ async function refreshAccessToken() {
           refresh_token: data.refresh_token,
           username: data.username,
           role: data.role,
+          department: data.department,
         });
         return data.access_token;
       })
@@ -112,16 +113,27 @@ export const api = {
     request("/users", { method: "POST", body: JSON.stringify(body) }),
 
   getOrders: () => request("/orders"),
+  getOrder: (id) => request(`/orders/${id}`),
+  getKanban: () => request("/orders/kanban"),
   createOrder: (body) =>
     request("/orders", { method: "POST", body: JSON.stringify(body) }),
   updateOrder: (id, body) =>
     request(`/orders/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-  updateOrderStatus: (id, status) =>
-    request(`/orders/${id}/status?status=${encodeURIComponent(status)}`, {
-      method: "PUT",
+  completeOrder: (id, body) =>
+    request(`/orders/${id}/complete`, {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
+  verifyOrder: (id, body) =>
+    request(`/orders/${id}/verify`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getOrderHistory: (id) => request(`/orders/${id}/history`),
   deleteOrder: (id) => request(`/orders/${id}`, { method: "DELETE" }),
 
+  getReadyWarehouse: (q = "") =>
+    request(`/warehouse/ready${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   getMaterials: () => request("/warehouse/materials"),
   createMaterial: (body) =>
     request("/warehouse/materials", {
@@ -134,13 +146,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  getStockHistory: () => request("/warehouse/history"),
+
+  dispatchShipment: (body) =>
+    request("/shipping/dispatch", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getShippingArchive: () => request("/shipping/archive"),
 
   getProductionTimeline: (orderId) =>
     request(`/production/timeline/${orderId}`),
   getProductionAnalytics: () => request("/production/analytics"),
-  getActiveProduction: () => request("/production/active"),
 
+  getOnlineOperators: () => request("/operators/online"),
   getOperatorStats: () => request("/operators/stats"),
   getDashboardAnalytics: () => request("/analytics/dashboard"),
 

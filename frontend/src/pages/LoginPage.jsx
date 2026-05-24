@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useUsers } from "../hooks/useUsers";
 
 const ROLE_LABELS = { admin: "Admin", operator: "Operator" };
+const DEPT_LABEL = (u) => (u.department ? ` — ${u.department}` : "");
 
 export default function LoginPage() {
   const { login, loginError, isSubmitting } = useAuth();
@@ -36,7 +37,7 @@ export default function LoginPage() {
               <option value="">{loading ? "Yuklanmoqda..." : "User tanlang"}</option>
               {users.map((user) => (
                 <option key={user.username} value={user.username}>
-                  {user.username} — {ROLE_LABELS[user.role] || user.role}
+                  {user.username} — {ROLE_LABELS[user.role] || user.role}{DEPT_LABEL(user)}
                 </option>
               ))}
             </select>

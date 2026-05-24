@@ -9,7 +9,7 @@ import WarehousePage from "./pages/WarehousePage";
 import OperatorsPage from "./pages/OperatorsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import FinancePage from "./pages/FinancePage";
-import InvoicesPage from "./pages/InvoicesPage";
+import ShippingPage from "./pages/ShippingPage";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 
 function LoginRoute() {
@@ -36,6 +36,7 @@ export default function AppRouter() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="production" element={<ProductionPage />} />
             <Route path="warehouse" element={<WarehousePage />} />
+            <Route path="shipping" element={<ShippingPage />} />
             <Route path="operators" element={<OperatorsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="finance" element={<FinancePage />} />
