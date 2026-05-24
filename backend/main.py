@@ -156,3 +156,11 @@ def create_operator():
     db.commit()
 
     return {"message": "Operator created"}
+@app.get("/users")
+def get_users():
+
+    db = SessionLocal()
+
+    users = db.query(User).all()
+
+    return users
