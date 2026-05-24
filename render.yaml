@@ -12,6 +12,12 @@ services:
         value: "*"
       - key: PYTHON_VERSION
         value: "3.10.0"
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
 
   - type: web
     name: azmus-crm-frontend

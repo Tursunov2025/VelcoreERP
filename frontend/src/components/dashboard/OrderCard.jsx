@@ -10,12 +10,21 @@ export default function OrderCard({
 
   return (
     <article className="flex flex-col justify-between gap-4 rounded-[28px] border border-gray-200 p-5 transition hover:shadow-lg md:flex-row md:items-center md:gap-6 md:p-6">
-      <div className="min-w-0">
-        <h3 className="text-lg font-bold md:text-xl">#{order.id}</h3>
-        <p className="mt-1 truncate text-gray-500">{order.client}</p>
-        {order.phone && (
-          <p className="mt-1 text-sm text-gray-400">{order.phone}</p>
+      <div className="min-w-0 flex gap-4">
+        {order.image_url && (
+          <img
+            src={order.image_url}
+            alt={order.client}
+            className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+          />
         )}
+        <div>
+          <h3 className="text-lg font-bold md:text-xl">#{order.id}</h3>
+          <p className="mt-1 truncate text-gray-500">{order.client}</p>
+          {order.phone && (
+            <p className="mt-1 text-sm text-gray-400">{order.phone}</p>
+          )}
+        </div>
       </div>
 
       <select

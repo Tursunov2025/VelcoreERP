@@ -1,22 +1,39 @@
 import os
 
-from database import SessionLocal
-from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 
-from database import engine, Base
-from models import Order, User
+from database import Base, engine, run_migrations
+from models import Expense, Income, Material, Order, ProductionLog, StockMovement, User
+from routers import (
+    analytics_router,
+    auth_router,
+    finance_router,
+    operators_router,
+    orders_router,
+    production_router,
+    uploads_router,
+    users_router,
+    warehouse_router,
+)
+from services.seed import seed_defaults
+from database import SessionLocal
 
-app = FastAPI(title="Azmus CRM API")
+app = FastAPI(title="Azmus CRM ERP API", version="2.0.0")
 
 Base.metadata.create_all(bind=engine)
+run_migrations()
 
 _cors_origins_env = os.getenv("CORS_ORIGINS", "*").strip()
 _cors_origins = (
     ["*"]
     if _cors_origins_env == "*"
-    else [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]
+    else [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
 )
 
 app.add_middleware(
@@ -28,254 +45,44 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+upload_path = os.getenv("UPLOAD_DIR", "uploads")
+os.makedirs(upload_path, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
+
+app.include_router(auth_router.router)
+app.include_router(users_router.router)
+app.include_router(orders_router.router)
+app.include_router(warehouse_router.router)
+app.include_router(production_router.router)
+app.include_router(operators_router.router)
+app.include_router(analytics_router.router)
+app.include_router(finance_router.router)
+app.include_router(uploads_router.router)
+
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "service": "azmus-crm"}
+    return {"status": "ok", "service": "azmus-crm-erp", "version": "2.0.0"}
 
 
-
-
-class OrderCreate(BaseModel):
-    client: str
-    phone: str
-    amount: str
-class LoginData(BaseModel):
-    username: str
-    password: str
-
-
-class UserCreate(BaseModel):
-    username: str
-    password: str
-    role: str
-@app.get("/orders")
-def get_orders():
-
-    db = SessionLocal()
-
-    orders = db.query(Order).all()
-
-    return orders
-
-
-@app.post("/orders")
-def add_order(order: OrderCreate):
-
-    db = SessionLocal()
-
-    new_order = Order(
-        client=order.client,
-        phone=order.phone,
-        amount=order.amount,
-        status="Yangi"
-    )
-
-    db.add(new_order)
-
-    db.commit()
-
-    db.refresh(new_order)
-
-    return new_order
-@app.delete("/orders/{order_id}")
-def delete_order(order_id: int):
-
-    db = SessionLocal()
-
-    try:
-
-        order = db.query(Order).filter(
-            Order.id == order_id
-        ).first()
-
-        if not order:
-            return {"error": "Order not found"}
-
-        db.delete(order)
-
-        db.commit()
-
-        return {"message": "Deleted successfully"}
-
-    except Exception as e:
-
-        db.rollback()
-
-        return {"error": str(e)}
-
-    finally:
-
-        db.close()
-@app.put("/orders/{order_id}")
-def update_order(order_id: int, status: str):
-
-    db = SessionLocal()
-
-    order = db.query(Order).filter(
-        Order.id == order_id
-    ).first()
-
-    if order:
-
-        order.status = status
-
-        db.commit()
-
-        db.refresh(order)
-
-        return order
-
-    return {"error": "Order not found"}
-@app.post("/login")
-def login(data: LoginData):
-
-    db = SessionLocal()
-
-    user = db.query(User).filter(
-        User.username == data.username,
-        User.password == data.password
-    ).first()
-
-    if user:
-        return {
-    "success": True,
-    "role": user.role,
-    "username": user.username
-}
-
-    return {"success": False}
-@app.get("/create-admin")
-def create_admin():
-
-    db = SessionLocal()
-
-    user = User(
-        username="admin",
-        password="1234",
-        role="admin"
-    )
-
-    db.add(user)
-
-    db.commit()
-
-    return {"message": "Admin created"}
-@app.get("/create-operator")
-def create_operator():
-
-    db = SessionLocal()
-
-    user = User(
-        username="operator1",
-        password="1111",
-        role="operator"
-    )
-
-    db.add(user)
-
-    db.commit()
-
-    return {"message": "Operator created"}
-
-@app.get("/users")
-def get_users():
-
-    db = SessionLocal()
-
-    try:
-
-        users = db.query(User).all()
-
-        return [
-            {
-                "username": user.username,
-                "role": user.role
-            }
-            for user in users
-        ]
-
-    except Exception as e:
-
-        return {
-            "error": str(e)
-        }
-
-
-@app.post("/create-user")
-def create_user(user: UserCreate):
-
-    db = SessionLocal()
-
-    try:
-        existing = db.query(User).filter(
-            User.username == user.username
-        ).first()
-
-        if existing:
-            raise HTTPException(status_code=400, detail="User already exists")
-
-        if user.role not in ("admin", "operator"):
-            raise HTTPException(status_code=400, detail="Invalid role")
-
-        new_user = User(
-            username=user.username,
-            password=user.password,
-            role=user.role,
-        )
-
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-
-        return {
-            "success": True,
-            "username": new_user.username,
-            "role": new_user.role,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-    finally:
-        db.close()
-    
 @app.on_event("startup")
 def startup():
-
     db = SessionLocal()
+    try:
+        seed_defaults(db)
+    finally:
+        db.close()
 
-    admin = db.query(User).filter(
-        User.username == "admin"
-    ).first()
 
-    if not admin:
+# Legacy compatibility for older frontends
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
-        user = User(
-            username="admin",
-            password="1234",
-            role="admin"
-        )
+from database import get_db
+from schemas import LoginRequest
+from routers.auth_router import login as jwt_login
 
-        db.add(user)
 
-        db.commit()
-
-    operator = db.query(User).filter(
-        User.username == "operator1"
-    ).first()
-
-    if not operator:
-
-        user = User(
-            username="operator1",
-            password="1111",
-            role="operator"
-        )
-
-        db.add(user)
-
-        db.commit()
+@app.post("/login")
+def legacy_login(data: LoginRequest, db: Session = Depends(get_db)):
+    return jwt_login(data, db)

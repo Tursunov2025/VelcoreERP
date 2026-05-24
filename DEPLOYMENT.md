@@ -1,4 +1,4 @@
-# Azmus CRM — Production deployment
+# Azmus CRM ERP — Production deployment
 
 ## Live services
 
@@ -6,6 +6,19 @@
 |---------|-----|
 | **API** | https://azmus-crm.onrender.com |
 | **Frontend** | Deploy `frontend/dist` to Render Static Site, Netlify, or Vercel |
+
+## ERP modules
+
+- **Dashboard** — analytics, charts, KPIs
+- **Zakazlar** — orders with images, production stages
+- **Ishlab chiqarish** — timeline, stage tracking
+- **Ombor** — materials, stock in/out, low-stock alerts
+- **Operatorlar** — performance rankings
+- **Analitika** — sales, revenue, profit charts
+- **Moliya** — income, expenses, net profit
+- **Invoyslar** — PDF export with QR + barcode
+- **JWT auth** — access + refresh tokens, role-based access
+- **Telegram** — optional notifications (env vars below)
 
 ## Mobile / global access
 
@@ -42,6 +55,10 @@ From repo root, use `render.yaml` or configure manually:
 | Variable | Value |
 |----------|--------|
 | `CORS_ORIGINS` | `*` (allows any frontend origin) or comma-separated URLs |
+| `JWT_SECRET_KEY` | Strong random secret for production |
+| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather (optional) |
+| `TELEGRAM_CHAT_ID` | Admin chat/group ID (optional) |
+| `UPLOAD_DIR` | `uploads` (persist on Render disk or external storage) |
 
 ## Deploy frontend (Render Static Site)
 
