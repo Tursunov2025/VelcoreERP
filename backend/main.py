@@ -179,3 +179,40 @@ def get_users():
         return {
             "error": str(e)
         }
+    
+@app.on_event("startup")
+def startup():
+
+    db = SessionLocal()
+
+    admin = db.query(User).filter(
+        User.username == "admin"
+    ).first()
+
+    if not admin:
+
+        user = User(
+            username="admin",
+            password="1234",
+            role="admin"
+        )
+
+        db.add(user)
+
+        db.commit()
+
+    operator = db.query(User).filter(
+        User.username == "operator1"
+    ).first()
+
+    if not operator:
+
+        user = User(
+            username="operator1",
+            password="1111",
+            role="operator"
+        )
+
+        db.add(user)
+
+        db.commit()
