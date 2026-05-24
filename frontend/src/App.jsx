@@ -28,6 +28,7 @@ const [editPhone, setEditPhone] = useState("");
 const [editAmount, setEditAmount] = useState("");
   const [orders, setOrders] = useState([]);
 const [search, setSearch] = useState("");
+const [role, setRole] = useState("")
   const totalOrders = orders.length;
 
   const completedOrders = orders.filter(
