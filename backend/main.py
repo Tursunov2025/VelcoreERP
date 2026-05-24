@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from database import engine, Base
-from models import Order
+from models import Order, User
 from models import User
 app = FastAPI()
 
