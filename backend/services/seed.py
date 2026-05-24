@@ -1,6 +1,7 @@
 from auth.security import hash_password
 from constants import DEPARTMENTS
 from models import Material, User
+from services.chat_seed import seed_chat_rooms
 
 
 def seed_defaults(db):
@@ -62,3 +63,4 @@ def seed_defaults(db):
             )
 
     db.commit()
+    seed_chat_rooms(db)

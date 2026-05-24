@@ -9,12 +9,16 @@ import SystemTab from "../components/settings/SystemTab";
 import OnlineTab from "../components/settings/OnlineTab";
 import AuditTab from "../components/settings/AuditTab";
 import BackupTab from "../components/settings/BackupTab";
+import ShipmentsArchiveTab from "../components/settings/ShipmentsArchiveTab";
+import ChatSettingsTab from "../components/settings/ChatSettingsTab";
 
 const TAB_CONTENT = {
   users: UsersTab,
   orders: OrdersTab,
+  shipments: ShipmentsArchiveTab,
   search: SearchTab,
   online: OnlineTab,
+  chat: ChatSettingsTab,
   system: SystemTab,
   audit: AuditTab,
   backup: BackupTab,

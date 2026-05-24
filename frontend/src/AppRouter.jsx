@@ -12,6 +12,7 @@ import FinancePage from "./pages/FinancePage";
 import ShippingPage from "./pages/ShippingPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import SettingsPage from "./pages/SettingsPage";
+import ChatPage from "./pages/ChatPage";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 
 function LoginRoute() {
@@ -51,6 +52,7 @@ export default function AppRouter() {
             <Route path="production" element={<ProductionPage />} />
             <Route path="warehouse" element={<WarehousePage />} />
             <Route path="shipping" element={<ShippingPage />} />
+            <Route path="chat" element={<ChatPage />} />
             <Route path="operators" element={<OperatorsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="finance" element={<FinancePage />} />

@@ -153,6 +153,53 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getShippingArchive: () => request("/shipping/archive"),
+  getShipmentGroups: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) {
+        q.set(k, String(v));
+      }
+    });
+    return request(`/shipping/groups?${q.toString()}`);
+  },
+  getShipmentGroup: (id) => request(`/shipping/groups/${id}`),
+  adminDeleteShipmentGroup: (id) =>
+    request(`/shipping/groups/${id}`, { method: "DELETE" }),
+  adminRestoreShipmentGroup: (id) =>
+    request(`/shipping/groups/${id}/restore`, { method: "POST" }),
+
+  getChatRooms: () => request("/chat/rooms"),
+  getChatMessages: (roomId, sinceId = 0) =>
+    request(
+      `/chat/rooms/${roomId}/messages${sinceId ? `?since_id=${sinceId}` : ""}`
+    ),
+  sendChatMessage: (roomId, body) =>
+    request(`/chat/rooms/${roomId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  markChatRead: (roomId) =>
+    request(`/chat/rooms/${roomId}/read`, { method: "POST" }),
+  getChatUnread: () => request("/chat/unread"),
+  createPrivateChat: (username) =>
+    request("/chat/private", {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    }),
+  setChatTyping: (roomId, isTyping = true) =>
+    request("/chat/typing", {
+      method: "POST",
+      body: JSON.stringify({ room_id: roomId, is_typing: isTyping }),
+    }),
+  getChatTyping: (roomId) => request(`/chat/typing/${roomId}`),
+  getChatOnline: () => request("/chat/online"),
+  getChatUsers: () => request("/chat/users"),
+  uploadChatFile: async (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    const data = await request("/uploads/file", { method: "POST", body: form });
+    return { ...data, url: data.url };
+  },
 
   getProductionTimeline: (orderId) =>
     request(`/production/timeline/${orderId}`),

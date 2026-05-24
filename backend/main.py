@@ -24,6 +24,7 @@ from routers import (
     admin_router,
     analytics_router,
     auth_router,
+    chat_router,
     finance_router,
     operators_router,
     orders_router,
@@ -71,6 +72,7 @@ app.include_router(analytics_router.router)
 app.include_router(finance_router.router)
 app.include_router(uploads_router.router)
 app.include_router(shipping_router.router)
+app.include_router(chat_router.router)
 app.include_router(admin_router.router)
 
 

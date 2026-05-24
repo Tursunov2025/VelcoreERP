@@ -34,6 +34,7 @@ export const NAV_ITEMS = [
   { path: "/orders", label: "Zakazlar", icon: "📋" },
   { path: "/warehouse", label: "Ombor", icon: "📦" },
   { path: "/shipping", label: "Yuk chiqarish", icon: "🚚" },
+  { path: "/chat", label: "Chat", icon: "💬" },
   { path: "/operators", label: "Operatorlar", icon: "👷" },
   { path: "/analytics", label: "Analitika", icon: "📈" },
   { path: "/finance", label: "Moliya", icon: "💰" },

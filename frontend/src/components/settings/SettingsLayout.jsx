@@ -1,8 +1,10 @@
 const TABS = [
   { id: "users", label: "Foydalanuvchilar", icon: "👥" },
   { id: "orders", label: "Zakazlar", icon: "📋" },
+  { id: "shipments", label: "Yuk arxivi", icon: "🚚" },
   { id: "search", label: "Qidiruv", icon: "🔍" },
   { id: "online", label: "Online", icon: "🟢" },
+  { id: "chat", label: "Chat", icon: "💬" },
   { id: "system", label: "Tizim", icon: "⚙️" },
   { id: "audit", label: "Audit", icon: "📜" },
   { id: "backup", label: "Backup", icon: "💾" },

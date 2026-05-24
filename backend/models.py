@@ -85,7 +85,43 @@ class WarehouseItem(Base):
     comment = Column(Text, default="")
 
 
+class ShipmentGroup(Base):
+    __tablename__ = "shipment_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    destination = Column(String, default="")
+    comment = Column(Text, default="")
+    shipped_at = Column(DateTime, default=utcnow)
+    warehouse_operator = Column(String, nullable=False)
+    responsible_operator = Column(String, default="")
+    total_products_count = Column(Integer, default=0)
+    deleted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    items = relationship(
+        "ShipmentItem",
+        back_populates="shipment_group",
+        cascade="all, delete-orphan",
+    )
+
+
+class ShipmentItem(Base):
+    __tablename__ = "shipment_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_group_id = Column(Integer, ForeignKey("shipment_groups.id"), index=True)
+    order_id = Column(Integer, nullable=True)
+    client = Column(String, nullable=False)
+    phone = Column(String, default="")
+    amount = Column(String, default="0")
+    product_destination = Column(String, default="")
+    quantity = Column(Integer, default=1)
+
+    shipment_group = relationship("ShipmentGroup", back_populates="items")
+
+
 class ShipmentArchive(Base):
+    """Legacy per-product archive — kept for compatibility."""
     __tablename__ = "shipment_archive"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -96,6 +132,57 @@ class ShipmentArchive(Base):
     shipped_at = Column(DateTime, default=utcnow)
     operator_username = Column(String, nullable=False)
     comment = Column(Text, default="")
+
+
+class ChatRoom(Base):
+    __tablename__ = "chat_rooms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    room_type = Column(String, default="department")
+    department = Column(String, nullable=True)
+    participant_a = Column(String, nullable=True)
+    participant_b = Column(String, nullable=True)
+    created_by = Column(String, default="system")
+    created_at = Column(DateTime, default=utcnow)
+
+    messages = relationship("ChatMessage", back_populates="room", cascade="all, delete-orphan")
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, ForeignKey("chat_rooms.id"), index=True)
+    sender_username = Column(String, nullable=False)
+    sender_department = Column(String, default="")
+    content = Column(Text, default="")
+    message_type = Column(String, default="text")
+    attachment_url = Column(String, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    room = relationship("ChatRoom", back_populates="messages")
+
+
+class ChatReadState(Base):
+    __tablename__ = "chat_read_state"
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, index=True, nullable=False)
+    username = Column(String, index=True, nullable=False)
+    last_read_message_id = Column(Integer, default=0)
+    last_read_at = Column(DateTime, default=utcnow)
+
+
+class ChatNotification(Base):
+    __tablename__ = "chat_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, index=True, nullable=False)
+    room_id = Column(Integer, index=True, nullable=False)
+    message_id = Column(Integer, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class OperatorActivity(Base):
