@@ -1,0 +1,28 @@
+# Deploy on Render: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: azmus-crm
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PYTHON_VERSION
+        value: "3.10.0"
+
+  - type: web
+    name: azmus-crm-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://azmus-crm.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

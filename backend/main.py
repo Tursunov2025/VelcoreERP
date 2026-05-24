@@ -1,3 +1,5 @@
+import os
+
 from database import SessionLocal
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,17 +8,30 @@ from pydantic import BaseModel
 from database import engine, Base
 from models import Order, User
 
-app = FastAPI()
+app = FastAPI(title="Azmus CRM API")
 
 Base.metadata.create_all(bind=engine)
 
+_cors_origins_env = os.getenv("CORS_ORIGINS", "*").strip()
+_cors_origins = (
+    ["*"]
+    if _cors_origins_env == "*"
+    else [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+
+@app.get("/")
+def health_check():
+    return {"status": "ok", "service": "azmus-crm"}
 
 
 
