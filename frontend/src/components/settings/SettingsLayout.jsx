@@ -1,5 +1,9 @@
 const TABS = [
   { id: "users", label: "Foydalanuvchilar", icon: "👥" },
+  { id: "appearance", label: "Tashqi ko'rinish", icon: "🎨" },
+  { id: "permissions", label: "Ruxsatlar", icon: "🔐" },
+  { id: "telegram", label: "Telegram", icon: "📱" },
+  { id: "notifications", label: "Bildirishnomalar", icon: "🔔" },
   { id: "orders", label: "Zakazlar", icon: "📋" },
   { id: "shipments", label: "Yuk arxivi", icon: "🚚" },
   { id: "search", label: "Qidiruv", icon: "🔍" },

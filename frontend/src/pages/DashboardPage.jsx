@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api/client";
+import DashboardClock from "../components/dashboard/DashboardClock";
 import OnlineOperatorsTable from "../components/dashboard/OnlineOperatorsTable";
 import Card from "../components/ui/Card";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import PageHeader from "../components/ui/PageHeader";
 import { CardSkeleton } from "../components/ui/Skeleton";
+import { useLocale } from "../context/LocaleContext";
 
 export default function DashboardPage() {
+  const { t } = useLocale();
   const [analytics, setAnalytics] = useState(null);
   const [operators, setOperators] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,29 +44,35 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle="ERP boshqaruv paneli" />
+      <PageHeader title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {loading
-          ? [1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)
-          : [
-              { label: "Jami zakaz", value: summary.total_orders },
-              { label: "Faol", value: summary.active_orders },
-              { label: "Tayyor", value: summary.completed_orders },
-              { label: "Sof foyda", value: `${Number(summary.net_profit || 0).toLocaleString()} so'm` },
-            ].map((item) => (
-              <Card key={item.label}>
-                <p className="text-sm text-gray-500">{item.label}</p>
-                <p className="mt-2 text-2xl font-black">{item.value}</p>
-              </Card>
-            ))}
+        {loading ? (
+          [1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)
+        ) : (
+          <>
+            <Card>
+              <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.totalOrders")}</p>
+              <p className="mt-2 text-2xl font-black">{summary.total_orders}</p>
+            </Card>
+            <Card>
+              <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.active")}</p>
+              <p className="mt-2 text-2xl font-black">{summary.active_orders}</p>
+            </Card>
+            <Card>
+              <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.completed")}</p>
+              <p className="mt-2 text-2xl font-black">{summary.completed_orders}</p>
+            </Card>
+            <DashboardClock />
+          </>
+        )}
       </div>
 
       <Card className="mb-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">Online operatorlar</h2>
+          <h2 className="text-lg font-bold">{t("dashboard.onlineOperators")}</h2>
           <Link to="/operators" className="text-sm text-blue-600 hover:underline">
-            Batafsil
+            {t("dashboard.details")}
           </Link>
         </div>
         <ErrorAlert message={error} onRetry={load} />
@@ -71,7 +80,7 @@ export default function DashboardPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-4 text-lg font-bold">Ishlab chiqarish statistikasi</h2>
+        <h2 className="mb-4 text-lg font-bold">{t("dashboard.productionStats")}</h2>
         <div className="h-64">
           {loading ? (
             <div className="h-full animate-pulse rounded-2xl bg-gray-100" />
@@ -82,7 +91,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="stage" tick={{ fontSize: 10 }} />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="count" fill="#000" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" fill="var(--brand-primary)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

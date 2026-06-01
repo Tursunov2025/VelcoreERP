@@ -10,6 +10,8 @@ from auth.deps import get_current_user, require_admin
 from database import get_db
 from models import ChatMessage, ChatNotification, ChatReadState, ChatRoom, User
 from services.activity import get_online_operators_detailed
+from services.notifications import notify_event
+from services.telegram import format_chat_alert
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -135,7 +137,7 @@ def get_messages(
 
 
 @router.post("/rooms/{room_id}/messages")
-def send_message(
+async def send_message(
     room_id: int,
     data: SendMessageRequest,
     db: Session = Depends(get_db),
@@ -196,6 +198,13 @@ def send_message(
 
     db.commit()
     db.refresh(msg)
+    preview = content or (data.attachment_url and "📎 Fayl") or "Xabar"
+    room_label = room.name or room.room_type
+    await notify_event(
+        db,
+        "chat_messages",
+        format_chat_alert(room_label, user.username, preview),
+    )
     return {"message": _serialize_message(msg)}
 
 

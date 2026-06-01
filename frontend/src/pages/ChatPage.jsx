@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { api, uploadUrl } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
+import { isNativeMobile } from "../mobile/capacitor";
 
 const EMOJI_LIST = ["👍", "✅", "🔥", "😊", "🎉", "📦", "🚚", "⚠️", "❗", "💬"];
 
@@ -192,6 +194,33 @@ export default function ChatPage() {
     e.target.value = "";
   };
 
+  const onCamera = async () => {
+    if (!activeRoom) return;
+    try {
+      const shot = await Camera.getPhoto({
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera,
+        quality: 72,
+      });
+      if (!shot.webPath) return;
+
+      const response = await fetch(shot.webPath);
+      const blob = await response.blob();
+      const filename = `camera-${Date.now()}.jpg`;
+      const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+      const up = await api.uploadChatFile(file);
+      await api.sendChatMessage(activeRoom.id, {
+        content: filename,
+        message_type: "image",
+        attachment_url: up.url,
+      });
+      await loadMessages(activeRoom.id, false);
+    } catch (err) {
+      if (err?.message?.includes("User cancelled")) return;
+      setError(err?.message || "Kamera xatoligi");
+    }
+  };
+
   const toggleSound = () => {
     const next = !soundOn;
     setSoundOn(next);
@@ -201,7 +230,7 @@ export default function ChatPage() {
   if (loading && !rooms.length) return <LoadingSpinner />;
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] flex-col">
+    <div className="flex h-[calc(100dvh-8rem)] min-h-[480px] flex-col">
       <PageHeader
         title="Ichki chat"
         subtitle={`Operatorlar aloqasi • O'qilmagan: ${unreadTotal}`}
@@ -399,6 +428,16 @@ export default function ChatPage() {
                   ))}
                 </div>
                 <div className="flex gap-2">
+                  {isNativeMobile() && (
+                    <button
+                      type="button"
+                      onClick={onCamera}
+                      className="rounded-xl bg-gray-100 px-3 py-2"
+                      title="Kamera"
+                    >
+                      📷
+                    </button>
+                  )}
                   <input
                     ref={fileInputRef}
                     type="file"

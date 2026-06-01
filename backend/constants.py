@@ -32,6 +32,56 @@ FIRST_STAGE = "Kesish"
 FINAL_STAGE = "Tayyor"
 INSPECTION_STAGE = "Tekshiruv"
 
+PERMISSION_MODULES = [
+    "orders",
+    "production",
+    "warehouse",
+    "tasks",
+    "finance",
+    "chat",
+    "settings",
+]
+
+LLP_PERMISSIONS = [
+    "llp_view",
+    "llp_download",
+    "llp_upload",
+    "llp_edit",
+    "llp_delete",
+    "llp_read_confirm",
+]
+
+ALL_PERMISSION_KEYS = PERMISSION_MODULES + LLP_PERMISSIONS
+
+DEFAULT_OPERATOR_PERMISSIONS = {
+    "orders": True,
+    "production": True,
+    "warehouse": False,
+    "tasks": True,
+    "finance": False,
+    "chat": True,
+    "settings": False,
+    "llp_view": True,
+    "llp_download": True,
+    "llp_upload": False,
+    "llp_edit": False,
+    "llp_delete": False,
+    "llp_read_confirm": True,
+}
+
+NOTIFICATION_EVENTS = [
+    "new_order",
+    "order_completed",
+    "new_task",
+    "task_accepted",
+    "task_completed",
+    "task_overdue",
+    "shipment_dispatched",
+    "warehouse_events",
+    "chat_messages",
+    "llp_important",
+]
+
 
 def next_stage(current: str):
     if current not in PRODUCTION_STAGES:

@@ -7,6 +7,8 @@ from auth.deps import get_current_user, require_admin
 from database import get_db
 from models import Material, Order, StockMovement, User, WarehouseItem
 from schemas import MaterialCreate, MaterialResponse, StockMovementCreate, StockMovementResponse, WarehouseItemResponse
+from services.notifications import notify_event
+from services.telegram import format_warehouse_movement_alert
 
 router = APIRouter(prefix="/warehouse", tags=["warehouse"])
 
@@ -80,7 +82,7 @@ def low_stock_alerts(
 
 
 @router.post("/movements", response_model=StockMovementResponse)
-def stock_movement(
+async def stock_movement(
     data: StockMovementCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -107,6 +109,11 @@ def stock_movement(
     db.add(movement)
     db.commit()
     db.refresh(movement)
+    await notify_event(
+        db,
+        "warehouse_events",
+        format_warehouse_movement_alert(material, movement, user.username),
+    )
     return movement
 
 

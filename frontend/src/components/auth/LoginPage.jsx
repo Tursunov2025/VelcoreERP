@@ -25,7 +25,7 @@ export default function LoginPage({
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f5f6fa] p-4">
       <div className="w-full max-w-md rounded-[40px] bg-white p-8 shadow-2xl md:p-10">
-        <h1 className="mb-2 text-center text-3xl font-black md:text-4xl">Azmus CRM</h1>
+        <h1 className="mb-2 text-center text-3xl font-black md:text-4xl">Velcore ERP</h1>
         <p className="mb-8 text-center text-sm text-gray-500">
           Tizimga kirish uchun foydalanuvchini tanlang
         </p>

@@ -1,6 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { BrandingProvider, useBranding } from "./context/BrandingContext";
+import { LocaleProvider } from "./context/LocaleContext";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
+import ThemeApplicator from "./components/layout/ThemeApplicator";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import OrdersPage from "./pages/OrdersPage";
@@ -13,13 +16,18 @@ import ShippingPage from "./pages/ShippingPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import SettingsPage from "./pages/SettingsPage";
 import ChatPage from "./pages/ChatPage";
+import TasksPage from "./pages/TasksPage";
+import LlpPage from "./pages/LlpPage";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 
 function LoginRoute() {
   const { isLoggedIn, loading } = useAuth();
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f6fa]">
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: "var(--brand-background)" }}
+      >
         <LoadingSpinner />
       </div>
     );
@@ -32,7 +40,10 @@ function CatchAllRoute() {
   const { isLoggedIn, loading } = useAuth();
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f6fa]">
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: "var(--brand-background)" }}
+      >
         <LoadingSpinner />
       </div>
     );
@@ -40,10 +51,12 @@ function CatchAllRoute() {
   return <Navigate to={isLoggedIn ? "/" : "/login"} replace />;
 }
 
-export default function AppRouter() {
+function AppRoutes() {
+  const { branding } = useBranding();
+
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <LocaleProvider brandingDefaults={branding}>
+      <ThemeApplicator>
         <Routes>
           <Route path="/login" element={<LoginRoute />} />
           <Route element={<ProtectedRoute />}>
@@ -53,6 +66,8 @@ export default function AppRouter() {
             <Route path="warehouse" element={<WarehousePage />} />
             <Route path="shipping" element={<ShippingPage />} />
             <Route path="chat" element={<ChatPage />} />
+            <Route path="tasks" element={<TasksPage />} />
+            <Route path="llp" element={<LlpPage />} />
             <Route path="operators" element={<OperatorsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="finance" element={<FinancePage />} />
@@ -61,7 +76,19 @@ export default function AppRouter() {
           </Route>
           <Route path="*" element={<CatchAllRoute />} />
         </Routes>
-      </AuthProvider>
+      </ThemeApplicator>
+    </LocaleProvider>
+  );
+}
+
+export default function AppRouter() {
+  return (
+    <BrowserRouter>
+      <BrandingProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrandingProvider>
     </BrowserRouter>
   );
 }

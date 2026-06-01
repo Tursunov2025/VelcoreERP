@@ -18,13 +18,28 @@ from schemas import (
     AdminUserCreate,
     AdminUserUpdate,
     AuditLogResponse,
+    BrandingSettingsUpdate,
+    NotificationSettingsUpdate,
     PasswordResetRequest,
+    PermissionsUpdate,
     SystemSettingsUpdate,
+    TelegramSettingsUpdate,
     UserAdminResponse,
 )
 from services.activity import get_online_operators_detailed
 from services.audit import log_action
-from services.settings_store import get_settings_for_admin, update_settings
+from services.branding import get_branding, reset_branding, update_branding
+from services.permissions import list_all_user_permissions, set_user_permissions
+from services.settings_store import (
+    get_notification_settings,
+    get_settings_for_admin,
+    get_telegram_settings,
+    update_notification_settings,
+    update_settings,
+    update_telegram_settings,
+)
+from services.telegram import send_test_message
+from services.task_overdue_reminders import send_overdue_task_reminders
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -400,3 +415,140 @@ async def import_backup(
     log_action(db, admin.username, "import", "backup", details=file.filename or "backup.db")
     db.commit()
     return {"message": "Backup imported. Restart API to apply fully."}
+
+
+# --- Permissions ---
+@router.get("/permissions")
+def get_permissions_matrix(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return {"users": list_all_user_permissions(db)}
+
+
+@router.put("/permissions/{user_id}")
+def update_user_permissions(
+    user_id: int,
+    data: PermissionsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        perms = set_user_permissions(db, user_id, data.permissions)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    log_action(db, admin.username, "update", "permissions", user_id, target.username)
+    db.commit()
+    return {"user_id": user_id, "permissions": perms}
+
+
+# --- Telegram settings ---
+@router.get("/settings/telegram")
+def get_telegram_settings_endpoint(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_telegram_settings(db)
+
+
+@router.put("/settings/telegram")
+def put_telegram_settings(
+    data: TelegramSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    payload = data.model_dump(exclude_none=True)
+    result = update_telegram_settings(db, payload)
+    log_action(db, admin.username, "update", "telegram_settings")
+    return result
+
+
+@router.post("/settings/telegram/test")
+async def test_telegram(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = await send_test_message(db)
+    log_action(
+        db,
+        admin.username,
+        "test",
+        "telegram",
+        details="ok" if result.get("ok") else result.get("error", ""),
+    )
+    db.commit()
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Test failed"))
+    return result
+
+
+# --- Notification settings ---
+@router.get("/settings/notifications")
+def get_notifications_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_notification_settings(db)
+
+
+@router.put("/settings/notifications")
+def put_notifications_settings(
+    data: NotificationSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    payload = data.model_dump(exclude_none=True)
+    result = update_notification_settings(db, payload)
+    log_action(db, admin.username, "update", "notification_settings")
+    return result
+
+
+# --- Branding / appearance ---
+@router.get("/settings/branding")
+def get_branding_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_branding(db)
+
+
+@router.put("/settings/branding")
+def put_branding_settings(
+    data: BrandingSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    payload = data.model_dump(exclude_none=True)
+    result = update_branding(db, payload)
+    log_action(db, admin.username, "update", "branding_settings")
+    return result
+
+
+@router.post("/settings/branding/reset")
+def reset_branding_settings(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = reset_branding(db)
+    log_action(db, admin.username, "reset", "branding_settings")
+    return result
+
+
+@router.post("/reminders/overdue/run")
+async def run_overdue_reminders_now(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = await send_overdue_task_reminders(db)
+    log_action(
+        db,
+        admin.username,
+        "run",
+        "overdue_reminders",
+        details=f"sent={result['sent']} skipped={result['skipped']}",
+    )
+    db.commit()
+    return result

@@ -9,6 +9,8 @@ from database import get_db
 from models import Order, ShipmentGroup, ShipmentItem, User, WarehouseItem
 from pydantic import BaseModel
 from services.audit import log_action
+from services.notifications import notify_event
+from services.telegram import format_shipment_alert
 
 router = APIRouter(prefix="/shipping", tags=["shipping"])
 
@@ -52,7 +54,7 @@ def _check_ombor(user: User):
 
 
 @router.post("/dispatch")
-def dispatch_grouped_shipment(
+async def dispatch_grouped_shipment(
     data: DispatchRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -114,6 +116,7 @@ def dispatch_grouped_shipment(
         .filter(ShipmentGroup.id == group.id)
         .first()
     )
+    await notify_event(db, "shipment_dispatched", format_shipment_alert(group))
     return {
         "message": "Yuk chiqarildi",
         "shipment": _serialize_group(group),

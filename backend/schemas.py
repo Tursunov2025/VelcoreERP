@@ -264,16 +264,94 @@ class AdminOrderUpdate(BaseModel):
 
 
 class SystemSettingsUpdate(BaseModel):
-    company_name: Optional[str] = None
     company_phone: Optional[str] = None
-    company_logo_url: Optional[str] = None
-    telegram_bot_token: Optional[str] = None
-    telegram_chat_id: Optional[str] = None
-    notifications_enabled: Optional[str] = None
     jwt_access_minutes: Optional[str] = None
     jwt_refresh_days: Optional[str] = None
     auto_backup_enabled: Optional[str] = None
     auto_backup_interval_hours: Optional[str] = None
+
+
+class BrandingSettingsUpdate(BaseModel):
+    app_name: Optional[str] = None
+    tagline: Optional[str] = None
+    logo_main: Optional[str] = None
+    logo_login: Optional[str] = None
+    logo_sidebar: Optional[str] = None
+    favicon: Optional[str] = None
+    color_primary: Optional[str] = None
+    color_secondary: Optional[str] = None
+    color_background: Optional[str] = None
+    color_sidebar: Optional[str] = None
+    color_button: Optional[str] = None
+    color_success: Optional[str] = None
+    color_warning: Optional[str] = None
+    color_danger: Optional[str] = None
+    button_radius: Optional[str] = None
+    button_shadow: Optional[str] = None
+    button_style: Optional[str] = None
+    animations_enabled: Optional[str] = None
+    anim_page_transitions: Optional[str] = None
+    anim_modals: Optional[str] = None
+    anim_loading: Optional[str] = None
+    emoji_enabled: Optional[str] = None
+    emoji_dashboard: Optional[str] = None
+    emoji_production: Optional[str] = None
+    emoji_orders: Optional[str] = None
+    emoji_warehouse: Optional[str] = None
+    emoji_shipping: Optional[str] = None
+    emoji_chat: Optional[str] = None
+    emoji_tasks: Optional[str] = None
+    emoji_operators: Optional[str] = None
+    emoji_analytics: Optional[str] = None
+    emoji_finance: Optional[str] = None
+    emoji_settings: Optional[str] = None
+    theme_mode: Optional[str] = None
+    language: Optional[str] = None
+    clock_format: Optional[str] = None
+    clock_timezone: Optional[str] = None
+
+
+class UserUiPreferencesUpdate(BaseModel):
+    ui_language: Optional[str] = None
+    ui_theme: Optional[str] = None
+    ui_clock_format: Optional[str] = None
+
+
+class TelegramSettingsUpdate(BaseModel):
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+    telegram_notifications_enabled: Optional[str] = None
+    notifications_enabled: Optional[str] = None
+
+
+class NotificationSettingsUpdate(BaseModel):
+    notifications_enabled: Optional[str] = None
+    telegram_notifications_enabled: Optional[str] = None
+    notify_new_order: Optional[str] = None
+    notify_order_completed: Optional[str] = None
+    notify_new_task: Optional[str] = None
+    notify_task_accepted: Optional[str] = None
+    notify_task_completed: Optional[str] = None
+    notify_task_overdue: Optional[str] = None
+    notify_shipment_dispatched: Optional[str] = None
+    notify_warehouse_events: Optional[str] = None
+    notify_chat_messages: Optional[str] = None
+    notify_llp_important: Optional[str] = None
+
+
+class PermissionsUpdate(BaseModel):
+    permissions: dict[str, bool]
+
+
+class TelegramVerifyLink(BaseModel):
+    code: str
+    telegram_id: str
+    telegram_username: str = ""
+
+
+class AdminTelegramLink(BaseModel):
+    telegram_id: str
+    telegram_username: str = ""
 
 
 class AuditLogResponse(BaseModel):

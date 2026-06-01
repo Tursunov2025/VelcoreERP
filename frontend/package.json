@@ -7,9 +7,26 @@
     "dev": "vite",
     "build": "vite build",
     "build:prod": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mobile:assets": "npx capacitor-assets generate --android --assetPath resources",
+    "mobile:sync": "npx cap sync android",
+    "mobile:build": "npm run build && npm run mobile:sync",
+    "mobile:open": "npx cap open android",
+    "mobile:run": "npm run mobile:build && npx cap run android",
+    "mobile:doctor": "npx cap doctor",
+    "apk:debug": "powershell -ExecutionPolicy Bypass -File ./scripts/apk-debug.ps1",
+    "apk:release": "powershell -ExecutionPolicy Bypass -File ./scripts/apk-release.ps1"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/camera": "^8.2.0",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "jspdf": "^4.2.1",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
@@ -18,6 +35,7 @@
     "recharts": "^3.8.1"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.5.0",
     "postcss": "^8.5.15",

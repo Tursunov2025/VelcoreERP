@@ -5,9 +5,11 @@ import Card from "../components/ui/Card";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
+import { useLocale } from "../context/LocaleContext";
 
 export default function FinancePage() {
   const { isAdmin } = useAuth();
+  const { t } = useLocale();
   const [summary, setSummary] = useState(null);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,7 @@ export default function FinancePage() {
 
   return (
     <div>
-      <PageHeader title="Moliya" subtitle="Daromad, xarajat va sof foyda" />
+      <PageHeader title={t("finance.title")} subtitle={t("finance.subtitle")} />
       <ErrorAlert message={error} onRetry={load} />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

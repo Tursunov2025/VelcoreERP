@@ -7,8 +7,10 @@ import UserModal from "../components/modals/UserModal";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
+import { useLocale } from "../context/LocaleContext";
 
 export default function OrdersPage() {
+  const { t } = useLocale();
   const { isAdmin, logout } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +50,8 @@ export default function OrdersPage() {
   return (
     <div>
       <PageHeader
-        title="Zakazlar"
-        subtitle="Bo'limingizdagi faol zakazlar"
+        title={t("orders.title")}
+        subtitle={t("orders.subtitle")}
         actions={
           <div className="flex flex-wrap gap-2">
             <button

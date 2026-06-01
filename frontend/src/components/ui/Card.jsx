@@ -1,7 +1,7 @@
 export default function Card({ children, className = "" }) {
   return (
     <section
-      className={`rounded-[28px] bg-white p-5 shadow-lg md:rounded-[32px] md:p-6 ${className}`}
+      className={`brand-surface rounded-[var(--brand-radius)] bg-[var(--brand-card)] p-5 text-[var(--brand-text)] shadow-[var(--brand-shadow)] md:p-6 ${className}`}
     >
       {children}
     </section>

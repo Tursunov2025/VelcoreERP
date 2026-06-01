@@ -5,9 +5,11 @@ import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
 import { useAuth } from "../context/AuthContext";
+import { useLocale } from "../context/LocaleContext";
 
 export default function WarehousePage() {
   const { isAdmin, isOmbor } = useAuth();
+  const { t } = useLocale();
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -46,10 +48,7 @@ export default function WarehousePage() {
 
   return (
     <div>
-      <PageHeader
-        title="Ombor"
-        subtitle="Tayyor mahsulotlar — yuk chiqarishga tayyor"
-      />
+      <PageHeader title={t("warehouse.title")} subtitle={t("warehouse.subtitle")} />
 
       <form onSubmit={handleSearch} className="mb-6">
         <input

@@ -21,6 +21,28 @@ class User(Base):
     department = Column(String, default="Kesish")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utcnow)
+    telegram_username = Column(String, nullable=True)
+    telegram_id = Column(String, nullable=True)
+    telegram_link_code = Column(String, nullable=True)
+    telegram_link_code_expires = Column(DateTime, nullable=True)
+    ui_language = Column(String, nullable=True)
+    ui_theme = Column(String, nullable=True)
+    ui_clock_format = Column(String, nullable=True)
+
+    permissions = relationship(
+        "UserPermission", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserPermission(Base):
+    __tablename__ = "user_permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    module = Column(String, nullable=False, index=True)
+    enabled = Column(Boolean, default=True)
+
+    user = relationship("User", back_populates="permissions")
 
 
 class Order(Base):
@@ -261,5 +283,122 @@ class Income(Base):
     created_at = Column(DateTime, default=utcnow)
 
 
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, default="")
+    priority = Column(String, default="normal")  # normal | important | urgent
+    deadline = Column(DateTime, nullable=True)
+    created_by = Column(String, nullable=False)
+    assign_all = Column(Boolean, default=False)
+    archived_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    assignments = relationship(
+        "TaskAssignment", back_populates="task", cascade="all, delete-orphan"
+    )
+    comments = relationship(
+        "TaskComment", back_populates="task", cascade="all, delete-orphan"
+    )
+    attachments = relationship(
+        "TaskAttachment", back_populates="task", cascade="all, delete-orphan"
+    )
+
+
+class TaskAssignment(Base):
+    __tablename__ = "task_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), index=True, nullable=False)
+    operator_username = Column(String, index=True, nullable=False)
+    status = Column(String, default="new")  # new|accepted|in_progress|completed|cancelled
+    accepted_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    task = relationship("Task", back_populates="assignments")
+
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), index=True, nullable=False)
+    assignment_id = Column(Integer, nullable=True)
+    username = Column(String, nullable=False)
+    content = Column(Text, default="")
+    kind = Column(String, default="comment")  # comment | status
+    status_value = Column(String, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    task = relationship("Task", back_populates="comments")
+
+
+class TaskAttachment(Base):
+    __tablename__ = "task_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), index=True, nullable=False)
+    uploaded_by = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    filename = Column(String, default="")
+    content_type = Column(String, default="")
+    kind = Column(String, default="task")  # task | result
+    created_at = Column(DateTime, default=utcnow)
+
+    task = relationship("Task", back_populates="attachments")
+
+
 # Legacy alias
 ProductionLog = OrderHistory
+
+
+class DocumentFolder(Base):
+    __tablename__ = "document_folders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    parent_id = Column(Integer, ForeignKey("document_folders.id"), nullable=True, index=True)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+    documents = relationship("Document", back_populates="folder", cascade="all, delete-orphan")
+    children = relationship("DocumentFolder")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    folder_id = Column(Integer, ForeignKey("document_folders.id"), index=True, nullable=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, default="")
+    url = Column(String, nullable=False)
+    filename = Column(String, default="")
+    original_filename = Column(String, default="")
+    content_type = Column(String, default="")
+    file_size = Column(Integer, default=0)
+    is_important = Column(Boolean, default=False)
+    uploaded_by = Column(String, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    folder = relationship("DocumentFolder", back_populates="documents")
+    read_statuses = relationship(
+        "DocumentReadStatus", back_populates="document", cascade="all, delete-orphan"
+    )
+
+
+class DocumentReadStatus(Base):
+    __tablename__ = "document_read_status"
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), index=True, nullable=False)
+    username = Column(String, index=True, nullable=False)
+    read_at = Column(DateTime, default=utcnow)
+
+    document = relationship("Document", back_populates="read_statuses")

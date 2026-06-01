@@ -14,7 +14,8 @@ from schemas import (
     OrderUpdate,
     VerifyOrderRequest,
 )
-from services.telegram import format_new_order_alert, format_ready_order_alert, send_telegram_message
+from services.notifications import notify_event
+from services.telegram import format_new_order_alert, format_ready_order_alert
 from services.workflow import add_history, complete_stage, verify_and_finish
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -146,7 +147,7 @@ async def create_order(
     db.commit()
     db.refresh(order)
 
-    await send_telegram_message(format_new_order_alert(order))
+    await notify_event(db, "new_order", format_new_order_alert(order))
 
     order = (
         db.query(Order)
@@ -203,7 +204,7 @@ async def complete_order_stage(
     db.commit()
 
     if moved_to_wh:
-        await send_telegram_message(format_ready_order_alert(order))
+        await notify_event(db, "order_completed", format_ready_order_alert(order))
 
     order = (
         db.query(Order)
@@ -238,7 +239,7 @@ async def verify_order(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     db.commit()
-    await send_telegram_message(format_ready_order_alert(order))
+    await notify_event(db, "order_completed", format_ready_order_alert(order))
 
     order = (
         db.query(Order)

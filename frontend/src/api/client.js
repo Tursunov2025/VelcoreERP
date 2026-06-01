@@ -1,5 +1,13 @@
-const API_BASE =
+const RAW_API_BASE =
   import.meta.env.VITE_API_URL || "https://azmus-crm.onrender.com";
+
+// Strip any trailing slash so `${API_BASE}${path}` never produces a double slash.
+const API_BASE = RAW_API_BASE.replace(/\/+$/, "");
+
+if (import.meta.env.DEV) {
+  // Helps diagnose "Not Found" issues caused by hitting the wrong backend.
+  console.info(`[api] base URL = ${API_BASE}`);
+}
 
 const TOKEN_KEY = "azmus_tokens";
 
@@ -67,7 +75,18 @@ async function request(path, options = {}, retry = true) {
     headers.Authorization = `Bearer ${tokens.access_token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const method = options.method || "GET";
+  const url = `${API_BASE}${path}`;
+
+  let response;
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch (networkErr) {
+    console.error(`[api] ${method} ${url} — network error:`, networkErr);
+    throw new Error(
+      `Server bilan bog'lanib bo'lmadi (${API_BASE}). Backend ishlayotganini tekshiring.`
+    );
+  }
 
   if (response.status === 401 && retry && tokens?.refresh_token) {
     const newToken = await refreshAccessToken();
@@ -82,6 +101,16 @@ async function request(path, options = {}, retry = true) {
       data?.detail ||
       (Array.isArray(data?.detail) ? data.detail[0]?.msg : null) ||
       response.statusText;
+
+    if (response.status === 404) {
+      console.error(
+        `[api] ${method} ${url} → 404 Not Found. ` +
+          `Tekshiring: VITE_API_URL (${API_BASE}) shu route mavjud bo'lgan backendga ishora qilyaptimi?`
+      );
+    } else {
+      console.error(`[api] ${method} ${url} → ${response.status}`, data);
+    }
+
     throw new Error(message || "Request failed");
   }
 
@@ -200,6 +229,63 @@ export const api = {
     const data = await request("/uploads/file", { method: "POST", body: form });
     return { ...data, url: data.url };
   },
+  uploadAnyFile: async (file) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    if (import.meta.env.DEV) {
+      console.info("[upload] POST /uploads/file", {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      });
+    }
+    const data = await request("/uploads/file", { method: "POST", body: form });
+    const result = {
+      url: data.url,
+      filename: data.original_filename || data.filename || file.name,
+      content_type: data.content_type || file.type || "",
+    };
+    if (import.meta.env.DEV) {
+      console.info("[upload] ok", result);
+    }
+    return result;
+  },
+
+  getTasks: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) {
+        q.set(k, String(v));
+      }
+    });
+    const qs = q.toString();
+    return request(`/tasks${qs ? `?${qs}` : ""}`);
+  },
+  getTask: (id) => request(`/tasks/${id}`),
+  getTaskStats: () => request("/tasks/stats"),
+  createTask: (body) =>
+    request("/tasks", { method: "POST", body: JSON.stringify(body) }),
+  updateTask: (id, body) =>
+    request(`/tasks/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteTask: (id) => request(`/tasks/${id}`, { method: "DELETE" }),
+  archiveTask: (id) =>
+    request(`/tasks/${id}/archive`, { method: "POST" }),
+  changeTaskStatus: (assignmentId, body) =>
+    request(`/task-assignments/${assignmentId}/status`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getTaskComments: (taskId) =>
+    request(`/task-comments?task_id=${taskId}`),
+  addTaskComment: (body) =>
+    request("/task-comments", { method: "POST", body: JSON.stringify(body) }),
+  getTaskAttachments: (taskId) =>
+    request(`/task-attachments?task_id=${taskId}`),
+  addTaskAttachment: (body) =>
+    request("/task-attachments", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   getProductionTimeline: (orderId) =>
     request(`/production/timeline/${orderId}`),
@@ -271,6 +357,96 @@ export const api = {
     form.append("file", file);
     return request("/admin/backup/import", { method: "POST", body: form });
   },
+
+  getMyPermissions: () => request("/auth/me/permissions"),
+
+  adminGetPermissions: () => request("/admin/permissions"),
+  adminUpdateUserPermissions: (userId, body) =>
+    request(`/admin/permissions/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  adminGetTelegramSettings: () => request("/admin/settings/telegram"),
+  adminUpdateTelegramSettings: (body) =>
+    request("/admin/settings/telegram", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  adminTestTelegram: () =>
+    request("/admin/settings/telegram/test", { method: "POST" }),
+
+  adminGetNotificationSettings: () => request("/admin/settings/notifications"),
+  adminUpdateNotificationSettings: (body) =>
+    request("/admin/settings/notifications", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  getBranding: () => request("/branding"),
+  adminGetBranding: () => request("/admin/settings/branding"),
+  adminUpdateBranding: (body) =>
+    request("/admin/settings/branding", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  adminResetBranding: () =>
+    request("/admin/settings/branding/reset", { method: "POST" }),
+  uploadBrandingAsset: async (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request("/uploads/branding", { method: "POST", body: form });
+  },
+
+  getUiPreferences: () => request("/auth/me/ui-preferences"),
+  updateUiPreferences: (body) =>
+    request("/auth/me/ui-preferences", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  llpGetFolders: () => request("/llp/folders"),
+  llpCreateFolder: (body) =>
+    request("/llp/folders", { method: "POST", body: JSON.stringify(body) }),
+  llpUpdateFolder: (id, body) =>
+    request(`/llp/folders/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  llpDeleteFolder: (id) => request(`/llp/folders/${id}`, { method: "DELETE" }),
+  llpGetDocuments: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    return request(`/llp/documents?${q.toString()}`);
+  },
+  llpUploadDocument: async (file, { title, description, folder_id, is_important }) => {
+    const form = new FormData();
+    form.append("file", file);
+    const q = new URLSearchParams();
+    if (title) q.set("title", title);
+    if (description) q.set("description", description);
+    if (folder_id != null && folder_id !== "") q.set("folder_id", String(folder_id));
+    q.set("is_important", is_important ? "true" : "false");
+    return request(`/llp/documents?${q.toString()}`, { method: "POST", body: form });
+  },
+  llpUpdateDocument: (id, body) =>
+    request(`/llp/documents/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  llpDeleteDocument: (id) => request(`/llp/documents/${id}`, { method: "DELETE" }),
+  llpMarkRead: (id) => request(`/llp/documents/${id}/read`, { method: "POST" }),
+
+  getTelegramStatus: () => request("/telegram/status"),
+  generateTelegramLinkCode: () =>
+    request("/telegram/link-code", { method: "POST" }),
+  verifyTelegramLink: (body) =>
+    request("/telegram/verify-link", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  unlinkTelegram: () => request("/telegram/unlink", { method: "POST" }),
+  adminSetUserTelegram: (userId, body) =>
+    request(`/telegram/admin/users/${userId}/telegram`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
 };
 
 export { API_BASE };

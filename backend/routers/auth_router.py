@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from auth.deps import get_current_user
 from services.activity import record_login
+from services.permissions import get_user_permissions
 from auth.security import (
     create_access_token,
     create_refresh_token,
@@ -12,7 +13,7 @@ from auth.security import (
 )
 from database import get_db
 from models import User
-from schemas import LoginRequest, RefreshRequest, TokenResponse, UserPublic
+from schemas import LoginRequest, RefreshRequest, TokenResponse, UserPublic, UserUiPreferencesUpdate
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -84,3 +85,41 @@ def refresh_token(data: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserPublic)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+@router.get("/me/permissions")
+def my_permissions(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return {"permissions": get_user_permissions(db, user)}
+
+
+@router.get("/me/ui-preferences")
+def get_ui_preferences(user: User = Depends(get_current_user)):
+    return {
+        "ui_language": user.ui_language,
+        "ui_theme": user.ui_theme,
+        "ui_clock_format": user.ui_clock_format,
+    }
+
+
+@router.put("/me/ui-preferences")
+def update_ui_preferences(
+    data: UserUiPreferencesUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if data.ui_language is not None:
+        user.ui_language = data.ui_language
+    if data.ui_theme is not None:
+        user.ui_theme = data.ui_theme
+    if data.ui_clock_format is not None:
+        user.ui_clock_format = data.ui_clock_format
+    db.commit()
+    db.refresh(user)
+    return {
+        "ui_language": user.ui_language,
+        "ui_theme": user.ui_theme,
+        "ui_clock_format": user.ui_clock_format,
+    }

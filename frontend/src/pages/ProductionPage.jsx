@@ -4,9 +4,11 @@ import KanbanBoard from "../components/workflow/KanbanBoard";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import PageHeader from "../components/ui/PageHeader";
 import { useAuth } from "../context/AuthContext";
+import { useLocale } from "../context/LocaleContext";
 
 export default function ProductionPage() {
   const { department, isAdmin } = useAuth();
+  const { t } = useLocale();
   const [board, setBoard] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -42,12 +44,8 @@ export default function ProductionPage() {
   return (
     <div>
       <PageHeader
-        title="Ishlab chiqarish"
-        subtitle={
-          isAdmin
-            ? "Barcha bo'limlar — Kanban taxta"
-            : `${department} bo'limi zakazlari`
-        }
+        title={t("production.title")}
+        subtitle={t("production.subtitle")}
         actions={
           <button
             type="button"

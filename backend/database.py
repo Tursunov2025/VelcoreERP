@@ -40,6 +40,13 @@ def run_migrations():
         "ALTER TABLE orders ADD COLUMN deleted_at DATETIME",
         "ALTER TABLE operator_activity ADD COLUMN login_at DATETIME",
         "ALTER TABLE shipment_groups ADD COLUMN deleted_at DATETIME",
+        "ALTER TABLE users ADD COLUMN telegram_username VARCHAR",
+        "ALTER TABLE users ADD COLUMN telegram_id VARCHAR",
+        "ALTER TABLE users ADD COLUMN telegram_link_code VARCHAR",
+        "ALTER TABLE users ADD COLUMN telegram_link_code_expires DATETIME",
+        "ALTER TABLE users ADD COLUMN ui_language VARCHAR",
+        "ALTER TABLE users ADD COLUMN ui_theme VARCHAR",
+        "ALTER TABLE users ADD COLUMN ui_clock_format VARCHAR",
     ]
 
     with engine.connect() as conn:

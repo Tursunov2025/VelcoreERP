@@ -30,11 +30,16 @@ from routers import (
     orders_router,
     production_router,
     shipping_router,
+    tasks_router,
+    telegram_router,
+    branding_router,
+    llp_router,
     uploads_router,
     users_router,
     warehouse_router,
 )
 from services.seed import seed_defaults
+from services.scheduler import start_reminder_scheduler, stop_reminder_scheduler
 from database import SessionLocal
 
 app = FastAPI(title="Azmus CRM ERP API", version="2.0.0")
@@ -58,9 +63,10 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-upload_path = os.getenv("UPLOAD_DIR", "uploads")
+from routers.uploads_router import UPLOAD_DIR as _UPLOAD_DIR
+
+upload_path = os.getenv("UPLOAD_DIR", str(_UPLOAD_DIR))
 os.makedirs(upload_path, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 
 app.include_router(auth_router.router)
 app.include_router(users_router.router)
@@ -73,7 +79,14 @@ app.include_router(finance_router.router)
 app.include_router(uploads_router.router)
 app.include_router(shipping_router.router)
 app.include_router(chat_router.router)
+app.include_router(tasks_router.router)
+app.include_router(telegram_router.router)
+app.include_router(branding_router.router)
+app.include_router(llp_router.router)
 app.include_router(admin_router.router)
+
+# Static file serving MUST be after upload API routes (POST /uploads/file).
+app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 
 
 @app.get("/")
@@ -88,6 +101,12 @@ def startup():
         seed_defaults(db)
     finally:
         db.close()
+    start_reminder_scheduler()
+
+
+@app.on_event("shutdown")
+def shutdown():
+    stop_reminder_scheduler()
 
 
 # Legacy compatibility for older frontends

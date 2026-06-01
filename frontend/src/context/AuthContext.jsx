@@ -3,8 +3,34 @@ import { api, getStoredTokens, setStoredTokens } from "../api/client";
 
 const AuthContext = createContext(null);
 
+const DEFAULT_PERMISSIONS = {
+  orders: true,
+  production: true,
+  warehouse: false,
+  tasks: true,
+  finance: false,
+  chat: true,
+  settings: false,
+  llp_view: true,
+  llp_download: true,
+  llp_upload: false,
+  llp_edit: false,
+  llp_delete: false,
+  llp_read_confirm: true,
+};
+
+async function loadPermissions() {
+  try {
+    const data = await api.getMyPermissions();
+    return data.permissions || DEFAULT_PERMISSIONS;
+  } catch {
+    return DEFAULT_PERMISSIONS;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [permissions, setPermissions] = useState(DEFAULT_PERMISSIONS);
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,15 +42,15 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    api
-      .getMe()
-      .then((data) => {
+    Promise.all([api.getMe(), loadPermissions()])
+      .then(([data, perms]) => {
         setUser({
           username: data.username,
           role: data.role,
           department: data.department || (data.role === "admin" ? "Admin" : "Kesish"),
           id: data.id,
         });
+        setPermissions(perms);
       })
       .catch(() => setStoredTokens(null))
       .finally(() => setLoading(false));
@@ -50,6 +76,7 @@ export function AuthProvider({ children }) {
         role: data.role,
         department: data.department,
       });
+      setPermissions(await loadPermissions());
     } catch (err) {
       setLoginError(err.message || "Login yoki parol xato");
     } finally {
@@ -60,17 +87,31 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     setStoredTokens(null);
     setUser(null);
+    setPermissions(DEFAULT_PERMISSIONS);
     setLoginError("");
   }, []);
+
+  const isAdmin = user?.role === "admin" || user?.department === "Admin";
+
+  const hasPermission = useCallback(
+    (module) => {
+      if (isAdmin) return true;
+      if (!module) return true;
+      return Boolean(permissions?.[module]);
+    },
+    [isAdmin, permissions]
+  );
 
   const value = {
     user,
     username: user?.username ?? "",
     role: user?.role ?? "",
     department: user?.department ?? "",
-    isAdmin: user?.role === "admin" || user?.department === "Admin",
+    permissions,
+    isAdmin,
     isOmbor: user?.department === "Ombor",
     isLoggedIn: Boolean(user),
+    hasPermission,
     loading,
     loginError,
     isSubmitting,
