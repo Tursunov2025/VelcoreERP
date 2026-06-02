@@ -454,11 +454,11 @@ def _extract_and_import(content: bytes, backup_dir: Path) -> dict:
     }
 
 
-def rollback_from_backup(history: MigrationHistory) -> dict[str, Any]:
-    if not history.backup_path or not Path(history.backup_path).is_dir():
+def rollback_from_backup(backup_path: str | Path) -> dict[str, Any]:
+    backup_dir = Path(backup_path)
+    if not backup_dir.is_dir():
         raise FileNotFoundError("Backup path not found for this migration run")
 
-    backup_dir = Path(history.backup_path)
     db_bak = backup_dir / "database.db.bak"
     db_path = _sqlite_db_path()
     upload_root = _upload_root()

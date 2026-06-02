@@ -228,32 +228,34 @@ def migration_history(
 def rollback_migration(
     migration_id: int,
     admin_password: str = Form(...),
-    db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     _verify_admin_password(admin, admin_password)
 
-    history = db.query(MigrationHistory).filter(MigrationHistory.id == migration_id).first()
-    if not history:
-        raise HTTPException(status_code=404, detail="Migration run not found")
-    if history.action != "import" or history.status != "completed":
-        raise HTTPException(status_code=400, detail="Only completed imports can be rolled back")
-    if not history.backup_path:
-        raise HTTPException(status_code=400, detail="No backup available for rollback")
+    db = SessionLocal()
+    try:
+        history = db.query(MigrationHistory).filter(MigrationHistory.id == migration_id).first()
+        if not history:
+            raise HTTPException(status_code=404, detail="Migration run not found")
+        if history.action != "import" or history.status != "completed":
+            raise HTTPException(status_code=400, detail="Only completed imports can be rolled back")
+        if not history.backup_path:
+            raise HTTPException(status_code=400, detail="No backup available for rollback")
 
-    history_id = history.id
-    history_backup_path = history.backup_path
-    bundle_name = history.bundle_name
-    manifest_version = history.manifest_version
-    admin_username = admin.username
+        history_id = history.id
+        history_backup_path = history.backup_path
+        bundle_name = history.bundle_name
+        manifest_version = history.manifest_version
+    finally:
+        db.close()
 
     try:
-        result = rollback_from_backup(history)
+        result = rollback_from_backup(history_backup_path)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     verification = result.get("verification", {})
-    db.close()
+    admin_username = admin.username
 
     db = SessionLocal()
     try:
@@ -271,6 +273,7 @@ def rollback_migration(
             completed_at=datetime.utcnow(),
         )
         db.add(rollback_row)
+        db.flush()
         log_action(
             db,
             admin_username,
