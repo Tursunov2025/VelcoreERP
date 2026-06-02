@@ -64,6 +64,10 @@ def replace_sqlite_database(db_path: Path, source_path: Path) -> None:
     for attempt in range(15):
         try:
             os.replace(tmp_path, db_path)
+            for suffix in ("-wal", "-shm"):
+                sidecar = Path(f"{db_path}{suffix}")
+                if sidecar.exists():
+                    sidecar.unlink(missing_ok=True)
             return
         except OSError as exc:
             last_error = exc
