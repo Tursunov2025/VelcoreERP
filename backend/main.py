@@ -1,14 +1,16 @@
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 
-from database import Base, engine, run_migrations
+from database import Base, SessionLocal, engine, get_db, run_migrations
 from models import (
     Expense,
     Income,
@@ -24,25 +26,45 @@ from routers import (
     admin_router,
     analytics_router,
     auth_router,
+    branding_router,
     chat_router,
     finance_router,
+    llp_router,
     operators_router,
     orders_router,
     production_router,
     shipping_router,
     tasks_router,
     telegram_router,
-    branding_router,
-    llp_router,
     uploads_router,
     users_router,
     warehouse_router,
 )
-from services.seed import seed_defaults
+from routers.auth_router import login as jwt_login
+from routers.uploads_router import UPLOAD_DIR as _UPLOAD_DIR
+from schemas import LoginRequest
 from services.scheduler import start_reminder_scheduler, stop_reminder_scheduler
-from database import SessionLocal
+from services.seed import seed_defaults
 
-app = FastAPI(title="Azmus CRM ERP API", version="2.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db = SessionLocal()
+    try:
+        seed_defaults(db)
+    finally:
+        db.close()
+    try:
+        start_reminder_scheduler()
+    except Exception:
+        import logging
+
+        logging.getLogger("azmus.main").exception("reminder scheduler failed to start")
+    yield
+    stop_reminder_scheduler()
+
+
+app = FastAPI(title="Azmus CRM ERP API", version="2.0.0", lifespan=lifespan)
 
 Base.metadata.create_all(bind=engine)
 run_migrations()
@@ -62,8 +84,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-
-from routers.uploads_router import UPLOAD_DIR as _UPLOAD_DIR
 
 upload_path = os.getenv("UPLOAD_DIR", str(_UPLOAD_DIR))
 os.makedirs(upload_path, exist_ok=True)
@@ -94,30 +114,7 @@ def health_check():
     return {"status": "ok", "service": "azmus-crm-erp", "version": "2.0.0"}
 
 
-@app.on_event("startup")
-def startup():
-    db = SessionLocal()
-    try:
-        seed_defaults(db)
-    finally:
-        db.close()
-    start_reminder_scheduler()
-
-
-@app.on_event("shutdown")
-def shutdown():
-    stop_reminder_scheduler()
-
-
 # Legacy compatibility for older frontends
-from fastapi import Depends
-from sqlalchemy.orm import Session
-
-from database import get_db
-from schemas import LoginRequest
-from routers.auth_router import login as jwt_login
-
-
 @app.post("/login")
 def legacy_login(data: LoginRequest, db: Session = Depends(get_db)):
     return jwt_login(data, db)
