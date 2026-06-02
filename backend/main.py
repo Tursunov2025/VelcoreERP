@@ -30,6 +30,9 @@ from routers import (
     chat_router,
     finance_router,
     llp_router,
+    mes_jobs_router,
+    mes_lazer_terminal_router,
+    mes_router,
     migration_router,
     operators_router,
     orders_router,
@@ -61,6 +64,11 @@ async def lifespan(app: FastAPI):
     else:
         startup_log.info("JWT auth configured")
 
+    # Run schema setup here (not at import time) so uvicorn --reload workers
+    # do not fight over SQLite write locks while the previous worker shuts down.
+    Base.metadata.create_all(bind=engine)
+    run_migrations()
+
     db = SessionLocal()
     try:
         seed_defaults(db)
@@ -74,12 +82,10 @@ async def lifespan(app: FastAPI):
         logging.getLogger("azmus.main").exception("reminder scheduler failed to start")
     yield
     stop_reminder_scheduler()
+    engine.dispose()
 
 
 app = FastAPI(title="Azmus CRM ERP API", version="2.0.0", lifespan=lifespan)
-
-Base.metadata.create_all(bind=engine)
-run_migrations()
 
 _cors_origins_env = os.getenv("CORS_ORIGINS", "*").strip()
 _cors_origins = (
@@ -115,6 +121,9 @@ app.include_router(tasks_router.router)
 app.include_router(telegram_router.router)
 app.include_router(branding_router.router)
 app.include_router(llp_router.router)
+app.include_router(mes_router.router)
+app.include_router(mes_jobs_router.router)
+app.include_router(mes_lazer_terminal_router.router)
 app.include_router(migration_router.router)
 app.include_router(admin_router.router)
 
