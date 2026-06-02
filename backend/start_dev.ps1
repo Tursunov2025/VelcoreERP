@@ -18,15 +18,15 @@ if (-not $env:JWT_SECRET_KEY) {
 }
 
 $uvicornArgs = @(
-    "main:app",
-    "--reload",
-    "--host", "127.0.0.1",
-    "--port", "8000",
-    "--reload-exclude", "azmus_new.db*",
-    "--reload-exclude", "*.db",
-    "--reload-exclude", "*.db-wal",
-    "--reload-exclude", "*.db-shm",
-    "--reload-exclude", "__pycache__"
+    'main:app',
+    '--reload',
+    '--host', '127.0.0.1',
+    '--port', '8000',
+    '--reload-exclude', 'azmus_new.db*',
+    '--reload-exclude', '*.db',
+    '--reload-exclude', '*.db-wal',
+    '--reload-exclude', '*.db-shm',
+    '--reload-exclude', '__pycache__'
 )
 
 uvicorn @uvicornArgs
