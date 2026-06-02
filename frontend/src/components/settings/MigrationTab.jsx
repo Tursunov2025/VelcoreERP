@@ -13,6 +13,27 @@ const DEFAULT_OPTIONS = {
   label: "local",
 };
 
+function ExportReport({ report }) {
+  if (!report) return null;
+  return (
+    <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm">
+      <h4 className="mb-2 font-bold">Eksport hisoboti</h4>
+      <ul className="grid gap-1 sm:grid-cols-2">
+        <li>Baza hajmi: {report.database_size_kb} KB</li>
+        <li>Jadvallar: {report.table_count}</li>
+        <li>Vazifalar: {report.tasks_count}</li>
+        <li>LLP hujjatlar (DB): {report.llp_documents_count}</li>
+        <li>LLP fayllar: {report.llp_files_count}</li>
+        <li>Branding fayllar: {report.branding_files_count}</li>
+        <li>Branding sozlamalar: {report.brand_settings_count}</li>
+        <li>Telegram sozlamalar: {report.telegram_settings_count}</li>
+      </ul>
+      <p className="mt-2 text-xs text-gray-600 break-all">Baza: {report.database_path}</p>
+      <p className="text-xs text-gray-600 break-all">Uploads: {report.upload_root}</p>
+    </div>
+  );
+}
+
 function PreviewTable({ preview }) {
   if (!preview) return null;
   const rows = [
@@ -88,6 +109,7 @@ function VerificationSummary({ verification }) {
 export default function MigrationTab() {
   const [options, setOptions] = useState(DEFAULT_OPTIONS);
   const [toast, setToast] = useState("");
+  const [exportReport, setExportReport] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -120,14 +142,16 @@ export default function MigrationTab() {
 
   const handleExport = async () => {
     setExporting(true);
+    setExportReport(null);
     try {
-      const blob = await api.adminMigrationExport(options);
+      const { blob, exportReport: report } = await api.adminMigrationExport(options);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.download = `velcore_migration_${Date.now()}.zip`;
       link.click();
       URL.revokeObjectURL(url);
+      setExportReport(report);
       setToast("Migratsiya ZIP yuklab olindi");
       loadHistory();
     } catch (e) {
@@ -255,6 +279,7 @@ export default function MigrationTab() {
         >
           {exporting ? "Eksport..." : "ZIP eksport"}
         </button>
+        {exportReport && <ExportReport report={exportReport} />}
       </div>
 
       <div className="mb-8 space-y-4 rounded-2xl border bg-white p-6">

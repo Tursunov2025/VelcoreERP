@@ -462,7 +462,17 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || res.statusText || "Export failed");
     }
-    return res.blob();
+    const reportHeader = res.headers.get("X-Migration-Export-Report");
+    let exportReport = null;
+    if (reportHeader) {
+      try {
+        exportReport = JSON.parse(reportHeader);
+      } catch {
+        exportReport = null;
+      }
+    }
+    const blob = await res.blob();
+    return { blob, exportReport };
   },
 
   adminMigrationPreview: async (file) => {

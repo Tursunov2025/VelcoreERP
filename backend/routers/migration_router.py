@@ -81,13 +81,20 @@ def export_migration(
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    export_report = manifest.get("export_report", {})
     history = MigrationHistory(
         username=admin.username,
         action="export",
         status="completed",
         bundle_name=export_filename(),
         manifest_version=MANIFEST_VERSION,
-        summary_json=json.dumps({"counts": manifest.get("counts", {}), "options": options}),
+        summary_json=json.dumps(
+            {
+                "counts": manifest.get("counts", {}),
+                "options": options,
+                "export_report": export_report,
+            }
+        ),
         source_env=body.label or "",
         completed_at=datetime.utcnow(),
     )
@@ -97,7 +104,7 @@ def export_migration(
         admin.username,
         "export",
         "migration",
-        details=json.dumps({"counts": manifest.get("counts", {})}),
+        details=json.dumps({"export_report": export_report}),
     )
     db.commit()
 
@@ -105,7 +112,7 @@ def export_migration(
         path=str(zip_path),
         media_type="application/zip",
         filename=history.bundle_name,
-        background=None,
+        headers={"X-Migration-Export-Report": json.dumps(export_report)},
     )
 
 

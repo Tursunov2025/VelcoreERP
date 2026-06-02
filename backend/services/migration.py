@@ -14,10 +14,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from constants import NOTIFICATION_EVENTS
-from database import DATABASE_URL
+from database import engine
 from models import MigrationHistory
 from routers.uploads_router import UPLOAD_DIR
 from services.branding import BRANDING_DB_PREFIX
@@ -25,6 +26,7 @@ from services.settings_store import TELEGRAM_KEYS
 
 logger = logging.getLogger("azmus.migration")
 
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_VERSION = 1
 BACKUP_RETENTION = 20
 MAX_ZIP_MB = int(os.getenv("MIGRATION_MAX_ZIP_MB", "50"))
@@ -36,17 +38,35 @@ UPLOADS_PREFIX = "uploads/"
 
 
 def _sqlite_db_path() -> Path:
-    if not DATABASE_URL.startswith("sqlite"):
-        raise ValueError("Migration only supports SQLite databases")
-    raw = DATABASE_URL.replace("sqlite:///", "").replace("sqlite://", "")
-    path = Path(raw)
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
+    """Resolve the SQLite file the running app actually uses (not cwd-relative)."""
+    with engine.connect() as conn:
+        rows = conn.execute(sql_text("PRAGMA database_list")).fetchall()
+    for row in rows:
+        # (seq, name, file)
+        if len(row) >= 3 and row[1] == "main" and row[2]:
+            return Path(str(row[2])).resolve()
+    raise FileNotFoundError("Could not resolve SQLite database path from engine")
 
 
 def _upload_root() -> Path:
-    return Path(UPLOAD_DIR).resolve()
+    root = Path(UPLOAD_DIR)
+    if not root.is_absolute():
+        root = (_BACKEND_ROOT / root).resolve()
+    return root.resolve()
+
+
+def _table_count(db_path: Path) -> int:
+    if not db_path.is_file():
+        return 0
+    conn = sqlite3.connect(str(db_path))
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+        ).fetchone()[0]
+    except sqlite3.Error:
+        return 0
+    finally:
+        conn.close()
 
 
 def _count_from_db(db_path: Path) -> dict[str, int]:
@@ -71,15 +91,15 @@ def _count_from_db(db_path: Path) -> dict[str, int]:
             except sqlite3.Error:
                 return 0
 
-        def settings_in(keys: set[str]) -> int:
+        def settings_in(keys: set[str], *, non_empty: bool = False) -> int:
             if not keys:
                 return 0
             placeholders = ",".join("?" for _ in keys)
+            sql = f"SELECT COUNT(*) FROM system_settings WHERE key IN ({placeholders})"
+            if non_empty:
+                sql += " AND value IS NOT NULL AND TRIM(value) != ''"
             try:
-                return cur.execute(
-                    f"SELECT COUNT(*) FROM system_settings WHERE key IN ({placeholders})",
-                    tuple(keys),
-                ).fetchone()[0]
+                return cur.execute(sql, tuple(keys)).fetchone()[0]
             except sqlite3.Error:
                 return 0
 
@@ -91,25 +111,11 @@ def _count_from_db(db_path: Path) -> dict[str, int]:
             "permissions": count("user_permissions"),
             "documents": count("documents"),
             "brand_settings": settings_like(f"{BRANDING_DB_PREFIX}%"),
-            "telegram_settings": settings_in(TELEGRAM_KEYS),
-            "notification_settings": settings_in(notify_keys),
+            "telegram_settings": settings_in(TELEGRAM_KEYS, non_empty=True),
+            "notification_settings": settings_in(notify_keys, non_empty=True),
         }
     finally:
         conn.close()
-
-
-def _collect_upload_paths(
-    upload_root: Path,
-    *,
-    include_llp: bool,
-    include_branding: bool,
-) -> list[Path]:
-    paths: list[Path] = []
-    if include_llp and (upload_root / "llp").is_dir():
-        paths.extend(p for p in (upload_root / "llp").iterdir() if p.is_file())
-    if include_branding and (upload_root / "branding").is_dir():
-        paths.extend(p for p in (upload_root / "branding").iterdir() if p.is_file())
-    return paths
 
 
 def _url_to_local_path(url: str, upload_root: Path) -> Optional[Path]:
@@ -117,6 +123,90 @@ def _url_to_local_path(url: str, upload_root: Path) -> Optional[Path]:
         return None
     rel = url[len("/uploads/") :]
     return upload_root / rel.replace("/", os.sep)
+
+
+def _collect_db_referenced_files(db_path: Path, upload_root: Path) -> list[Path]:
+    """Collect upload files referenced by DB rows (documents, tasks, branding URLs)."""
+    found: dict[str, Path] = {}
+    if not db_path.is_file():
+        return []
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cur = conn.cursor()
+        queries = [
+            "SELECT url FROM documents WHERE url IS NOT NULL AND url != ''",
+            "SELECT url FROM task_attachments WHERE url IS NOT NULL AND url != ''",
+            "SELECT value FROM system_settings WHERE value LIKE '/uploads/%'",
+        ]
+        for query in queries:
+            try:
+                for (url,) in cur.execute(query):
+                    local = _url_to_local_path(str(url), upload_root)
+                    if local and local.is_file():
+                        found[str(local.resolve())] = local
+            except sqlite3.Error:
+                pass
+    finally:
+        conn.close()
+    return list(found.values())
+
+
+def _collect_upload_paths(
+    db_path: Path,
+    upload_root: Path,
+    *,
+    include_llp: bool,
+    include_branding: bool,
+) -> list[Path]:
+    """Directory scan + DB-referenced files for LLP/branding."""
+    paths: dict[str, Path] = {}
+
+    if include_llp and (upload_root / "llp").is_dir():
+        for p in (upload_root / "llp").iterdir():
+            if p.is_file():
+                paths[str(p.resolve())] = p
+
+    if include_branding and (upload_root / "branding").is_dir():
+        for p in (upload_root / "branding").iterdir():
+            if p.is_file():
+                paths[str(p.resolve())] = p
+
+    for p in _collect_db_referenced_files(db_path, upload_root):
+        try:
+            rel_parts = p.relative_to(upload_root).parts
+            if include_llp and rel_parts and rel_parts[0] == "llp":
+                paths[str(p.resolve())] = p
+            if include_branding and rel_parts and rel_parts[0] == "branding":
+                paths[str(p.resolve())] = p
+        except ValueError:
+            pass
+
+    return list(paths.values())
+
+
+def build_export_report(db_path: Path, upload_root: Path, upload_files: list[Path]) -> dict[str, Any]:
+    counts = _count_from_db(db_path)
+    llp_files = len([p for p in upload_files if "llp" in p.parts])
+    branding_files = len([p for p in upload_files if "branding" in p.parts])
+    db_size = db_path.stat().st_size if db_path.is_file() else 0
+
+    return {
+        "database_path": str(db_path),
+        "database_size_bytes": db_size,
+        "database_size_kb": round(db_size / 1024, 1),
+        "table_count": _table_count(db_path),
+        "upload_root": str(upload_root),
+        "tasks_count": counts.get("tasks", 0),
+        "permissions_count": counts.get("permissions", 0),
+        "llp_documents_count": counts.get("documents", 0),
+        "llp_files_count": llp_files,
+        "branding_files_count": branding_files,
+        "brand_settings_count": counts.get("brand_settings", 0),
+        "telegram_settings_count": counts.get("telegram_settings", 0),
+        "notification_settings_count": counts.get("notification_settings", 0),
+        "includes_database": db_path.is_file(),
+    }
 
 
 def verify_data_integrity(db_path: Path, upload_root: Path) -> dict[str, Any]:
@@ -190,7 +280,7 @@ def build_export_bundle(options: dict, label: str = "") -> tuple[Path, dict]:
     """Create ZIP on disk; returns path and manifest summary."""
     db_path = _sqlite_db_path()
     if not db_path.is_file():
-        raise FileNotFoundError("Database file not found")
+        raise FileNotFoundError(f"Database file not found: {db_path}")
 
     upload_root = _upload_root()
     include_db = options.get("include_database", True)
@@ -199,14 +289,19 @@ def build_export_bundle(options: dict, label: str = "") -> tuple[Path, dict]:
 
     counts = _count_from_db(db_path)
     upload_files = _collect_upload_paths(
-        upload_root, include_llp=include_llp, include_branding=include_branding
+        db_path,
+        upload_root,
+        include_llp=include_llp,
+        include_branding=include_branding,
     )
+    export_report = build_export_report(db_path, upload_root, upload_files)
 
     manifest = {
         "version": MANIFEST_VERSION,
         "exported_at": datetime.utcnow().isoformat() + "Z",
         "label": label or "export",
         "options": options,
+        "export_report": export_report,
         "counts": {
             **counts,
             "llp_files": len([p for p in upload_files if "llp" in p.parts]),
@@ -233,6 +328,7 @@ def build_export_bundle(options: dict, label: str = "") -> tuple[Path, dict]:
         zip_path.unlink(missing_ok=True)
         raise ValueError(f"Export exceeds {MAX_ZIP_MB} MB limit ({size_mb:.1f} MB)")
 
+    manifest["zip_size_bytes"] = zip_path.stat().st_size
     return zip_path, manifest
 
 
@@ -257,13 +353,16 @@ def preview_import_bundle(content: bytes) -> dict[str, Any]:
         incoming = manifest.get("counts", {})
         file_list = zf.namelist()
         has_db = DB_ARCHIVE_NAME in file_list
+        db_info = zf.getinfo(DB_ARCHIVE_NAME) if has_db else None
 
     return {
         "manifest_version": manifest.get("version"),
         "exported_at": manifest.get("exported_at"),
         "label": manifest.get("label", ""),
         "options": manifest.get("options", {}),
+        "export_report": manifest.get("export_report", {}),
         "full_database_replace": has_db,
+        "database_in_zip_bytes": db_info.file_size if db_info else 0,
         "incoming": {
             "tasks": incoming.get("tasks", 0),
             "permissions": incoming.get("permissions", 0),

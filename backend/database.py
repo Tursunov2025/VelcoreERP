@@ -1,9 +1,13 @@
 import os
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./azmus_new.db")
+_BACKEND_DIR = Path(__file__).resolve().parent
+_DEFAULT_DB = (_BACKEND_DIR / "azmus_new.db").as_posix()
+
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{_DEFAULT_DB}")
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 

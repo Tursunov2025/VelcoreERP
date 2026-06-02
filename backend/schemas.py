@@ -383,7 +383,9 @@ class MigrationPreviewResponse(BaseModel):
     exported_at: Optional[str] = None
     label: str = ""
     options: dict = {}
+    export_report: dict = {}
     full_database_replace: bool = False
+    database_in_zip_bytes: int = 0
     incoming: dict = {}
     current: dict = {}
     bundle_files: int = 0
