@@ -18,7 +18,7 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from constants import NOTIFICATION_EVENTS
-from database import engine
+from database import engine, replace_sqlite_database
 from models import MigrationHistory
 from routers.uploads_router import UPLOAD_DIR
 from services.branding import BRANDING_DB_PREFIX
@@ -55,10 +55,15 @@ def _upload_root() -> Path:
     return root.resolve()
 
 
+def _sqlite_connect(db_path: Path) -> sqlite3.Connection:
+    timeout = int(os.getenv("SQLITE_TIMEOUT_SECONDS", "30"))
+    return sqlite3.connect(str(db_path), timeout=timeout)
+
+
 def _table_count(db_path: Path) -> int:
     if not db_path.is_file():
         return 0
-    conn = sqlite3.connect(str(db_path))
+    conn = _sqlite_connect(db_path)
     try:
         return conn.execute(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
@@ -72,7 +77,7 @@ def _table_count(db_path: Path) -> int:
 def _count_from_db(db_path: Path) -> dict[str, int]:
     if not db_path.is_file():
         return {}
-    conn = sqlite3.connect(str(db_path))
+    conn = _sqlite_connect(db_path)
     try:
         cur = conn.cursor()
 
@@ -131,7 +136,7 @@ def _collect_db_referenced_files(db_path: Path, upload_root: Path) -> list[Path]
     if not db_path.is_file():
         return []
 
-    conn = sqlite3.connect(str(db_path))
+    conn = _sqlite_connect(db_path)
     try:
         cur = conn.cursor()
         queries = [
@@ -221,7 +226,7 @@ def verify_data_integrity(db_path: Path, upload_root: Path) -> dict[str, Any]:
 
     missing_files: list[str] = []
     if db_path.is_file():
-        conn = sqlite3.connect(str(db_path))
+        conn = _sqlite_connect(db_path)
         try:
             cur = conn.cursor()
             try:
@@ -429,7 +434,7 @@ def _extract_and_import(content: bytes, backup_dir: Path) -> dict:
 
     incoming_db = extract_root / DB_ARCHIVE_NAME
     if incoming_db.is_file():
-        shutil.copy2(incoming_db, db_path)
+        replace_sqlite_database(db_path, incoming_db)
 
     incoming_uploads = extract_root / "uploads"
     if incoming_uploads.is_dir():
@@ -459,7 +464,7 @@ def rollback_from_backup(history: MigrationHistory) -> dict[str, Any]:
     upload_root = _upload_root()
 
     if db_bak.is_file():
-        shutil.copy2(db_bak, db_path)
+        replace_sqlite_database(db_path, db_bak)
 
     uploads_bak = backup_dir / "uploads"
     if uploads_bak.is_dir():

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from auth.deps import require_admin
 from auth.security import verify_password
-from database import get_db
+from database import SessionLocal, get_db
 from models import MigrationHistory, User
 from schemas import (
     MigrationExportRequest,
@@ -134,7 +134,6 @@ async def import_migration(
     file: UploadFile = File(...),
     admin_password: str = Form(...),
     confirm: str = Form(...),
-    db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     if confirm.lower() not in ("true", "1", "yes"):
@@ -151,31 +150,36 @@ async def import_migration(
     if not preview.get("full_database_replace"):
         raise HTTPException(status_code=400, detail="Bundle must contain database.db")
 
-    history = MigrationHistory(
-        username=admin.username,
-        action="import",
-        status="pending",
-        bundle_name=file.filename or "import.zip",
-        manifest_version=preview.get("manifest_version") or MANIFEST_VERSION,
-        source_env=preview.get("label") or "",
-    )
-    db.add(history)
-    db.flush()
+    backup_run_id = int(datetime.utcnow().timestamp())
+    backup_dir = create_pre_import_backup(backup_run_id)
 
     try:
-        backup_dir = create_pre_import_backup(history.id)
-        history.backup_path = str(backup_dir.resolve())
         result = _extract_and_import(content, backup_dir)
         verification = result["verification"]
-        history.status = "completed"
-        history.completed_at = datetime.utcnow()
-        history.summary_json = json.dumps(
-            {
-                "preview": preview,
-                "verification": verification,
-                "restart_required": True,
-            }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Import failed: {exc}") from exc
+
+    db = SessionLocal()
+    try:
+        history = MigrationHistory(
+            username=admin.username,
+            action="import",
+            status="completed",
+            bundle_name=file.filename or "import.zip",
+            manifest_version=preview.get("manifest_version") or MANIFEST_VERSION,
+            source_env=preview.get("label") or "",
+            backup_path=str(backup_dir.resolve()),
+            completed_at=datetime.utcnow(),
+            summary_json=json.dumps(
+                {
+                    "preview": preview,
+                    "verification": verification,
+                    "restart_required": True,
+                }
+            ),
         )
+        db.add(history)
+        db.flush()
         prune_old_backups(db)
         log_action(
             db,
@@ -186,16 +190,17 @@ async def import_migration(
             details=json.dumps({"verification": verification}),
         )
         db.commit()
+        db.refresh(history)
+        migration_id = history.id
     except Exception as exc:
-        history.status = "failed"
-        history.completed_at = datetime.utcnow()
-        history.summary_json = json.dumps({"error": str(exc)})
-        db.commit()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Import failed: {exc}") from exc
+    finally:
+        db.close()
 
     return MigrationImportResponse(
         success=True,
-        migration_id=history.id,
+        migration_id=migration_id,
         restart_required=True,
         message="Import muvaffaqiyatli. API ni qayta ishga tushiring.",
         verification=verification,
@@ -236,37 +241,53 @@ def rollback_migration(
     if not history.backup_path:
         raise HTTPException(status_code=400, detail="No backup available for rollback")
 
+    history_id = history.id
+    history_backup_path = history.backup_path
+    bundle_name = history.bundle_name
+    manifest_version = history.manifest_version
+    admin_username = admin.username
+
     try:
         result = rollback_from_backup(history)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    history.status = "rolled_back"
-    rollback_row = MigrationHistory(
-        username=admin.username,
-        action="rollback",
-        status="completed",
-        bundle_name=history.bundle_name,
-        manifest_version=history.manifest_version,
-        backup_path=history.backup_path,
-        summary_json=json.dumps(result),
-        completed_at=datetime.utcnow(),
-    )
-    db.add(rollback_row)
-    log_action(
-        db,
-        admin.username,
-        "rollback",
-        "migration",
-        entity_id=migration_id,
-        details=json.dumps(result.get("verification", {})),
-    )
-    db.commit()
-
     verification = result.get("verification", {})
+    db.close()
+
+    db = SessionLocal()
+    try:
+        restored = db.query(MigrationHistory).filter(MigrationHistory.id == history_id).first()
+        if restored:
+            restored.status = "rolled_back"
+        rollback_row = MigrationHistory(
+            username=admin_username,
+            action="rollback",
+            status="completed",
+            bundle_name=bundle_name,
+            manifest_version=manifest_version,
+            backup_path=history_backup_path,
+            summary_json=json.dumps(result),
+            completed_at=datetime.utcnow(),
+        )
+        db.add(rollback_row)
+        log_action(
+            db,
+            admin_username,
+            "rollback",
+            "migration",
+            entity_id=history_id,
+            details=json.dumps(verification),
+        )
+        db.commit()
+        db.refresh(rollback_row)
+        rollback_id = rollback_row.id
+    finally:
+        db.close()
+
     return MigrationImportResponse(
         success=True,
-        migration_id=rollback_row.id,
+        migration_id=rollback_id,
         restart_required=True,
         message="Rollback bajarildi. API ni qayta ishga tushiring.",
         verification=verification,

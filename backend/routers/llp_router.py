@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 
 from auth.deps import get_current_user
 from database import get_db
@@ -192,7 +192,7 @@ def list_documents(
     _require(db, user, "llp_view")
     query = (
         db.query(Document)
-        .options(joinedload(Document.folder), joinedload(Document.read_statuses))
+        .options(selectinload(Document.folder), selectinload(Document.read_statuses))
         .order_by(Document.is_important.desc(), Document.created_at.desc())
     )
     if folder_id is not None:
@@ -260,7 +260,7 @@ async def upload_document(
     db.commit()
     doc = (
         db.query(Document)
-        .options(joinedload(Document.folder), joinedload(Document.read_statuses))
+        .options(selectinload(Document.folder), selectinload(Document.read_statuses))
         .filter(Document.id == doc.id)
         .first()
     )
@@ -281,7 +281,7 @@ def update_document(
     _require(db, user, "llp_edit")
     doc = (
         db.query(Document)
-        .options(joinedload(Document.folder), joinedload(Document.read_statuses))
+        .options(selectinload(Document.folder), selectinload(Document.read_statuses))
         .filter(Document.id == document_id)
         .first()
     )
@@ -339,7 +339,7 @@ def mark_document_read(
     _require(db, user, "llp_read_confirm")
     doc = (
         db.query(Document)
-        .options(joinedload(Document.read_statuses))
+        .options(selectinload(Document.read_statuses))
         .filter(Document.id == document_id)
         .first()
     )
@@ -366,7 +366,7 @@ def mark_document_read(
     db.commit()
     doc = (
         db.query(Document)
-        .options(joinedload(Document.folder), joinedload(Document.read_statuses))
+        .options(selectinload(Document.folder), selectinload(Document.read_statuses))
         .filter(Document.id == document_id)
         .first()
     )

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from models import OperatorActivity, Order, User
 
 ONLINE_THRESHOLD_MINUTES = 5
+ACTIVITY_TOUCH_SECONDS = 60
 
 
 def touch_activity(db: Session, user: User):
@@ -13,6 +14,14 @@ def touch_activity(db: Session, user: User):
         .filter(OperatorActivity.user_id == user.id)
         .first()
     )
+    now = datetime.utcnow()
+    if (
+        activity
+        and activity.last_activity
+        and (now - activity.last_activity).total_seconds() < ACTIVITY_TOUCH_SECONDS
+    ):
+        return
+
     active_count = (
         db.query(Order)
         .filter(

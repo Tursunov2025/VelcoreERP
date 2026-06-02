@@ -43,6 +43,7 @@ export default function LlpPage() {
   const [documents, setDocuments] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
@@ -56,6 +57,11 @@ export default function LlpPage() {
   });
   const [editDoc, setEditDoc] = useState(null);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const load = useCallback(async () => {
     if (!canView) return;
     setError("");
@@ -64,7 +70,7 @@ export default function LlpPage() {
         api.llpGetFolders(),
         api.llpGetDocuments({
           folder_id: selectedFolder ?? "",
-          q: search,
+          q: debouncedSearch,
         }),
       ]);
       setFolders(f.folders || []);
@@ -74,7 +80,7 @@ export default function LlpPage() {
     } finally {
       setLoading(false);
     }
-  }, [canView, selectedFolder, search]);
+  }, [canView, selectedFolder, debouncedSearch]);
 
   useEffect(() => {
     setLoading(true);

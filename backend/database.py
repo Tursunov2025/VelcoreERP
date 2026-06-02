@@ -1,7 +1,8 @@
 import os
+import shutil
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 _BACKEND_DIR = Path(__file__).resolve().parent
@@ -9,11 +10,70 @@ _DEFAULT_DB = (_BACKEND_DIR / "azmus_new.db").as_posix()
 
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{_DEFAULT_DB}")
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+_SQLITE_TIMEOUT = int(os.getenv("SQLITE_TIMEOUT_SECONDS", "30"))
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+connect_args: dict = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {
+        "check_same_thread": False,
+        "timeout": _SQLITE_TIMEOUT,
+    }
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+)
+
+
+@event.listens_for(engine, "connect")
+def _configure_sqlite(dbapi_connection, _connection_record):
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute(f"PRAGMA busy_timeout={_SQLITE_TIMEOUT * 1000}")
+    cursor.close()
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+def replace_sqlite_database(db_path: Path, source_path: Path) -> None:
+    """Replace the live SQLite file after closing all pooled ORM connections."""
+    if not DATABASE_URL.startswith("sqlite"):
+        raise RuntimeError("replace_sqlite_database is only supported for SQLite")
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Source database not found: {source_path}")
+
+    import time
+
+    db_path = Path(db_path).resolve()
+    source_path = Path(source_path).resolve()
+    engine.dispose()
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = db_path.with_suffix(f"{db_path.suffix}.incoming")
+    if tmp_path.exists():
+        tmp_path.unlink(missing_ok=True)
+    shutil.copy2(source_path, tmp_path)
+
+    last_error: OSError | None = None
+    for attempt in range(15):
+        try:
+            os.replace(tmp_path, db_path)
+            return
+        except OSError as exc:
+            last_error = exc
+            if attempt == 14:
+                break
+            time.sleep(0.2 * (attempt + 1))
+
+    if tmp_path.exists():
+        tmp_path.unlink(missing_ok=True)
+    raise last_error or OSError(f"Could not replace SQLite database at {db_path}")
 
 
 def get_db():
