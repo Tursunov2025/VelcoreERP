@@ -45,10 +45,21 @@ from routers.uploads_router import UPLOAD_DIR as _UPLOAD_DIR
 from schemas import LoginRequest
 from services.scheduler import start_reminder_scheduler, stop_reminder_scheduler
 from services.seed import seed_defaults
+from auth.security import is_auth_configured
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import logging
+
+    startup_log = logging.getLogger("azmus.main")
+    if not is_auth_configured():
+        startup_log.error(
+            "JWT_SECRET_KEY is missing. Configure it in Render → Environment to enable login."
+        )
+    else:
+        startup_log.info("JWT auth configured")
+
     db = SessionLocal()
     try:
         seed_defaults(db)
@@ -111,7 +122,12 @@ app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "service": "azmus-crm-erp", "version": "2.0.0"}
+    return {
+        "status": "ok",
+        "service": "azmus-crm-erp",
+        "version": "2.0.0",
+        "auth_configured": is_auth_configured(),
+    }
 
 
 # Legacy compatibility for older frontends

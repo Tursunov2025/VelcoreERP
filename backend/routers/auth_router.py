@@ -5,10 +5,12 @@ from auth.deps import get_current_user
 from services.activity import record_login
 from services.permissions import get_user_permissions
 from auth.security import (
+    AuthNotConfiguredError,
     create_access_token,
     create_refresh_token,
     decode_token,
     hash_password,
+    is_auth_configured,
     verify_password,
 )
 from database import get_db
@@ -43,13 +45,19 @@ def _authenticate_user(db: Session, username: str, password: str) -> User | None
 def _token_response(user: User) -> TokenResponse:
     dept = user.department or ("Admin" if user.role == "admin" else "Kesish")
     data = {"sub": user.username, "role": user.role, "department": dept}
-    return TokenResponse(
-        access_token=create_access_token(data),
-        refresh_token=create_refresh_token(data),
-        username=user.username,
-        role=user.role,
-        department=dept,
-    )
+    try:
+        return TokenResponse(
+            access_token=create_access_token(data),
+            refresh_token=create_refresh_token(data),
+            username=user.username,
+            role=user.role,
+            department=dept,
+        )
+    except AuthNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
 
 
 @router.post("/login", response_model=TokenResponse)
