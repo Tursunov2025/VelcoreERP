@@ -11,6 +11,7 @@ const TABS = [
   { id: "chat", label: "Chat", icon: "💬" },
   { id: "system", label: "Tizim", icon: "⚙️" },
   { id: "audit", label: "Audit", icon: "📜" },
+  { id: "migration", label: "Migratsiya", icon: "🔄" },
   { id: "backup", label: "Backup", icon: "💾" },
 ];
 

@@ -240,6 +240,22 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=utcnow)
 
 
+class MigrationHistory(Base):
+    __tablename__ = "migration_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False)  # export | import | rollback
+    status = Column(String, default="pending")  # pending | completed | failed | rolled_back
+    bundle_name = Column(String, default="")
+    manifest_version = Column(Integer, default=1)
+    summary_json = Column(Text, default="{}")
+    backup_path = Column(String, default="")
+    source_env = Column(String, default="")
+    created_at = Column(DateTime, default=utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+
 class Material(Base):
     __tablename__ = "materials"
 

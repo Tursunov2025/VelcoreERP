@@ -14,6 +14,7 @@ import SystemTab from "../components/settings/SystemTab";
 import OnlineTab from "../components/settings/OnlineTab";
 import AuditTab from "../components/settings/AuditTab";
 import BackupTab from "../components/settings/BackupTab";
+import MigrationTab from "../components/settings/MigrationTab";
 import ShipmentsArchiveTab from "../components/settings/ShipmentsArchiveTab";
 import ChatSettingsTab from "../components/settings/ChatSettingsTab";
 
@@ -30,6 +31,7 @@ const TAB_CONTENT = {
   chat: ChatSettingsTab,
   system: SystemTab,
   audit: AuditTab,
+  migration: MigrationTab,
   backup: BackupTab,
 };
 

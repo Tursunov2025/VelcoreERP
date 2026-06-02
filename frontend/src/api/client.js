@@ -447,6 +447,48 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
+
+  adminMigrationExport: async (body) => {
+    const tokens = getStoredTokens();
+    const res = await fetch(`${API_BASE}/admin/migration/export`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokens?.access_token || ""}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || res.statusText || "Export failed");
+    }
+    return res.blob();
+  },
+
+  adminMigrationPreview: async (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request("/admin/migration/preview", { method: "POST", body: form });
+  },
+
+  adminMigrationImport: async (file, adminPassword) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("admin_password", adminPassword);
+    form.append("confirm", "true");
+    return request("/admin/migration/import", { method: "POST", body: form });
+  },
+
+  adminMigrationHistory: () => request("/admin/migration/history"),
+
+  adminMigrationRollback: async (migrationId, adminPassword) => {
+    const form = new FormData();
+    form.append("admin_password", adminPassword);
+    return request(`/admin/migration/rollback/${migrationId}`, {
+      method: "POST",
+      body: form,
+    });
+  },
 };
 
 export { API_BASE };

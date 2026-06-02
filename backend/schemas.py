@@ -365,3 +365,67 @@ class AuditLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class MigrationExportRequest(BaseModel):
+    include_database: bool = True
+    include_llp_files: bool = True
+    include_branding_files: bool = True
+    include_tasks: bool = True
+    include_permissions: bool = True
+    include_notification_settings: bool = True
+    include_telegram_settings: bool = True
+    label: str = ""
+
+
+class MigrationPreviewResponse(BaseModel):
+    manifest_version: Optional[int] = None
+    exported_at: Optional[str] = None
+    label: str = ""
+    options: dict = {}
+    full_database_replace: bool = False
+    incoming: dict = {}
+    current: dict = {}
+    bundle_files: int = 0
+    warnings: list[str] = []
+
+
+class MigrationVerificationReport(BaseModel):
+    tasks_count: int = 0
+    permissions_count: int = 0
+    llp_files_count: int = 0
+    branding_files_count: int = 0
+    documents_in_db: int = 0
+    missing_files_count: int = 0
+    missing_files: list[str] = []
+    brand_settings_count: int = 0
+    telegram_settings_count: int = 0
+    notification_settings_count: int = 0
+    ok: bool = True
+
+
+class MigrationImportResponse(BaseModel):
+    success: bool
+    migration_id: int
+    restart_required: bool = True
+    message: str = ""
+    verification: MigrationVerificationReport
+    preview: Optional[MigrationPreviewResponse] = None
+    backups_retained: int = 20
+
+
+class MigrationHistoryResponse(BaseModel):
+    id: int
+    username: str
+    action: str
+    status: str
+    bundle_name: str
+    manifest_version: int
+    summary_json: str = ""
+    backup_path: str = ""
+    source_env: str = ""
+    created_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
