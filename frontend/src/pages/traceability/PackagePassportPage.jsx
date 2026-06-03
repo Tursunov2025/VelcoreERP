@@ -22,6 +22,8 @@ export default function PackagePassportPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reprintBusy, setReprintBusy] = useState(false);
+  const [reprintMsg, setReprintMsg] = useState("");
 
   useEffect(() => {
     if (!labelCode) return;
@@ -131,6 +133,30 @@ export default function PackagePassportPage() {
             <p className="mt-3 text-xs text-[var(--brand-muted)]">
               {t("traceability.printed")}: {fmtDate(data.printed_at)} ({data.printer_name || "—"})
             </p>
+          ) : null}
+          <button
+            type="button"
+            disabled={reprintBusy}
+            onClick={async () => {
+              setReprintBusy(true);
+              setReprintMsg("");
+              try {
+                const job = await api.packageReprintLabel(data.label_code);
+                setReprintMsg(
+                  `${t("printing.reprintQueued")} (#${job.id}, ${job.status})`
+                );
+              } catch (e) {
+                setReprintMsg(e.message);
+              } finally {
+                setReprintBusy(false);
+              }
+            }}
+            className="mt-4 w-full rounded-2xl border-2 border-black px-4 py-3 text-sm font-bold disabled:opacity-50"
+          >
+            {reprintBusy ? t("common.saving") : t("printing.reprintLabel")}
+          </button>
+          {reprintMsg ? (
+            <p className="mt-2 text-xs font-semibold text-[var(--brand-muted)]">{reprintMsg}</p>
           ) : null}
         </Card>
       </div>

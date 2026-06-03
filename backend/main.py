@@ -63,6 +63,7 @@ from routers import (
     tasks_router,
     telegram_router,
     traceability_router,
+    printing_router,
     uploads_router,
     users_router,
     warehouse_router,
@@ -94,6 +95,18 @@ _REQUIRED_TRACEABILITY_PATHS = (
     "/admin/settings/label-printers",
 )
 
+_REQUIRED_PRINTING_PATHS = (
+    "/printing/jobs/pending",
+    "/printing/jobs/{job_id}/label.png",
+    "/printing/jobs/{job_id}/start",
+    "/printing/jobs/{job_id}/complete",
+    "/printing/jobs/{job_id}/failed",
+    "/printing/agent/heartbeat",
+    "/admin/printing/dashboard",
+    "/printing/jobs/{job_id}/retry",
+    "/packages/{label_code}/reprint",
+)
+
 
 def _app_paths(app: FastAPI) -> set[str]:
     return {getattr(route, "path", "") for route in app.routes if getattr(route, "path", None)}
@@ -107,6 +120,17 @@ def _verify_materials_routes(app: FastAPI) -> None:
             "materials_router not registered — missing paths: "
             + ", ".join(missing)
             + ". Ensure main.py includes: app.include_router(materials_router.router)"
+        )
+
+
+def _verify_printing_routes(app: FastAPI) -> None:
+    paths = _app_paths(app)
+    missing = [p for p in _REQUIRED_PRINTING_PATHS if p not in paths]
+    if missing:
+        raise RuntimeError(
+            "printing_router not registered — missing paths: "
+            + ", ".join(missing)
+            + ". Ensure main.py includes app.include_router(printing_router.router)"
         )
 
 
@@ -243,10 +267,13 @@ app.include_router(migration_router.router)
 app.include_router(mobile_router.router)
 app.include_router(traceability_router.router)
 app.include_router(traceability_router.public_router)
+app.include_router(printing_router.router)
+app.include_router(printing_router.admin_router)
 app.include_router(admin_router.router)
 
 _verify_materials_routes(app)
 _verify_traceability_routes(app)
+_verify_printing_routes(app)
 
 # Static file serving MUST be after upload API routes (POST /uploads/file).
 app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")

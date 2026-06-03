@@ -947,6 +947,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ printers }),
     }),
+  adminPrintingDashboard: () => request("/admin/printing/dashboard"),
+  packageReprintLabel: (labelCode) =>
+    request(`/packages/${encodeURIComponent(labelCode)}/reprint`, { method: "POST" }),
+  adminRetryPrintJob: (jobId) =>
+    request(`/printing/jobs/${jobId}/retry`, { method: "POST" }),
 
   adminMigrationRollback: async (migrationId, adminPassword) => {
     const form = new FormData();

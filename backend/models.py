@@ -935,6 +935,7 @@ class MesJobPackage(Base):
     location = relationship("MesWarehouseLocation")
     label = relationship("PackageLabel", back_populates="package", uselist=False)
     storage_location = relationship("PackageLocation", back_populates="package", uselist=False)
+    print_jobs = relationship("PrintJob", back_populates="package", cascade="all, delete-orphan")
 
 
 class PackageLabel(Base):
@@ -950,6 +951,30 @@ class PackageLabel(Base):
     created_at = Column(DateTime, default=utcnow)
 
     package = relationship("MesJobPackage", back_populates="label")
+
+
+class PrintJob(Base):
+    __tablename__ = "print_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    package_id = Column(Integer, ForeignKey("mes_job_packages.id"), index=True, nullable=False)
+    label_code = Column(String, index=True, nullable=False)
+    printer_name = Column(String, default="", index=True)
+    status = Column(String, default="pending", index=True)
+    created_at = Column(DateTime, default=utcnow)
+    printed_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, default="")
+
+    package = relationship("MesJobPackage", back_populates="print_jobs")
+
+
+class PrintAgentHeartbeat(Base):
+    __tablename__ = "print_agent_heartbeats"
+
+    printer_name = Column(String, primary_key=True)
+    last_seen_at = Column(DateTime, default=utcnow)
+    hostname = Column(String, default="")
+    agent_version = Column(String, default="")
 
 
 class PackageLocation(Base):

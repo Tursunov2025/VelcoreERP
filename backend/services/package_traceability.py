@@ -24,7 +24,7 @@ from models import (
     PackageLocation,
 )
 from services.audit import log_action
-from services.label_printer import print_package_label
+from services.print_jobs import queue_print_for_label
 
 LABEL_PREFIX = "PKG"
 LABEL_PATTERN = re.compile(r"^PKG-\d{8}-\d{5}$")
@@ -132,20 +132,18 @@ def create_label_for_package(
 
     if auto_print:
         try:
-            template = job.template if job else None
-            printer_name = print_package_label(
+            print_job = queue_print_for_label(db, label, pkg, username=username)
+            if print_job and print_job.status == "completed":
+                label.printed_at = print_job.printed_at
+                label.printer_name = print_job.printer_name
+            log_action(
                 db,
-                label,
-                package_meta={
-                    "product_name": template.name if template else "",
-                    "product_code": template.code if template else "",
-                    "net_weight_kg": pkg.net_weight_kg,
-                    "quantity": 1,
-                },
+                username,
+                "queue_print",
+                "print_job",
+                print_job.id if print_job else label.id,
+                label.label_code,
             )
-            if printer_name:
-                label.printed_at = datetime.utcnow()
-                label.printer_name = printer_name
         except Exception as exc:
             log_action(
                 db,

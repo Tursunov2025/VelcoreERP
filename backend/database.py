@@ -338,6 +338,24 @@ def run_migrations():
 
         "ALTER TABLE mes_dispatch_packages ADD COLUMN loaded_by VARCHAR",
 
+        """CREATE TABLE IF NOT EXISTS print_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            label_code VARCHAR NOT NULL,
+            printer_name VARCHAR DEFAULT '',
+            status VARCHAR DEFAULT 'pending',
+            created_at DATETIME,
+            printed_at DATETIME,
+            error_message TEXT DEFAULT ''
+        )""",
+
+        """CREATE TABLE IF NOT EXISTS print_agent_heartbeats (
+            printer_name VARCHAR PRIMARY KEY,
+            last_seen_at DATETIME,
+            hostname VARCHAR DEFAULT '',
+            agent_version VARCHAR DEFAULT ''
+        )""",
+
     ]
 
 
