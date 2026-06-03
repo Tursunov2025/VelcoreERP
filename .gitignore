@@ -1,0 +1,23 @@
+# Local databases and caches
+backend/*.db
+backend/*.db-wal
+backend/*.db-shm
+backend/backups/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Test artifacts
+backend/test_*.db
+
+# Frontend build and backups
+frontend/dist/
+frontend/backups/
+frontend/node_modules/
+
+# Deploy APK binaries (build locally)
+deploy/**/apk/*.apk
+
+# IDE
+.idea/
+.vscode/

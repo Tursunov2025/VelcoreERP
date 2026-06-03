@@ -198,6 +198,9 @@ export default function AppearanceTab() {
         <p className="text-sm text-gray-500">
           {t("appearance.systemDefaults")} — {t("notifications.themeChanged")}
         </p>
+        <p className="mt-2 text-sm text-[var(--brand-muted)]">
+          {t("controlCenter.appearanceMovedHint")}
+        </p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">

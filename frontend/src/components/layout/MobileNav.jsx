@@ -1,6 +1,13 @@
 import { NavLink } from "react-router-dom";
-import { ADMIN_NAV_ITEM, filterNavByPermissions, NAV_ITEMS } from "../../constants/workflow";
+import { CONTROL_CENTER_NAV_ITEM } from "../../constants/controlCenter";
+import {
+  ADMIN_NAV_ITEM,
+  filterNavByPermissions,
+  filterNavByVisibility,
+  NAV_ITEMS,
+} from "../../constants/workflow";
 import { useAuth } from "../../context/AuthContext";
+import { useUiConfig } from "../../hooks/useUiConfig";
 import { useBranding } from "../../context/BrandingContext";
 import { useLocale } from "../../context/LocaleContext";
 
@@ -8,11 +15,16 @@ export default function MobileNav() {
   const { isAdmin, permissions } = useAuth();
   const { navEmoji } = useBranding();
   const { t } = useLocale();
-  const baseItems = filterNavByPermissions(NAV_ITEMS, permissions, isAdmin);
-  const items =
-    isAdmin && permissions?.settings !== false
-      ? [...baseItems, ADMIN_NAV_ITEM]
-      : baseItems;
+  const { config } = useUiConfig();
+  let baseItems = filterNavByPermissions(NAV_ITEMS, permissions, isAdmin);
+  baseItems = filterNavByVisibility(baseItems, config?.nav_visibility, isAdmin);
+  const items = [];
+  if (isAdmin) {
+    items.push(...baseItems, CONTROL_CENTER_NAV_ITEM);
+    if (permissions?.settings !== false) items.push(ADMIN_NAV_ITEM);
+  } else {
+    items.push(...baseItems);
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 flex overflow-x-auto border-t border-gray-200 bg-[var(--brand-card)] px-1 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-lg md:hidden">

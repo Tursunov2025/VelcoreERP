@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from auth.deps import require_admin
+from auth.deps import get_current_user, require_admin
 from auth.security import hash_password
 from constants import DEPARTMENTS
 from database import get_db
@@ -12,7 +12,10 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("", response_model=list[UserPublic])
-def list_users(db: Session = Depends(get_db)):
+def list_users(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     return db.query(User).filter(User.is_active.is_(True)).all()
 
 

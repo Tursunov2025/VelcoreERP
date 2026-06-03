@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from auth.deps import require_admin
 from auth.security import hash_password
 from constants import DEPARTMENTS, PRODUCTION_STAGES
+from config.paths import BACKUP_PATH, DB_PATH
 from database import DATABASE_URL, get_db
 from models import AuditLog, Order, OrderHistory, OrderImage, User, WarehouseItem
 from schemas import (
@@ -18,24 +19,35 @@ from schemas import (
     AdminUserCreate,
     AdminUserUpdate,
     AuditLogResponse,
+    BackupSettingsUpdate,
     BrandingSettingsUpdate,
+    CostingSettingsUpdate,
+    ExecutiveSettingsUpdate,
+    MaterialsSettingsUpdate,
     NotificationSettingsUpdate,
     PasswordResetRequest,
     PermissionsUpdate,
+    ProductionSettingsUpdate,
+    SettingsImportRequest,
     SystemSettingsUpdate,
     TelegramSettingsUpdate,
     UserAdminResponse,
+    WarehouseSettingsUpdate,
 )
 from services.activity import get_online_operators_detailed
 from services.audit import log_action
 from services.branding import get_branding, reset_branding, update_branding
 from services.permissions import list_all_user_permissions, set_user_permissions
 from services.settings_store import (
+    export_settings_bundle,
+    get_all_settings,
     get_notification_settings,
     get_settings_for_admin,
+    get_settings_group,
     get_telegram_settings,
+    import_settings_bundle,
     update_notification_settings,
-    update_settings,
+    update_settings_group,
     update_telegram_settings,
 )
 from services.telegram import send_test_message
@@ -321,13 +333,178 @@ def admin_restore_order(
     return {"message": "Order restored"}
 
 
-# --- System settings ---
+# --- Central system settings (Phase 5) ---
 @router.get("/settings/system")
 def get_system_settings(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    return get_settings_for_admin(db)
+    return get_all_settings(db)
+
+
+@router.get("/settings/company")
+def get_company_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_settings_group(db, "company")
+
+
+@router.put("/settings/company")
+def put_company_settings(
+    data: SystemSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = update_settings_group(db, "company", data.model_dump(exclude_none=True))
+    log_action(db, admin.username, "update", "settings", details="Company settings updated")
+    db.commit()
+    return result
+
+
+@router.get("/settings/production")
+def get_production_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_settings_group(db, "production")
+
+
+@router.put("/settings/production")
+def put_production_settings(
+    data: ProductionSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = update_settings_group(db, "production", data.model_dump(exclude_none=True))
+    log_action(db, admin.username, "update", "settings", details="Production settings updated")
+    db.commit()
+    return result
+
+
+@router.get("/settings/warehouse")
+def get_warehouse_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_settings_group(db, "warehouse")
+
+
+@router.put("/settings/warehouse")
+def put_warehouse_settings(
+    data: WarehouseSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = update_settings_group(db, "warehouse", data.model_dump(exclude_none=True))
+    log_action(db, admin.username, "update", "settings", details="Warehouse settings updated")
+    db.commit()
+    return result
+
+
+@router.get("/settings/materials")
+def get_materials_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_settings_group(db, "materials")
+
+
+@router.put("/settings/materials")
+def put_materials_settings(
+    data: MaterialsSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = update_settings_group(db, "materials", data.model_dump(exclude_none=True))
+    log_action(db, admin.username, "update", "settings", details="Materials settings updated")
+    db.commit()
+    return result
+
+
+@router.get("/settings/costing")
+def get_costing_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_settings_group(db, "costing")
+
+
+@router.put("/settings/costing")
+def put_costing_settings(
+    data: CostingSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = update_settings_group(db, "costing", data.model_dump(exclude_none=True))
+    log_action(db, admin.username, "update", "settings", details="Costing settings updated")
+    db.commit()
+    return result
+
+
+@router.get("/settings/backup")
+def get_backup_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_settings_group(db, "backup")
+
+
+@router.put("/settings/backup")
+def put_backup_settings(
+    data: BackupSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = update_settings_group(db, "backup", data.model_dump(exclude_none=True))
+    log_action(db, admin.username, "update", "settings", details="Backup settings updated")
+    db.commit()
+    return result
+
+
+@router.get("/settings/executive")
+def get_executive_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return get_settings_group(db, "executive")
+
+
+@router.put("/settings/executive")
+def put_executive_settings(
+    data: ExecutiveSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = update_settings_group(db, "executive", data.model_dump(exclude_none=True))
+    log_action(db, admin.username, "update", "settings", details="Executive control center settings updated")
+    db.commit()
+    return result
+
+
+@router.get("/settings/export")
+def export_settings(
+    include_branding: bool = True,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    bundle = export_settings_bundle(db, include_branding=include_branding)
+    return bundle
+
+
+@router.post("/settings/import")
+def import_settings(
+    data: SettingsImportRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    try:
+        result = import_settings_bundle(db, data.settings, merge=data.merge)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    log_action(db, admin.username, "import", "settings", details="Settings bundle imported")
+    db.commit()
+    return {"message": "Settings imported", "settings": result}
 
 
 @router.put("/settings/system")
@@ -336,11 +513,10 @@ def put_system_settings(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    payload = data.model_dump(exclude_none=True)
-    result = update_settings(db, payload)
+    update_settings_group(db, "company", data.model_dump(exclude_none=True))
     log_action(db, admin.username, "update", "settings", details="System settings updated")
     db.commit()
-    return result
+    return get_all_settings(db)
 
 
 # --- Online users ---
@@ -357,14 +533,31 @@ def admin_online_users(
 def list_audit_logs(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-    limit: int = Query(100, le=500),
+    limit: int = Query(200, le=1000),
+    q: str = Query(""),
+    action: str = Query(""),
+    entity_type: str = Query(""),
+    username: str = Query(""),
 ):
-    return (
-        db.query(AuditLog)
-        .order_by(AuditLog.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+    query = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    if action:
+        query = query.filter(AuditLog.action == action)
+    if entity_type:
+        query = query.filter(AuditLog.entity_type == entity_type)
+    if username:
+        query = query.filter(AuditLog.username.ilike(f"%{username}%"))
+    logs = query.limit(limit).all()
+    if q:
+        q_lower = q.lower()
+        logs = [
+            log
+            for log in logs
+            if q_lower in (log.details or "").lower()
+            or q_lower in (log.entity_type or "").lower()
+            or q_lower in (log.username or "").lower()
+            or q_lower in (log.action or "").lower()
+        ]
+    return logs
 
 
 # --- Backup ---
@@ -375,15 +568,15 @@ def export_backup(
     if not DATABASE_URL.startswith("sqlite"):
         raise HTTPException(status_code=400, detail="Backup only supported for SQLite")
 
-    db_path = DATABASE_URL.replace("sqlite:///", "").replace("sqlite://", "")
-    if not os.path.isfile(db_path):
+    db_path = str(DB_PATH)
+    if not DB_PATH.is_file():
         raise HTTPException(status_code=404, detail="Database file not found")
 
-    backup_dir = os.getenv("BACKUP_DIR", "backups")
-    os.makedirs(backup_dir, exist_ok=True)
+    backup_dir = BACKUP_PATH / "manual"
+    backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     backup_name = f"azmus_backup_{timestamp}.db"
-    backup_path = os.path.join(backup_dir, backup_name)
+    backup_path = backup_dir / backup_name
     shutil.copy2(db_path, backup_path)
 
     return FileResponse(
@@ -402,11 +595,11 @@ async def import_backup(
     if not DATABASE_URL.startswith("sqlite"):
         raise HTTPException(status_code=400, detail="Import only supported for SQLite")
 
-    db_path = DATABASE_URL.replace("sqlite:///", "").replace("sqlite://", "")
+    db_path = str(DB_PATH)
     content = await file.read()
 
-    pre_backup = f"{db_path}.pre_import.bak"
-    if os.path.isfile(db_path):
+    pre_backup = str(DB_PATH) + ".pre_import.bak"
+    if DB_PATH.is_file():
         shutil.copy2(db_path, pre_backup)
 
     with open(db_path, "wb") as f:

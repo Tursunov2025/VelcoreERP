@@ -1,6 +1,13 @@
 import { NavLink } from "react-router-dom";
-import { ADMIN_NAV_ITEM, filterNavByPermissions, NAV_ITEMS } from "../../constants/workflow";
+import { CONTROL_CENTER_NAV_ITEM } from "../../constants/controlCenter";
+import {
+  ADMIN_NAV_ITEM,
+  filterNavByPermissions,
+  filterNavByVisibility,
+  NAV_ITEMS,
+} from "../../constants/workflow";
 import { useAuth } from "../../context/AuthContext";
+import { useUiConfig } from "../../hooks/useUiConfig";
 import { useBranding } from "../../context/BrandingContext";
 import { useLocale } from "../../context/LocaleContext";
 import OperatorTelegramLink from "../settings/OperatorTelegramLink";
@@ -10,11 +17,16 @@ export default function Sidebar({ username, role }) {
   const { isAdmin, permissions } = useAuth();
   const { branding, navEmoji, assetUrl } = useBranding();
   const { t } = useLocale();
-  const baseItems = filterNavByPermissions(NAV_ITEMS, permissions, isAdmin);
-  const items =
-    isAdmin && permissions?.settings !== false
-      ? [...baseItems, ADMIN_NAV_ITEM]
-      : baseItems;
+  const { config } = useUiConfig();
+  let baseItems = filterNavByPermissions(NAV_ITEMS, permissions, isAdmin);
+  baseItems = filterNavByVisibility(baseItems, config?.nav_visibility, isAdmin);
+  const items = [];
+  if (isAdmin) {
+    items.push(...baseItems, CONTROL_CENTER_NAV_ITEM);
+    if (permissions?.settings !== false) items.push(ADMIN_NAV_ITEM);
+  } else {
+    items.push(...baseItems);
+  }
 
   const sidebarLogo = branding.logo_sidebar || branding.logo_main;
 

@@ -6,12 +6,31 @@ const DEFAULT_OPTIONS = {
   include_database: true,
   include_llp_files: true,
   include_branding_files: true,
+  include_mes_files: true,
   include_tasks: true,
   include_permissions: true,
   include_notification_settings: true,
   include_telegram_settings: true,
   label: "local",
 };
+
+function MesDiagnostics({ diagnostics }) {
+  if (!diagnostics || typeof diagnostics !== "object") return null;
+  const entries = Object.entries(diagnostics);
+  if (!entries.length) return null;
+  return (
+    <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
+      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-900">MES diagnostika</h5>
+      <ul className="grid gap-1 text-sm sm:grid-cols-2">
+        {entries.map(([label, value]) => (
+          <li key={label}>
+            {label}: <strong>{value ?? 0}</strong>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function ExportReport({ report }) {
   if (!report) return null;
@@ -25,9 +44,11 @@ function ExportReport({ report }) {
         <li>LLP hujjatlar (DB): {report.llp_documents_count}</li>
         <li>LLP fayllar: {report.llp_files_count}</li>
         <li>Branding fayllar: {report.branding_files_count}</li>
+        <li>MES fayllar: {report.mes_files_count ?? 0}</li>
         <li>Branding sozlamalar: {report.brand_settings_count}</li>
         <li>Telegram sozlamalar: {report.telegram_settings_count}</li>
       </ul>
+      <MesDiagnostics diagnostics={report.mes_diagnostics} />
       <p className="mt-2 text-xs text-gray-600 break-all">Baza: {report.database_path}</p>
       <p className="text-xs text-gray-600 break-all">Uploads: {report.upload_root}</p>
     </div>
@@ -42,6 +63,14 @@ function PreviewTable({ preview }) {
     ["LLP hujjatlar (DB)", preview.incoming?.documents, preview.current?.documents],
     ["LLP fayllar", preview.incoming?.llp_files, preview.current?.llp_files],
     ["Branding fayllar", preview.incoming?.branding_files, preview.current?.branding_files],
+    ["MES fayllar", preview.incoming?.mes_files, preview.current?.mes_files],
+    ["MES kategoriyalar", preview.incoming?.mes_categories, preview.current?.mes_categories],
+    ["MES detallar", preview.incoming?.mes_parts, preview.current?.mes_parts],
+    ["MES shablonlar", preview.incoming?.mes_templates, preview.current?.mes_templates],
+    ["MES BOM", preview.incoming?.mes_bom_lines, preview.current?.mes_bom_lines],
+    ["MES marshrutlar", preview.incoming?.mes_routes, preview.current?.mes_routes],
+    ["MES marshrut bosqichlari", preview.incoming?.mes_route_steps, preview.current?.mes_route_steps],
+    ["MES chizmalar", preview.incoming?.mes_drawings, preview.current?.mes_drawings],
     ["Branding sozlamalar", preview.incoming?.brand_settings, "—"],
     ["Telegram sozlamalar", preview.incoming?.telegram_settings, "—"],
     ["Bildirishnomalar", preview.incoming?.notification_settings, "—"],
@@ -92,11 +121,13 @@ function VerificationSummary({ verification }) {
         <li>Ruxsatlar: {verification.permissions_count}</li>
         <li>LLP fayllar: {verification.llp_files_count}</li>
         <li>Branding fayllar: {verification.branding_files_count}</li>
+        <li>MES fayllar: {verification.mes_files_count ?? 0}</li>
         <li>Yo&apos;qolgan fayllar: {verification.missing_files_count}</li>
         <li>Branding kalitlar: {verification.brand_settings_count}</li>
         <li>Telegram sozlamalar: {verification.telegram_settings_count}</li>
         <li>Bildirishnomalar: {verification.notification_settings_count}</li>
       </ul>
+      <MesDiagnostics diagnostics={verification.mes_diagnostics} />
       {verification.missing_files_count > 0 && (
         <p className="mt-2 text-amber-900">
           Ba&apos;zi fayl havolalari diskda topilmadi (birinchi 20 ro&apos;yxatda).
@@ -235,11 +266,26 @@ export default function MigrationTab() {
     ["include_database", "SQLite bazasi"],
     ["include_llp_files", "LLP fayllar"],
     ["include_branding_files", "Branding fayllar"],
+    ["include_mes_files", "MES fayllar (templates, BOM, chizmalar)"],
     ["include_tasks", "Vazifalar (DB)"],
     ["include_permissions", "Ruxsatlar (DB)"],
     ["include_notification_settings", "Bildirishnomalar (DB)"],
     ["include_telegram_settings", "Telegram (DB)"],
   ];
+
+  const historyMesSummary = (row) => {
+    try {
+      const data = JSON.parse(row.summary_json || "{}");
+      const diag =
+        data.export_report?.mes_diagnostics ||
+        data.verification?.mes_diagnostics ||
+        null;
+      if (!diag) return null;
+      return `MES: ${diag["MES Templates"] ?? 0} shablon, ${diag["MES BOM"] ?? 0} BOM`;
+    } catch {
+      return null;
+    }
+  };
 
   return (
     <div>
@@ -379,6 +425,7 @@ export default function MigrationTab() {
                 <th className="pb-2 pr-3">Holat</th>
                 <th className="pb-2 pr-3">Fayl</th>
                 <th className="pb-2 pr-3">Sana</th>
+                <th className="pb-2 pr-3">MES</th>
                 <th className="pb-2">Rollback</th>
               </tr>
             </thead>
@@ -391,6 +438,9 @@ export default function MigrationTab() {
                   <td className="py-2 pr-3 max-w-[120px] truncate">{row.bundle_name}</td>
                   <td className="py-2 pr-3">
                     {row.created_at ? new Date(row.created_at).toLocaleString() : "—"}
+                  </td>
+                  <td className="py-2 pr-3 text-xs text-gray-500">
+                    {historyMesSummary(row) || "—"}
                   </td>
                   <td className="py-2">
                     {row.action === "import" && row.status === "completed" && (
@@ -408,7 +458,7 @@ export default function MigrationTab() {
               ))}
               {history.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-4 text-gray-400">
+                  <td colSpan={7} className="py-4 text-gray-400">
                     Tarix bo&apos;sh
                   </td>
                 </tr>

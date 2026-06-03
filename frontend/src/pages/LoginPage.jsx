@@ -11,7 +11,7 @@ export default function LoginPage() {
   const { login, loginError, isSubmitting } = useAuth();
   const { branding, assetUrl } = useBranding();
   const { t } = useLocale();
-  const { users, loading, error, fetchUsers } = useUsers({ enabled: true });
+  const { users, loading, error, fetchUsers } = useUsers({ enabled: true, forLogin: true });
   const [loginUser, setLoginUser] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 

@@ -8,6 +8,28 @@ export const PERMISSION_MODULES = [
   { id: "settings", label: "Sozlamalar" },
 ];
 
+export const MATERIALS_PERMISSIONS = [
+  { id: "materials_view", label: "Xom ashyo — Ko'rish" },
+  { id: "materials_edit", label: "Xom ashyo — Tahrirlash" },
+];
+
+export const MES_PERMISSIONS = [
+  { id: "mes_view", label: "MES — Ko'rish" },
+  { id: "mes_edit", label: "MES — Tahrirlash" },
+  { id: "mes_delete", label: "MES — O'chirish" },
+  { id: "mes_routes_design", label: "MES — Marshrut dizayner" },
+  { id: "mes_drawings_upload", label: "MES — Chizma yuklash" },
+  { id: "mes_jobs_view", label: "MES — Ishlar ko'rish" },
+  { id: "mes_jobs_manage", label: "MES — Ishlar boshqaruv" },
+  { id: "mes_terminal_lazer", label: "MES — Lazer terminal" },
+  { id: "mes_terminal_svarshik", label: "MES — Svarshik terminal" },
+  { id: "mes_terminal_kraska", label: "MES — Kraska terminal" },
+  { id: "mes_terminal_qc", label: "MES — Nazorat (QC) terminal" },
+  { id: "mes_terminal_packaging", label: "MES — Upakovka terminal" },
+  { id: "mes_terminal_warehouse", label: "MES — Tayyor mahsulot ombori" },
+  { id: "mes_terminal_dispatch", label: "MES — Yuklash terminal" },
+];
+
 export const LLP_PERMISSIONS = [
   { id: "llp_view", label: "LLP — Ko'rish" },
   { id: "llp_download", label: "LLP — Yuklab olish" },

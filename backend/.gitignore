@@ -1,5 +1,10 @@
 __pycache__/
 *.pyc
 uploads/
+*.db
+*.db-wal
+*.db-shm
 *.db-journal
+backups/
+test_*.db
 .env

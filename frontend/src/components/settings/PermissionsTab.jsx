@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
-import { LLP_PERMISSIONS, PERMISSION_MODULES } from "../../constants/permissions";
+import { LLP_PERMISSIONS, MATERIALS_PERMISSIONS, MES_PERMISSIONS, PERMISSION_MODULES } from "../../constants/permissions";
 import Toast from "../ui/Toast";
 
 function isAdminUser(user) {
@@ -124,6 +124,32 @@ export default function PermissionsTab() {
         <PermissionMatrix
           users={users}
           modules={LLP_PERMISSIONS}
+          savingId={savingId}
+          onToggle={togglePermission}
+        />
+      </div>
+
+      <div>
+        <h2 className="mb-2 text-xl font-black">MES (Production Pro)</h2>
+        <p className="mb-4 text-sm text-gray-500">
+          Mahsulot shablonlari, detallar va marshrutlar uchun ruxsatlar
+        </p>
+        <PermissionMatrix
+          users={users}
+          modules={MES_PERMISSIONS}
+          savingId={savingId}
+          onToggle={togglePermission}
+        />
+      </div>
+
+      <div>
+        <h2 className="mb-2 text-xl font-black">Xom ashyo ombori</h2>
+        <p className="mb-4 text-sm text-gray-500">
+          Xom ashyo, qabul/chiqim va inventarizatsiya uchun ruxsatlar
+        </p>
+        <PermissionMatrix
+          users={users}
+          modules={MATERIALS_PERMISSIONS}
           savingId={savingId}
           onToggle={togglePermission}
         />

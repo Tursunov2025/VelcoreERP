@@ -30,7 +30,9 @@ _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_VERSION = 1
 BACKUP_RETENTION = 20
 MAX_ZIP_MB = int(os.getenv("MIGRATION_MAX_ZIP_MB", "50"))
-MIGRATION_BACKUP_ROOT = Path(os.getenv("MIGRATION_BACKUP_DIR", "backups/migrations"))
+from config.paths import MIGRATION_BACKUP_PATH
+
+MIGRATION_BACKUP_ROOT = MIGRATION_BACKUP_PATH
 
 DB_ARCHIVE_NAME = "database.db"
 MANIFEST_NAME = "manifest.json"
@@ -111,6 +113,40 @@ def _count_from_db(db_path: Path) -> dict[str, int]:
         notify_keys = {f"notify_{e}" for e in NOTIFICATION_EVENTS}
         notify_keys |= {"notifications_enabled", "telegram_notifications_enabled"}
 
+        def count_where(table: str, where: str = "") -> int:
+            try:
+                sql = f"SELECT COUNT(*) FROM {table}"
+                if where:
+                    sql += f" WHERE {where}"
+                return cur.execute(sql).fetchone()[0]
+            except sqlite3.Error:
+                return 0
+
+        mes = {
+            "mes_categories": count_where(
+                "mes_product_categories", "is_active = 1"
+            ),
+            "mes_parts": count_where(
+                "mes_product_parts", "is_active = 1 AND deleted_at IS NULL"
+            ),
+            "mes_templates": count_where(
+                "mes_product_templates", "deleted_at IS NULL"
+            ),
+            "mes_bom_lines": count_where(
+                "mes_bom_lines", "is_active = 1 AND deleted_at IS NULL"
+            ),
+            "mes_routes": count_where(
+                "mes_production_routes", "is_active = 1 AND deleted_at IS NULL"
+            ),
+            "mes_route_steps": count_where("mes_route_steps"),
+            "mes_drawings": count_where(
+                "mes_product_drawings", "is_active = 1 AND deleted_at IS NULL"
+            ),
+            "mes_production_jobs": count("mes_production_jobs"),
+            "mes_job_bom_lines": count("mes_job_bom_lines"),
+            "mes_job_route_steps": count("mes_job_route_steps"),
+        }
+
         return {
             "tasks": count("tasks"),
             "permissions": count("user_permissions"),
@@ -118,6 +154,7 @@ def _count_from_db(db_path: Path) -> dict[str, int]:
             "brand_settings": settings_like(f"{BRANDING_DB_PREFIX}%"),
             "telegram_settings": settings_in(TELEGRAM_KEYS, non_empty=True),
             "notification_settings": settings_in(notify_keys, non_empty=True),
+            **mes,
         }
     finally:
         conn.close()
@@ -143,6 +180,9 @@ def _collect_db_referenced_files(db_path: Path, upload_root: Path) -> list[Path]
             "SELECT url FROM documents WHERE url IS NOT NULL AND url != ''",
             "SELECT url FROM task_attachments WHERE url IS NOT NULL AND url != ''",
             "SELECT value FROM system_settings WHERE value LIKE '/uploads/%'",
+            "SELECT image_url FROM mes_product_templates WHERE image_url IS NOT NULL AND image_url != ''",
+            "SELECT drawing_url FROM mes_bom_lines WHERE drawing_url IS NOT NULL AND drawing_url != ''",
+            "SELECT url FROM mes_product_drawings WHERE url IS NOT NULL AND url != ''",
         ]
         for query in queries:
             try:
@@ -163,8 +203,9 @@ def _collect_upload_paths(
     *,
     include_llp: bool,
     include_branding: bool,
+    include_mes: bool,
 ) -> list[Path]:
-    """Directory scan + DB-referenced files for LLP/branding."""
+    """Directory scan + DB-referenced files for LLP/branding/MES."""
     paths: dict[str, Path] = {}
 
     if include_llp and (upload_root / "llp").is_dir():
@@ -177,12 +218,22 @@ def _collect_upload_paths(
             if p.is_file():
                 paths[str(p.resolve())] = p
 
+    if include_mes and (upload_root / "mes").is_dir():
+        for p in (upload_root / "mes").rglob("*"):
+            if p.is_file():
+                paths[str(p.resolve())] = p
+
     for p in _collect_db_referenced_files(db_path, upload_root):
         try:
             rel_parts = p.relative_to(upload_root).parts
-            if include_llp and rel_parts and rel_parts[0] == "llp":
+            if not rel_parts:
+                continue
+            root = rel_parts[0]
+            if include_llp and root == "llp":
                 paths[str(p.resolve())] = p
-            if include_branding and rel_parts and rel_parts[0] == "branding":
+            if include_branding and root == "branding":
+                paths[str(p.resolve())] = p
+            if include_mes and root == "mes":
                 paths[str(p.resolve())] = p
         except ValueError:
             pass
@@ -194,6 +245,7 @@ def build_export_report(db_path: Path, upload_root: Path, upload_files: list[Pat
     counts = _count_from_db(db_path)
     llp_files = len([p for p in upload_files if "llp" in p.parts])
     branding_files = len([p for p in upload_files if "branding" in p.parts])
+    mes_files = len([p for p in upload_files if "mes" in p.parts])
     db_size = db_path.stat().st_size if db_path.is_file() else 0
 
     return {
@@ -207,11 +259,53 @@ def build_export_report(db_path: Path, upload_root: Path, upload_files: list[Pat
         "llp_documents_count": counts.get("documents", 0),
         "llp_files_count": llp_files,
         "branding_files_count": branding_files,
+        "mes_files_count": mes_files,
         "brand_settings_count": counts.get("brand_settings", 0),
         "telegram_settings_count": counts.get("telegram_settings", 0),
         "notification_settings_count": counts.get("notification_settings", 0),
+        "mes_categories_count": counts.get("mes_categories", 0),
+        "mes_parts_count": counts.get("mes_parts", 0),
+        "mes_templates_count": counts.get("mes_templates", 0),
+        "mes_bom_lines_count": counts.get("mes_bom_lines", 0),
+        "mes_routes_count": counts.get("mes_routes", 0),
+        "mes_route_steps_count": counts.get("mes_route_steps", 0),
+        "mes_drawings_count": counts.get("mes_drawings", 0),
+        "mes_diagnostics": {
+            "MES Categories": counts.get("mes_categories", 0),
+            "MES Parts": counts.get("mes_parts", 0),
+            "MES Templates": counts.get("mes_templates", 0),
+            "MES BOM": counts.get("mes_bom_lines", 0),
+            "MES Routes": counts.get("mes_routes", 0),
+            "MES Route Steps": counts.get("mes_route_steps", 0),
+            "MES Drawings": counts.get("mes_drawings", 0),
+            "MES Files": mes_files,
+        },
         "includes_database": db_path.is_file(),
     }
+
+
+def _collect_mes_urls(db_path: Path) -> list[str]:
+    if not db_path.is_file():
+        return []
+    urls: list[str] = []
+    conn = _sqlite_connect(db_path)
+    try:
+        cur = conn.cursor()
+        queries = [
+            "SELECT image_url FROM mes_product_templates WHERE image_url IS NOT NULL AND image_url != ''",
+            "SELECT drawing_url FROM mes_bom_lines WHERE drawing_url IS NOT NULL AND drawing_url != ''",
+            "SELECT url FROM mes_product_drawings WHERE url IS NOT NULL AND url != ''",
+        ]
+        for query in queries:
+            try:
+                for (url,) in cur.execute(query):
+                    if url:
+                        urls.append(str(url))
+            except sqlite3.Error:
+                pass
+    finally:
+        conn.close()
+    return urls
 
 
 def verify_data_integrity(db_path: Path, upload_root: Path) -> dict[str, Any]:
@@ -219,10 +313,12 @@ def verify_data_integrity(db_path: Path, upload_root: Path) -> dict[str, Any]:
     counts = _count_from_db(db_path)
     llp_dir = upload_root / "llp"
     branding_dir = upload_root / "branding"
+    mes_dir = upload_root / "mes"
     llp_files = len([p for p in llp_dir.iterdir() if p.is_file()]) if llp_dir.is_dir() else 0
     branding_files = (
         len([p for p in branding_dir.iterdir() if p.is_file()]) if branding_dir.is_dir() else 0
     )
+    mes_files = len([p for p in mes_dir.rglob("*") if p.is_file()]) if mes_dir.is_dir() else 0
 
     missing_files: list[str] = []
     if db_path.is_file():
@@ -253,17 +349,40 @@ def verify_data_integrity(db_path: Path, upload_root: Path) -> dict[str, Any]:
         finally:
             conn.close()
 
+        for url in _collect_mes_urls(db_path):
+            local = _url_to_local_path(url, upload_root)
+            if local is None or not local.is_file():
+                missing_files.append(url)
+
     return {
         "tasks_count": counts.get("tasks", 0),
         "permissions_count": counts.get("permissions", 0),
         "llp_files_count": llp_files,
         "branding_files_count": branding_files,
+        "mes_files_count": mes_files,
         "documents_in_db": counts.get("documents", 0),
         "missing_files_count": len(missing_files),
         "missing_files": missing_files[:20],
         "brand_settings_count": counts.get("brand_settings", 0),
         "telegram_settings_count": counts.get("telegram_settings", 0),
         "notification_settings_count": counts.get("notification_settings", 0),
+        "mes_categories_count": counts.get("mes_categories", 0),
+        "mes_parts_count": counts.get("mes_parts", 0),
+        "mes_templates_count": counts.get("mes_templates", 0),
+        "mes_bom_lines_count": counts.get("mes_bom_lines", 0),
+        "mes_routes_count": counts.get("mes_routes", 0),
+        "mes_route_steps_count": counts.get("mes_route_steps", 0),
+        "mes_drawings_count": counts.get("mes_drawings", 0),
+        "mes_diagnostics": {
+            "MES Categories": counts.get("mes_categories", 0),
+            "MES Parts": counts.get("mes_parts", 0),
+            "MES Templates": counts.get("mes_templates", 0),
+            "MES BOM": counts.get("mes_bom_lines", 0),
+            "MES Routes": counts.get("mes_routes", 0),
+            "MES Route Steps": counts.get("mes_route_steps", 0),
+            "MES Drawings": counts.get("mes_drawings", 0),
+            "MES Files": mes_files,
+        },
         "ok": len(missing_files) == 0,
     }
 
@@ -291,6 +410,7 @@ def build_export_bundle(options: dict, label: str = "") -> tuple[Path, dict]:
     include_db = options.get("include_database", True)
     include_llp = options.get("include_llp_files", True)
     include_branding = options.get("include_branding_files", True)
+    include_mes = options.get("include_mes_files", True)
 
     counts = _count_from_db(db_path)
     upload_files = _collect_upload_paths(
@@ -298,6 +418,7 @@ def build_export_bundle(options: dict, label: str = "") -> tuple[Path, dict]:
         upload_root,
         include_llp=include_llp,
         include_branding=include_branding,
+        include_mes=include_mes,
     )
     export_report = build_export_report(db_path, upload_root, upload_files)
 
@@ -311,6 +432,7 @@ def build_export_bundle(options: dict, label: str = "") -> tuple[Path, dict]:
             **counts,
             "llp_files": len([p for p in upload_files if "llp" in p.parts]),
             "branding_files": len([p for p in upload_files if "branding" in p.parts]),
+            "mes_files": len([p for p in upload_files if "mes" in p.parts]),
         },
         "files": [],
     }
@@ -352,6 +474,11 @@ def preview_import_bundle(content: bytes) -> dict[str, Any]:
         if (upload_root / "branding").is_dir()
         else 0
     )
+    current_mes = (
+        len([p for p in (upload_root / "mes").rglob("*") if p.is_file()])
+        if (upload_root / "mes").is_dir()
+        else 0
+    )
 
     with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
         manifest = _parse_manifest_from_zip(zf)
@@ -374,9 +501,17 @@ def preview_import_bundle(content: bytes) -> dict[str, Any]:
             "documents": incoming.get("documents", 0),
             "llp_files": incoming.get("llp_files", 0),
             "branding_files": incoming.get("branding_files", 0),
+            "mes_files": incoming.get("mes_files", 0),
             "brand_settings": incoming.get("brand_settings", 0),
             "telegram_settings": incoming.get("telegram_settings", 0),
             "notification_settings": incoming.get("notification_settings", 0),
+            "mes_categories": incoming.get("mes_categories", 0),
+            "mes_parts": incoming.get("mes_parts", 0),
+            "mes_templates": incoming.get("mes_templates", 0),
+            "mes_bom_lines": incoming.get("mes_bom_lines", 0),
+            "mes_routes": incoming.get("mes_routes", 0),
+            "mes_route_steps": incoming.get("mes_route_steps", 0),
+            "mes_drawings": incoming.get("mes_drawings", 0),
         },
         "current": {
             "tasks": current_counts.get("tasks", 0),
@@ -384,6 +519,14 @@ def preview_import_bundle(content: bytes) -> dict[str, Any]:
             "documents": current_counts.get("documents", 0),
             "llp_files": current_llp,
             "branding_files": current_branding,
+            "mes_files": current_mes,
+            "mes_categories": current_counts.get("mes_categories", 0),
+            "mes_parts": current_counts.get("mes_parts", 0),
+            "mes_templates": current_counts.get("mes_templates", 0),
+            "mes_bom_lines": current_counts.get("mes_bom_lines", 0),
+            "mes_routes": current_counts.get("mes_routes", 0),
+            "mes_route_steps": current_counts.get("mes_route_steps", 0),
+            "mes_drawings": current_counts.get("mes_drawings", 0),
         },
         "bundle_files": len(file_list),
         "warnings": (
@@ -420,6 +563,19 @@ def create_pre_import_backup(run_id: int) -> Path:
     return backup_dir
 
 
+def _merge_upload_tree(src: Path, dest_root: Path) -> None:
+    """Recursively copy extracted uploads (supports mes/templates, mes/drawings, etc.)."""
+    if not src.is_dir():
+        return
+    dest_root.mkdir(parents=True, exist_ok=True)
+    for item in src.rglob("*"):
+        if item.is_file():
+            rel = item.relative_to(src)
+            target = dest_root / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target)
+
+
 def _extract_and_import(content: bytes, backup_dir: Path) -> dict:
     db_path = _sqlite_db_path()
     upload_root = _upload_root()
@@ -438,14 +594,7 @@ def _extract_and_import(content: bytes, backup_dir: Path) -> dict:
 
     incoming_uploads = extract_root / "uploads"
     if incoming_uploads.is_dir():
-        upload_root.mkdir(parents=True, exist_ok=True)
-        for sub in incoming_uploads.iterdir():
-            if sub.is_dir():
-                target = upload_root / sub.name
-                target.mkdir(parents=True, exist_ok=True)
-                for f in sub.iterdir():
-                    if f.is_file():
-                        shutil.copy2(f, target / f.name)
+        _merge_upload_tree(incoming_uploads, upload_root)
 
     verification = verify_data_integrity(db_path, upload_root)
     return {

@@ -16,8 +16,48 @@ if not SECRET_KEY:
     )
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
-REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+
+
+def _env_access_minutes() -> int | None:
+    raw = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _env_refresh_days() -> int | None:
+    raw = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def get_access_token_expire_minutes() -> int:
+    env = _env_access_minutes()
+    if env is not None:
+        return env
+    from services.settings_cache import get_cached_int
+
+    return get_cached_int("jwt_access_minutes", 60)
+
+
+def get_refresh_token_expire_days() -> int:
+    env = _env_refresh_days()
+    if env is not None:
+        return env
+    from services.settings_cache import get_cached_int
+
+    return get_cached_int("jwt_refresh_days", 7)
+
+
+ACCESS_TOKEN_EXPIRE_MINUTES = get_access_token_expire_minutes()
+REFRESH_TOKEN_EXPIRE_DAYS = get_refresh_token_expire_days()
 
 
 class AuthNotConfiguredError(RuntimeError):
@@ -62,7 +102,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     secret = _require_secret_key()
     payload = data.copy()
     expire = datetime.utcnow() + (
-        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expires_delta or timedelta(minutes=get_access_token_expire_minutes())
     )
     payload.update({"exp": expire, "type": "access"})
     return jwt.encode(payload, secret, algorithm=ALGORITHM)
@@ -71,7 +111,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 def create_refresh_token(data: dict) -> str:
     secret = _require_secret_key()
     payload = data.copy()
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.utcnow() + timedelta(days=get_refresh_token_expire_days())
     payload.update({"exp": expire, "type": "refresh"})
     return jwt.encode(payload, secret, algorithm=ALGORITHM)
 

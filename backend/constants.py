@@ -51,7 +51,55 @@ LLP_PERMISSIONS = [
     "llp_read_confirm",
 ]
 
-ALL_PERMISSION_KEYS = PERMISSION_MODULES + LLP_PERMISSIONS
+MATERIALS_PERMISSIONS = [
+    "materials_view",
+    "materials_edit",
+]
+
+MES_PERMISSIONS = [
+    "mes_view",
+    "mes_edit",
+    "mes_delete",
+    "mes_routes_design",
+    "mes_drawings_upload",
+    "mes_jobs_view",
+    "mes_jobs_manage",
+    "mes_terminal_lazer",
+    "mes_terminal_svarshik",
+    "mes_terminal_kraska",
+    "mes_terminal_qc",
+    "mes_terminal_packaging",
+    "mes_terminal_warehouse",
+    "mes_terminal_dispatch",
+]
+
+MES_JOB_STATUSES = [
+    "draft",
+    "released",
+    "in_progress",
+    "on_hold",
+    "completed",
+    "cancelled",
+]
+
+MES_JOB_PRIORITIES = ["low", "normal", "high", "urgent"]
+
+# Default custom MES route stages (seeded; admin can add more in Phase 3A-A4).
+MES_DEFAULT_PRODUCTION_STAGES = [
+    ("Lazer", "Kesish"),
+    ("Teshish", "Kesish"),
+    ("Bukish", "Kesish"),
+    ("Svarshik", "Svarka"),
+    ("Tozalash", "Kraska"),
+    ("Kraska", "Kraska"),
+    ("Quritish", "Kraska"),
+    ("Nazorat", "Tekshiruv"),
+    ("Upakovka", "Upakovka"),
+    ("Sklad", "Ombor"),
+    ("Yuklash", "Ombor"),
+]
+
+ALL_PERMISSION_KEYS = PERMISSION_MODULES + LLP_PERMISSIONS + MES_PERMISSIONS + MATERIALS_PERMISSIONS
 
 DEFAULT_OPERATOR_PERMISSIONS = {
     "orders": True,
@@ -67,6 +115,22 @@ DEFAULT_OPERATOR_PERMISSIONS = {
     "llp_edit": False,
     "llp_delete": False,
     "llp_read_confirm": True,
+    "mes_view": True,
+    "mes_edit": False,
+    "mes_delete": False,
+    "mes_routes_design": False,
+    "mes_drawings_upload": False,
+    "mes_jobs_view": False,
+    "mes_jobs_manage": False,
+    "mes_terminal_lazer": False,
+    "mes_terminal_svarshik": False,
+    "mes_terminal_kraska": False,
+    "mes_terminal_qc": False,
+    "mes_terminal_packaging": False,
+    "mes_terminal_warehouse": False,
+    "mes_terminal_dispatch": False,
+    "materials_view": False,
+    "materials_edit": False,
 }
 
 NOTIFICATION_EVENTS = [

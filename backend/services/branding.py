@@ -39,6 +39,7 @@ DEFAULT_BRANDING = {
     "emoji_finance": "💰",
     "emoji_settings": "⚙️",
     "emoji_llp": "📁",
+    "emoji_mes": "🏭",
     "theme_mode": "light",
     "language": "uz_latn",
     "clock_format": "24h",
@@ -84,6 +85,9 @@ def update_branding(db: Session, payload: dict) -> dict:
         _sync_legacy_company_name(db, payload["app_name"])
 
     db.commit()
+    from services.settings_cache import refresh_settings_cache
+
+    refresh_settings_cache(db)
     return get_branding(db)
 
 
@@ -93,6 +97,9 @@ def reset_branding(db: Session) -> dict:
     )
     _sync_legacy_company_name(db, DEFAULT_BRANDING["app_name"])
     db.commit()
+    from services.settings_cache import refresh_settings_cache
+
+    refresh_settings_cache(db)
     return get_branding(db)
 
 

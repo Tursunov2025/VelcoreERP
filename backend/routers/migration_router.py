@@ -68,6 +68,7 @@ def export_migration(
         "include_database": body.include_database,
         "include_llp_files": body.include_llp_files,
         "include_branding_files": body.include_branding_files,
+        "include_mes_files": body.include_mes_files,
         "include_tasks": body.include_tasks,
         "include_permissions": body.include_permissions,
         "include_notification_settings": body.include_notification_settings,

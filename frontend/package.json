@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:prod": "vite build",
     "preview": "vite preview",
+    "preview:prod": "vite preview --host 0.0.0.0 --port 5173",
     "mobile:assets": "npx capacitor-assets generate --android --assetPath resources",
     "mobile:sync": "npx cap sync android",
     "mobile:build": "npm run build && npm run mobile:sync",
@@ -19,6 +20,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
+    "@capacitor/app": "^8.1.0",
     "@capacitor/camera": "^8.2.0",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",

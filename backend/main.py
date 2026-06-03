@@ -1,9 +1,21 @@
 import os
 from contextlib import asynccontextmanager
 
-from dotenv import load_dotenv
+from config.logging_setup import configure_logging
+from config.paths import DATA_ROOT, DB_PATH, LOG_PATH, UPLOAD_PATH
 
-load_dotenv()
+configure_logging()
+
+import logging
+
+_paths_log = logging.getLogger("azmus.paths")
+_paths_log.info(
+    "Data paths: DATA_ROOT=%s DB=%s UPLOADS=%s LOGS=%s",
+    DATA_ROOT,
+    DB_PATH,
+    UPLOAD_PATH,
+    LOG_PATH,
+)
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,8 +44,18 @@ from routers import (
     llp_router,
     mes_jobs_router,
     mes_lazer_terminal_router,
+    mes_kraska_terminal_router,
+    mes_monitor_router,
+    mes_qc_terminal_router,
+    mes_packaging_terminal_router,
+    mes_warehouse_terminal_router,
+    mes_dispatch_terminal_router,
+    control_center_router,
+    materials_router,
     mes_router,
+    mes_svarshik_terminal_router,
     migration_router,
+    mobile_router,
     operators_router,
     orders_router,
     production_router,
@@ -51,6 +73,32 @@ from services.scheduler import start_reminder_scheduler, stop_reminder_scheduler
 from services.seed import seed_defaults
 from auth.security import is_auth_configured
 
+# Required P4 materials warehouse API paths (must appear in OpenAPI /docs).
+_REQUIRED_MATERIALS_PATHS = (
+    "/materials/dashboard",
+    "/materials/categories",
+    "/materials/items",
+    "/materials/receipts",
+    "/materials/issues",
+    "/materials/adjustments",
+    "/materials/movements",
+)
+
+
+def _app_paths(app: FastAPI) -> set[str]:
+    return {getattr(route, "path", "") for route in app.routes if getattr(route, "path", None)}
+
+
+def _verify_materials_routes(app: FastAPI) -> None:
+    paths = _app_paths(app)
+    missing = [p for p in _REQUIRED_MATERIALS_PATHS if p not in paths]
+    if missing:
+        raise RuntimeError(
+            "materials_router not registered — missing paths: "
+            + ", ".join(missing)
+            + ". Ensure main.py includes: app.include_router(materials_router.router)"
+        )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -64,6 +112,13 @@ async def lifespan(app: FastAPI):
     else:
         startup_log.info("JWT auth configured")
 
+    materials_paths = sorted(p for p in _app_paths(app) if p.startswith("/materials"))
+    startup_log.info(
+        "Materials API registered: %s paths (%s)",
+        len(materials_paths),
+        ", ".join(materials_paths[:6]) + ("..." if len(materials_paths) > 6 else ""),
+    )
+
     # Run schema setup here (not at import time) so uvicorn --reload workers
     # do not fight over SQLite write locks while the previous worker shuts down.
     Base.metadata.create_all(bind=engine)
@@ -72,6 +127,9 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_defaults(db)
+        from services.settings_cache import refresh_settings_cache
+
+        refresh_settings_cache(db)
     finally:
         db.close()
     try:
@@ -85,7 +143,18 @@ async def lifespan(app: FastAPI):
     engine.dispose()
 
 
-app = FastAPI(title="Azmus CRM ERP API", version="2.0.0", lifespan=lifespan)
+_production = os.getenv("ENVIRONMENT", "").lower() in ("production", "prod") or os.getenv(
+    "PRODUCTION", ""
+).lower() in ("1", "true", "yes")
+
+app = FastAPI(
+    title="Azmus CRM ERP API",
+    version="2.0.0",
+    lifespan=lifespan,
+    docs_url=None if _production else "/docs",
+    redoc_url=None if _production else "/redoc",
+    openapi_url=None if _production else "/openapi.json",
+)
 
 _cors_origins_env = os.getenv("CORS_ORIGINS", "*").strip()
 _cors_origins = (
@@ -103,8 +172,8 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-upload_path = os.getenv("UPLOAD_DIR", str(_UPLOAD_DIR))
-os.makedirs(upload_path, exist_ok=True)
+upload_path = str(UPLOAD_PATH)
+UPLOAD_PATH.mkdir(parents=True, exist_ok=True)
 
 app.include_router(auth_router.router)
 app.include_router(users_router.router)
@@ -124,8 +193,22 @@ app.include_router(llp_router.router)
 app.include_router(mes_router.router)
 app.include_router(mes_jobs_router.router)
 app.include_router(mes_lazer_terminal_router.router)
+app.include_router(mes_svarshik_terminal_router.router)
+app.include_router(mes_monitor_router.router)
+app.include_router(mes_kraska_terminal_router.router)
+app.include_router(mes_qc_terminal_router.router)
+app.include_router(mes_qc_terminal_router.admin_router)
+app.include_router(mes_packaging_terminal_router.router)
+app.include_router(mes_warehouse_terminal_router.router)
+app.include_router(mes_warehouse_terminal_router.admin_router)
+app.include_router(mes_dispatch_terminal_router.router)
+app.include_router(control_center_router.router)
+app.include_router(materials_router.router)
 app.include_router(migration_router.router)
+app.include_router(mobile_router.router)
 app.include_router(admin_router.router)
+
+_verify_materials_routes(app)
 
 # Static file serving MUST be after upload API routes (POST /uploads/file).
 app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
@@ -133,11 +216,29 @@ app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 
 @app.get("/")
 def health_check():
+    paths = _app_paths(app)
+    materials_paths = sorted(p for p in paths if p.startswith("/materials"))
+    mes_paths = sorted(p for p in paths if p.startswith("/mes"))
     return {
         "status": "ok",
         "service": "azmus-crm-erp",
         "version": "2.0.0",
         "auth_configured": is_auth_configured(),
+        "data_root": str(DATA_ROOT),
+        "database": str(DB_PATH),
+        "uploads": str(UPLOAD_PATH),
+        "logs": str(LOG_PATH),
+        "modules": {
+            "materials": {
+                "registered": all(p in paths for p in _REQUIRED_MATERIALS_PATHS),
+                "path_count": len(materials_paths),
+                "paths": materials_paths,
+            },
+            "mes": {
+                "registered": bool(mes_paths),
+                "path_count": len(mes_paths),
+            },
+        },
     }
 
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from auth.deps import get_current_user, require_admin
+from auth.deps import require_admin, require_permission
 from database import get_db
 from models import Expense, Income, User
 from schemas import ExpenseCreate, FinanceRecord, FinanceSummary, IncomeCreate
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/finance", tags=["finance"])
 @router.get("/summary", response_model=FinanceSummary)
 def finance_summary(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission("finance")),
 ):
     total_income = sum(i.amount for i in db.query(Income).all())
     total_expenses = sum(e.amount for e in db.query(Expense).all())
@@ -26,7 +26,7 @@ def finance_summary(
 @router.get("/records", response_model=list[FinanceRecord])
 def finance_records(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission("finance")),
 ):
     records = []
     for income in db.query(Income).order_by(Income.created_at.desc()).all():

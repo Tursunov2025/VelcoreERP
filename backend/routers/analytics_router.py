@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from auth.deps import get_current_user
+from auth.deps import require_permission
 from database import get_db
 from models import Expense, Income, Order, User
 from schemas import PRODUCTION_STAGES
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 @router.get("/dashboard")
 def dashboard_analytics(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission("finance")),
 ):
     orders = db.query(Order).all()
     expenses = db.query(Expense).all()

@@ -15,7 +15,14 @@ from auth.security import (
 )
 from database import get_db
 from models import User
-from schemas import LoginRequest, RefreshRequest, TokenResponse, UserPublic, UserUiPreferencesUpdate
+from schemas import (
+    LoginRequest,
+    LoginUserOption,
+    RefreshRequest,
+    TokenResponse,
+    UserPublic,
+    UserUiPreferencesUpdate,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -58,6 +65,17 @@ def _token_response(user: User) -> TokenResponse:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+
+
+@router.get("/login-users", response_model=list[LoginUserOption])
+def login_users(db: Session = Depends(get_db)):
+    """Public list of usernames for the login screen (no auth required)."""
+    return (
+        db.query(User)
+        .filter(User.is_active.is_(True))
+        .order_by(User.username)
+        .all()
+    )
 
 
 @router.post("/login", response_model=TokenResponse)

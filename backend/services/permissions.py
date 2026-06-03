@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from constants import ALL_PERMISSION_KEYS, DEFAULT_OPERATOR_PERMISSIONS, LLP_PERMISSIONS
+from constants import ALL_PERMISSION_KEYS, DEFAULT_OPERATOR_PERMISSIONS, LLP_PERMISSIONS, MES_PERMISSIONS
 from models import User, UserPermission
 
 
@@ -83,3 +83,7 @@ def list_all_user_permissions(db: Session) -> list[dict]:
 
 def list_llp_permission_keys() -> list[str]:
     return list(LLP_PERMISSIONS)
+
+
+def list_mes_permission_keys() -> list[str]:
+    return list(MES_PERMISSIONS)

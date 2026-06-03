@@ -17,6 +17,22 @@ const DEFAULT_PERMISSIONS = {
   llp_edit: false,
   llp_delete: false,
   llp_read_confirm: true,
+  mes_view: true,
+  mes_edit: false,
+  mes_delete: false,
+  mes_routes_design: false,
+  mes_drawings_upload: false,
+  mes_jobs_view: false,
+  mes_jobs_manage: false,
+  mes_terminal_lazer: false,
+  mes_terminal_svarshik: false,
+  mes_terminal_kraska: false,
+  mes_terminal_qc: false,
+  mes_terminal_packaging: false,
+  mes_terminal_warehouse: false,
+  mes_terminal_dispatch: false,
+  materials_view: false,
+  materials_edit: false,
 };
 
 async function loadPermissions() {

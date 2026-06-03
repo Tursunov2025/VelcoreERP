@@ -12,8 +12,9 @@ logger = logging.getLogger("azmus.uploads")
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(_BACKEND_ROOT / "uploads")))
+from config.paths import UPLOAD_PATH
+
+UPLOAD_DIR = UPLOAD_PATH
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 BRANDING_DIR = UPLOAD_DIR / "branding"
 BRANDING_DIR.mkdir(parents=True, exist_ok=True)

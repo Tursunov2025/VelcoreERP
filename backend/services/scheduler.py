@@ -5,6 +5,7 @@ import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from services.auto_backup import run_daily_backup
 from services.task_overdue_reminders import run_overdue_reminders_job
 
 logger = logging.getLogger("azmus.scheduler")
@@ -36,6 +37,13 @@ def _run_overdue_reminders_sync() -> None:
         logger.exception("overdue reminder job failed")
 
 
+def _run_daily_backup_sync() -> None:
+    try:
+        run_daily_backup()
+    except Exception:
+        logger.exception("daily backup job failed")
+
+
 def start_reminder_scheduler() -> None:
     global _scheduler
     if os.getenv("DISABLE_REMINDER_SCHEDULER", "").lower() in ("1", "true", "yes"):
@@ -47,11 +55,15 @@ def start_reminder_scheduler() -> None:
     tz_name = os.getenv("REMINDER_TIMEZONE", "Asia/Tashkent")
     hour = int(os.getenv("REMINDER_HOUR", "9"))
     minute = int(os.getenv("REMINDER_MINUTE", "0"))
+    backup_hour = int(os.getenv("BACKUP_HOUR", "2"))
+    backup_minute = int(os.getenv("BACKUP_MINUTE", "0"))
     tz = _resolve_timezone(tz_name)
 
     trigger_kwargs = {"hour": hour, "minute": minute}
+    backup_trigger = {"hour": backup_hour, "minute": backup_minute}
     if tz is not None:
         trigger_kwargs["timezone"] = tz
+        backup_trigger["timezone"] = tz
 
     _scheduler = BackgroundScheduler(timezone=tz)
     _scheduler.add_job(
@@ -61,12 +73,22 @@ def start_reminder_scheduler() -> None:
         replace_existing=True,
         misfire_grace_time=3600,
     )
+    if os.getenv("AUTO_BACKUP_ENABLED", "true").lower() in ("1", "true", "yes"):
+        _scheduler.add_job(
+            _run_daily_backup_sync,
+            CronTrigger(**backup_trigger),
+            id="daily_database_backup",
+            replace_existing=True,
+            misfire_grace_time=7200,
+        )
     _scheduler.start()
     logger.info(
-        "reminder scheduler started daily at %02d:%02d %s",
+        "reminder scheduler started daily at %02d:%02d %s; backup at %02d:%02d",
         hour,
         minute,
         tz_name if tz is not None else "server-local",
+        backup_hour,
+        backup_minute,
     )
 
 

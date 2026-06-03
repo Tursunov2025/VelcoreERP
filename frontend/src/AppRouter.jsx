@@ -15,9 +15,47 @@ import FinancePage from "./pages/FinancePage";
 import ShippingPage from "./pages/ShippingPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import SettingsPage from "./pages/SettingsPage";
+import OrdersControlCenterPage from "./pages/OrdersControlCenterPage";
 import ChatPage from "./pages/ChatPage";
 import TasksPage from "./pages/TasksPage";
 import LlpPage from "./pages/LlpPage";
+import MesHubPage from "./pages/mes/MesHubPage";
+import MesCategoriesPage from "./pages/mes/MesCategoriesPage";
+import MesPartsPage from "./pages/mes/MesPartsPage";
+import MesTemplatesPage from "./pages/mes/MesTemplatesPage";
+import MesTemplateFormPage from "./pages/mes/MesTemplateFormPage";
+import MesTemplateDetailPage from "./pages/mes/MesTemplateDetailPage";
+import MesJobsPage from "./pages/mes/MesJobsPage";
+import MesJobFormPage from "./pages/mes/MesJobFormPage";
+import MesJobDetailPage from "./pages/mes/MesJobDetailPage";
+import LazerTerminalQueuePage from "./pages/mes/LazerTerminalQueuePage";
+import LazerTerminalJobPage from "./pages/mes/LazerTerminalJobPage";
+import SvarshikTerminalQueuePage from "./pages/mes/SvarshikTerminalQueuePage";
+import SvarshikTerminalJobPage from "./pages/mes/SvarshikTerminalJobPage";
+import MesProductionMonitorPage from "./pages/mes/MesProductionMonitorPage";
+import KraskaTerminalQueuePage from "./pages/mes/KraskaTerminalQueuePage";
+import KraskaTerminalJobPage from "./pages/mes/KraskaTerminalJobPage";
+import QcTerminalQueuePage from "./pages/mes/QcTerminalQueuePage";
+import QcTerminalJobPage from "./pages/mes/QcTerminalJobPage";
+import MesQcRejectionReasonsPage from "./pages/mes/MesQcRejectionReasonsPage";
+import PackagingTerminalQueuePage from "./pages/mes/PackagingTerminalQueuePage";
+import PackagingTerminalJobPage from "./pages/mes/PackagingTerminalJobPage";
+import WarehouseTerminalQueuePage from "./pages/mes/WarehouseTerminalQueuePage";
+import WarehouseTerminalJobPage from "./pages/mes/WarehouseTerminalJobPage";
+import MesWarehouseLocationsPage from "./pages/mes/MesWarehouseLocationsPage";
+import DispatchTerminalQueuePage from "./pages/mes/DispatchTerminalQueuePage";
+import DispatchTerminalJobPage from "./pages/mes/DispatchTerminalJobPage";
+import MaterialsHubPage from "./pages/materials/MaterialsHubPage";
+import MaterialsCategoriesPage from "./pages/materials/MaterialsCategoriesPage";
+import MaterialsItemsPage from "./pages/materials/MaterialsItemsPage";
+import MaterialsReceiptsPage from "./pages/materials/MaterialsReceiptsPage";
+import MaterialsIssuesPage from "./pages/materials/MaterialsIssuesPage";
+import MaterialsAdjustmentsPage from "./pages/materials/MaterialsAdjustmentsPage";
+import MaterialsMovementsPage from "./pages/materials/MaterialsMovementsPage";
+import MaterialPartBomPage from "./pages/materials/MaterialPartBomPage";
+import MaterialsShortagesPage from "./pages/materials/MaterialsShortagesPage";
+import MaterialsConsumptionRulesPage from "./pages/materials/MaterialsConsumptionRulesPage";
+import MaterialsConsumptionsPage from "./pages/materials/MaterialsConsumptionsPage";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 
 function LoginRoute() {
@@ -68,10 +106,50 @@ function AppRoutes() {
             <Route path="chat" element={<ChatPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="llp" element={<LlpPage />} />
+            <Route path="mes" element={<MesHubPage />} />
+            <Route path="mes/categories" element={<MesCategoriesPage />} />
+            <Route path="mes/parts" element={<MesPartsPage />} />
+            <Route path="mes/templates" element={<MesTemplatesPage />} />
+            <Route path="mes/templates/new" element={<MesTemplateFormPage />} />
+            <Route path="mes/templates/:id/edit" element={<MesTemplateFormPage />} />
+            <Route path="mes/templates/:id" element={<MesTemplateDetailPage />} />
+            <Route path="mes/jobs" element={<MesJobsPage />} />
+            <Route path="mes/jobs/new" element={<MesJobFormPage />} />
+            <Route path="mes/jobs/:id/edit" element={<MesJobFormPage />} />
+            <Route path="mes/jobs/:id" element={<MesJobDetailPage />} />
+            <Route path="mes/monitor" element={<MesProductionMonitorPage />} />
+            <Route path="mes/terminal/lazer" element={<LazerTerminalQueuePage />} />
+            <Route path="mes/terminal/lazer/jobs/:id" element={<LazerTerminalJobPage />} />
+            <Route path="mes/terminal/svarshik" element={<SvarshikTerminalQueuePage />} />
+            <Route path="mes/terminal/svarshik/jobs/:id" element={<SvarshikTerminalJobPage />} />
+            <Route path="mes/terminal/kraska" element={<KraskaTerminalQueuePage />} />
+            <Route path="mes/terminal/kraska/jobs/:id" element={<KraskaTerminalJobPage />} />
+            <Route path="mes/terminal/qc" element={<QcTerminalQueuePage />} />
+            <Route path="mes/terminal/qc/jobs/:id" element={<QcTerminalJobPage />} />
+            <Route path="mes/qc/rejection-reasons" element={<MesQcRejectionReasonsPage />} />
+            <Route path="mes/terminal/packaging" element={<PackagingTerminalQueuePage />} />
+            <Route path="mes/terminal/packaging/jobs/:id" element={<PackagingTerminalJobPage />} />
+            <Route path="mes/terminal/warehouse" element={<WarehouseTerminalQueuePage />} />
+            <Route path="mes/terminal/warehouse/jobs/:id" element={<WarehouseTerminalJobPage />} />
+            <Route path="mes/warehouse/locations" element={<MesWarehouseLocationsPage />} />
+            <Route path="mes/terminal/dispatch" element={<DispatchTerminalQueuePage />} />
+            <Route path="mes/terminal/dispatch/jobs/:id" element={<DispatchTerminalJobPage />} />
+            <Route path="materials" element={<MaterialsHubPage />} />
+            <Route path="materials/categories" element={<MaterialsCategoriesPage />} />
+            <Route path="materials/items" element={<MaterialsItemsPage />} />
+            <Route path="materials/receipts" element={<MaterialsReceiptsPage />} />
+            <Route path="materials/issues" element={<MaterialsIssuesPage />} />
+            <Route path="materials/adjustments" element={<MaterialsAdjustmentsPage />} />
+            <Route path="materials/movements" element={<MaterialsMovementsPage />} />
+            <Route path="materials/shortages" element={<MaterialsShortagesPage />} />
+            <Route path="materials/part-bom" element={<MaterialPartBomPage />} />
+            <Route path="materials/consumption-rules" element={<MaterialsConsumptionRulesPage />} />
+            <Route path="materials/consumed-today" element={<MaterialsConsumptionsPage />} />
             <Route path="operators" element={<OperatorsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="finance" element={<FinancePage />} />
             <Route path="invoices" element={<InvoicesPage />} />
+            <Route path="control-center" element={<OrdersControlCenterPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<CatchAllRoute />} />

@@ -3,7 +3,7 @@ import { api } from "../api/client";
 
 const REFRESH_INTERVAL_MS = 15000;
 
-export function useUsers({ enabled = true } = {}) {
+export function useUsers({ enabled = true, forLogin = false } = {}) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -14,7 +14,7 @@ export function useUsers({ enabled = true } = {}) {
     setError("");
 
     try {
-      const data = await api.getUsers();
+      const data = forLogin ? await api.getLoginUsers() : await api.getUsers();
       if (mountedRef.current) {
         setUsers(Array.isArray(data) ? data : []);
       }
@@ -28,7 +28,7 @@ export function useUsers({ enabled = true } = {}) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [forLogin]);
 
   useEffect(() => {
     mountedRef.current = true;

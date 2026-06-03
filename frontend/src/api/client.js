@@ -138,6 +138,7 @@ export const api = {
 
   getMe: () => request("/auth/me"),
   getUsers: () => request("/users"),
+  getLoginUsers: () => request("/auth/login-users"),
   createUser: (body) =>
     request("/users", { method: "POST", body: JSON.stringify(body) }),
 
@@ -344,13 +345,70 @@ export const api = {
 
   adminGetSystemSettings: () => request("/admin/settings/system"),
   adminUpdateSystemSettings: (body) =>
-    request("/admin/settings/system", {
+    request("/admin/settings/system", { method: "PUT", body: JSON.stringify(body) }),
+  adminGetCompanySettings: () => request("/admin/settings/company"),
+  adminUpdateCompanySettings: (body) =>
+    request("/admin/settings/company", { method: "PUT", body: JSON.stringify(body) }),
+  adminGetProductionSettings: () => request("/admin/settings/production"),
+  adminUpdateProductionSettings: (body) =>
+    request("/admin/settings/production", { method: "PUT", body: JSON.stringify(body) }),
+  adminGetWarehouseSettings: () => request("/admin/settings/warehouse"),
+  adminUpdateWarehouseSettings: (body) =>
+    request("/admin/settings/warehouse", { method: "PUT", body: JSON.stringify(body) }),
+  adminGetMaterialsSettings: () => request("/admin/settings/materials"),
+  adminUpdateMaterialsSettings: (body) =>
+    request("/admin/settings/materials", { method: "PUT", body: JSON.stringify(body) }),
+  adminGetCostingSettings: () => request("/admin/settings/costing"),
+  adminUpdateCostingSettings: (body) =>
+    request("/admin/settings/costing", { method: "PUT", body: JSON.stringify(body) }),
+  adminGetBackupSettings: () => request("/admin/settings/backup"),
+  adminUpdateBackupSettings: (body) =>
+    request("/admin/settings/backup", { method: "PUT", body: JSON.stringify(body) }),
+  adminExportSettings: (includeBranding = true) =>
+    request(`/admin/settings/export?include_branding=${includeBranding ? "true" : "false"}`),
+  adminImportSettings: (body) =>
+    request("/admin/settings/import", { method: "POST", body: JSON.stringify(body) }),
+
+  adminGetOnlineUsers: () => request("/admin/operators/online"),
+  adminGetAuditLogs: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit) q.set("limit", String(params.limit));
+    if (params.q) q.set("q", params.q);
+    if (params.action) q.set("action", params.action);
+    if (params.entity_type) q.set("entity_type", params.entity_type);
+    if (params.username) q.set("username", params.username);
+    const qs = q.toString();
+    return request(`/admin/audit-logs${qs ? `?${qs}` : ""}`);
+  },
+
+  adminGetExecutiveSettings: () => request("/admin/settings/executive"),
+  adminUpdateExecutiveSettings: (body) =>
+    request("/admin/settings/executive", { method: "PUT", body: JSON.stringify(body) }),
+
+  getMobileVersion: () => request("/mobile/version"),
+  adminGetMobileVersions: () => request("/admin/mobile/versions"),
+  adminGetLatestMobileVersion: () => request("/admin/mobile/versions/latest"),
+  adminPublishMobileVersion: (body) =>
+    request("/admin/mobile/versions/publish", {
       method: "PUT",
       body: JSON.stringify(body),
     }),
+  adminUploadMobileApk: async (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request("/admin/mobile/apk-upload", { method: "POST", body: form });
+  },
 
-  adminGetOnlineUsers: () => request("/admin/operators/online"),
-  adminGetAuditLogs: () => request("/admin/audit-logs"),
+  getUiConfig: () => request("/control-center/config/ui"),
+  controlCenterOrders: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.q) q.set("q", params.q);
+    if (params.customer) q.set("customer", params.customer);
+    if (params.status) q.set("status", params.status);
+    if (params.type) q.set("type", params.type);
+    if (params.delayed_only) q.set("delayed_only", "true");
+    return request(`/control-center/orders?${q.toString()}`);
+  },
 
   adminImportBackup: async (file) => {
     const form = new FormData();
@@ -432,6 +490,376 @@ export const api = {
     request(`/llp/documents/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   llpDeleteDocument: (id) => request(`/llp/documents/${id}`, { method: "DELETE" }),
   llpMarkRead: (id) => request(`/llp/documents/${id}/read`, { method: "POST" }),
+
+  mesGetCategories: (includeInactive = false) =>
+    request(`/mes/categories?include_inactive=${includeInactive ? "true" : "false"}`),
+  mesCreateCategory: (body) =>
+    request("/mes/categories", { method: "POST", body: JSON.stringify(body) }),
+  mesUpdateCategory: (id, body) =>
+    request(`/mes/categories/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  mesDeleteCategory: (id) => request(`/mes/categories/${id}`, { method: "DELETE" }),
+
+  mesGetParts: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    return request(`/mes/parts?${q.toString()}`);
+  },
+  mesGetPart: (id) => request(`/mes/parts/${id}`),
+  mesCreatePart: (body) =>
+    request("/mes/parts", { method: "POST", body: JSON.stringify(body) }),
+  mesUpdatePart: (id, body) =>
+    request(`/mes/parts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  mesDeletePart: (id) => request(`/mes/parts/${id}`, { method: "DELETE" }),
+
+  mesGetTemplates: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    return request(`/mes/templates?${q.toString()}`);
+  },
+  mesGetTemplate: (id) => request(`/mes/templates/${id}`),
+  mesCreateTemplate: (body) =>
+    request("/mes/templates", { method: "POST", body: JSON.stringify(body) }),
+  mesUpdateTemplate: (id, body) =>
+    request(`/mes/templates/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  mesDeleteTemplate: (id) => request(`/mes/templates/${id}`, { method: "DELETE" }),
+  mesDuplicateTemplate: (id, code) =>
+    request(`/mes/templates/${id}/duplicate`, {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  mesUploadTemplateImage: async (id, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request(`/mes/templates/${id}/image`, { method: "POST", body: form });
+  },
+
+  mesGetTemplateBom: (templateId) => request(`/mes/templates/${templateId}/bom`),
+  mesAddBomLine: (templateId, body) =>
+    request(`/mes/templates/${templateId}/bom`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  mesUpdateBomLine: (templateId, lineId, body) =>
+    request(`/mes/templates/${templateId}/bom/${lineId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  mesDeleteBomLine: (templateId, lineId) =>
+    request(`/mes/templates/${templateId}/bom/${lineId}`, { method: "DELETE" }),
+  mesReorderBomLines: (templateId, lines) =>
+    request(`/mes/templates/${templateId}/bom/reorder`, {
+      method: "PUT",
+      body: JSON.stringify({ lines }),
+    }),
+  mesUploadBomDrawing: async (templateId, lineId, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request(`/mes/templates/${templateId}/bom/${lineId}/drawing`, {
+      method: "POST",
+      body: form,
+    });
+  },
+
+  mesGetStages: (includeInactive = false) =>
+    request(`/mes/stages?include_inactive=${includeInactive ? "true" : "false"}`),
+  mesCreateStage: (body) =>
+    request("/mes/stages", { method: "POST", body: JSON.stringify(body) }),
+  mesUpdateStage: (id, body) =>
+    request(`/mes/stages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  mesDeleteStage: (id) => request(`/mes/stages/${id}`, { method: "DELETE" }),
+
+  mesGetTemplateRoutes: (templateId) => request(`/mes/templates/${templateId}/routes`),
+  mesGetTemplateRoute: (templateId, routeId) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}`),
+  mesCreateTemplateRoute: (templateId, body) =>
+    request(`/mes/templates/${templateId}/routes`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  mesUpdateTemplateRoute: (templateId, routeId, body) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  mesDeleteTemplateRoute: (templateId, routeId) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}`, { method: "DELETE" }),
+  mesSetDefaultRoute: (templateId, routeId) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}/set-default`, {
+      method: "POST",
+    }),
+  mesCreateRouteVersion: (templateId, routeId) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}/new-version`, {
+      method: "POST",
+    }),
+  mesAddRouteStep: (templateId, routeId, body) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}/steps`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  mesUpdateRouteStep: (templateId, routeId, stepId, body) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}/steps/${stepId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  mesDeleteRouteStep: (templateId, routeId, stepId) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}/steps/${stepId}`, {
+      method: "DELETE",
+    }),
+  mesReorderRouteSteps: (templateId, routeId, steps) =>
+    request(`/mes/templates/${templateId}/routes/${routeId}/steps/reorder`, {
+      method: "PUT",
+      body: JSON.stringify({ steps }),
+    }),
+
+  mesGetTemplateDrawings: (templateId) => request(`/mes/templates/${templateId}/drawings`),
+  mesUploadDrawing: async (templateId, file, { title = "", revision = "A", is_primary = false } = {}) => {
+    const form = new FormData();
+    form.append("file", file);
+    const q = new URLSearchParams();
+    if (title) q.set("title", title);
+    q.set("revision", revision || "A");
+    if (is_primary) q.set("is_primary", "true");
+    return request(`/mes/templates/${templateId}/drawings?${q.toString()}`, {
+      method: "POST",
+      body: form,
+    });
+  },
+  mesUpdateDrawing: (templateId, drawingId, body) =>
+    request(`/mes/templates/${templateId}/drawings/${drawingId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  mesSetPrimaryDrawing: (templateId, drawingId) =>
+    request(`/mes/templates/${templateId}/drawings/${drawingId}/set-primary`, {
+      method: "POST",
+    }),
+  mesDeleteDrawing: (templateId, drawingId) =>
+    request(`/mes/templates/${templateId}/drawings/${drawingId}`, { method: "DELETE" }),
+
+  mesGetJobs: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    return request(`/mes/jobs?${q.toString()}`);
+  },
+  mesGetJob: (id) => request(`/mes/jobs/${id}`),
+  mesCreateJob: (body) =>
+    request("/mes/jobs", { method: "POST", body: JSON.stringify(body) }),
+  mesUpdateJob: (id, body) =>
+    request(`/mes/jobs/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  mesReleaseJob: (id) => request(`/mes/jobs/${id}/release`, { method: "POST" }),
+  mesUpdateJobStatus: (id, status) =>
+    request(`/mes/jobs/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    }),
+
+  mesLazerQueue: () => request("/mes/terminal/lazer/queue"),
+  mesLazerJob: (id) => request(`/mes/terminal/lazer/jobs/${id}`),
+  mesLazerAcceptJob: (id) =>
+    request(`/mes/terminal/lazer/jobs/${id}/accept`, { method: "POST" }),
+  mesLazerStartJob: (id) =>
+    request(`/mes/terminal/lazer/jobs/${id}/start`, { method: "POST" }),
+  mesLazerCompleteJob: (id) =>
+    request(`/mes/terminal/lazer/jobs/${id}/complete`, { method: "POST" }),
+  mesLazerUpdateQuantities: (id, lines) =>
+    request(`/mes/terminal/lazer/jobs/${id}/quantities`, {
+      method: "PUT",
+      body: JSON.stringify({ lines }),
+    }),
+
+  mesSvarshikDashboard: () => request("/mes/terminal/svarshik/dashboard"),
+  mesSvarshikQueue: () => request("/mes/terminal/svarshik/queue"),
+  mesSvarshikJob: (id) => request(`/mes/terminal/svarshik/jobs/${id}`),
+  mesSvarshikAcceptJob: (id) =>
+    request(`/mes/terminal/svarshik/jobs/${id}/accept`, { method: "POST" }),
+  mesSvarshikStartJob: (id) =>
+    request(`/mes/terminal/svarshik/jobs/${id}/start`, { method: "POST" }),
+  mesSvarshikCompleteJob: (id) =>
+    request(`/mes/terminal/svarshik/jobs/${id}/complete`, { method: "POST" }),
+  mesSvarshikUpdateQuantities: (id, lines) =>
+    request(`/mes/terminal/svarshik/jobs/${id}/quantities`, {
+      method: "PUT",
+      body: JSON.stringify({ lines }),
+    }),
+
+  mesMonitorDashboard: () => request("/mes/monitor/dashboard"),
+  mesMonitorJobs: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    return request(`/mes/monitor/jobs?${q.toString()}`);
+  },
+
+  mesKraskaDashboard: () => request("/mes/terminal/kraska/dashboard"),
+  mesKraskaQueue: () => request("/mes/terminal/kraska/queue"),
+  mesKraskaJob: (id) => request(`/mes/terminal/kraska/jobs/${id}`),
+  mesKraskaAcceptJob: (id) =>
+    request(`/mes/terminal/kraska/jobs/${id}/accept`, { method: "POST" }),
+  mesKraskaStartJob: (id) =>
+    request(`/mes/terminal/kraska/jobs/${id}/start`, { method: "POST" }),
+  mesKraskaSendToDrying: (id) =>
+    request(`/mes/terminal/kraska/jobs/${id}/drying`, { method: "POST" }),
+  mesKraskaCompleteJob: (id) =>
+    request(`/mes/terminal/kraska/jobs/${id}/complete`, { method: "POST" }),
+  mesKraskaUpdatePaintMetadata: (id, body) =>
+    request(`/mes/terminal/kraska/jobs/${id}/paint-metadata`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  mesKraskaUpdateQuantities: (id, lines) =>
+    request(`/mes/terminal/kraska/jobs/${id}/quantities`, {
+      method: "PUT",
+      body: JSON.stringify({ lines }),
+    }),
+
+  mesQcDashboard: () => request("/mes/terminal/qc/dashboard"),
+  mesQcQueue: () => request("/mes/terminal/qc/queue"),
+  mesQcReworkQueue: () => request("/mes/terminal/qc/rework-queue"),
+  mesQcRejectionReasons: () => request("/mes/terminal/qc/rejection-reasons"),
+  mesQcJob: (id) => request(`/mes/terminal/qc/jobs/${id}`),
+  mesQcAcceptJob: (id) =>
+    request(`/mes/terminal/qc/jobs/${id}/accept`, { method: "POST" }),
+  mesQcStartJob: (id) =>
+    request(`/mes/terminal/qc/jobs/${id}/start`, { method: "POST" }),
+  mesQcCompleteJob: (id) =>
+    request(`/mes/terminal/qc/jobs/${id}/complete`, { method: "POST" }),
+  mesQcUpdateQuantities: (id, lines) =>
+    request(`/mes/terminal/qc/jobs/${id}/quantities`, {
+      method: "PUT",
+      body: JSON.stringify({ lines }),
+    }),
+  mesQcCreateRework: (id, body) =>
+    request(`/mes/terminal/qc/jobs/${id}/rework`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  mesQcStartRework: (reworkId) =>
+    request(`/mes/terminal/qc/rework/${reworkId}/start`, { method: "POST" }),
+  mesQcCompleteRework: (reworkId) =>
+    request(`/mes/terminal/qc/rework/${reworkId}/complete`, { method: "POST" }),
+  mesQcAdminRejectionReasons: (includeInactive = false) =>
+    request(`/mes/qc/rejection-reasons?include_inactive=${includeInactive ? "true" : "false"}`),
+  mesQcAdminCreateRejectionReason: (body) =>
+    request("/mes/qc/rejection-reasons", { method: "POST", body: JSON.stringify(body) }),
+  mesQcAdminUpdateRejectionReason: (id, body) =>
+    request(`/mes/qc/rejection-reasons/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  mesPackagingDashboard: () => request("/mes/terminal/packaging/dashboard"),
+  mesPackagingQueue: () => request("/mes/terminal/packaging/queue"),
+  mesPackagingJob: (id) => request(`/mes/terminal/packaging/jobs/${id}`),
+  mesPackagingAcceptJob: (id) =>
+    request(`/mes/terminal/packaging/jobs/${id}/accept`, { method: "POST" }),
+  mesPackagingStartJob: (id) =>
+    request(`/mes/terminal/packaging/jobs/${id}/start`, { method: "POST" }),
+  mesPackagingCompleteJob: (id) =>
+    request(`/mes/terminal/packaging/jobs/${id}/complete`, { method: "POST" }),
+  mesPackagingUpdateData: (id, body) =>
+    request(`/mes/terminal/packaging/jobs/${id}/packaging-data`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  mesWarehouseDashboard: () => request("/mes/terminal/warehouse/dashboard"),
+  mesWarehouseQueue: () => request("/mes/terminal/warehouse/queue"),
+  mesWarehouseInventory: () => request("/mes/terminal/warehouse/inventory"),
+  mesWarehouseLocations: () => request("/mes/terminal/warehouse/locations"),
+  mesWarehouseJob: (id) => request(`/mes/terminal/warehouse/jobs/${id}`),
+  mesWarehouseAcceptReceipt: (id) =>
+    request(`/mes/terminal/warehouse/jobs/${id}/accept`, { method: "POST" }),
+  mesWarehouseStartPlacement: (id) =>
+    request(`/mes/terminal/warehouse/jobs/${id}/start`, { method: "POST" }),
+  mesWarehouseCompleteReceipt: (id) =>
+    request(`/mes/terminal/warehouse/jobs/${id}/complete`, { method: "POST" }),
+  mesWarehousePlacePackage: (jobId, packageId, locationId) =>
+    request(`/mes/terminal/warehouse/jobs/${jobId}/packages/${packageId}/place`, {
+      method: "POST",
+      body: JSON.stringify({ location_id: locationId }),
+    }),
+  mesWarehouseAdminLocations: (includeInactive = false) =>
+    request(`/mes/warehouse/locations?include_inactive=${includeInactive ? "true" : "false"}`),
+  mesWarehouseAdminCreateLocation: (body) =>
+    request("/mes/warehouse/locations", { method: "POST", body: JSON.stringify(body) }),
+  mesWarehouseAdminUpdateLocation: (id, body) =>
+    request(`/mes/warehouse/locations/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  mesDispatchDashboard: () => request("/mes/terminal/dispatch/dashboard"),
+  mesDispatchQueue: () => request("/mes/terminal/dispatch/queue"),
+  mesDispatchJob: (id) => request(`/mes/terminal/dispatch/jobs/${id}`),
+  mesDispatchAccept: (id) =>
+    request(`/mes/terminal/dispatch/jobs/${id}/accept`, { method: "POST" }),
+  mesDispatchStartLoading: (id) =>
+    request(`/mes/terminal/dispatch/jobs/${id}/start`, { method: "POST" }),
+  mesDispatchUpdateTransport: (id, body) =>
+    request(`/mes/terminal/dispatch/jobs/${id}/transport`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  mesDispatchLoadPackage: (jobId, packageId) =>
+    request(`/mes/terminal/dispatch/jobs/${jobId}/packages/${packageId}/load`, {
+      method: "POST",
+    }),
+  mesDispatchShip: (id) =>
+    request(`/mes/terminal/dispatch/jobs/${id}/ship`, { method: "POST" }),
+  mesDispatchDeliver: (id) =>
+    request(`/mes/terminal/dispatch/jobs/${id}/deliver`, { method: "POST" }),
+
+  materialsDashboard: () => request("/materials/dashboard"),
+  materialsCategories: (includeInactive = false) =>
+    request(`/materials/categories?include_inactive=${includeInactive ? "true" : "false"}`),
+  materialsCreateCategory: (body) =>
+    request("/materials/categories", { method: "POST", body: JSON.stringify(body) }),
+  materialsUpdateCategory: (id, body) =>
+    request(`/materials/categories/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  materialsItems: (includeInactive = false) =>
+    request(`/materials/items?include_inactive=${includeInactive ? "true" : "false"}`),
+  materialsGetItem: (id) => request(`/materials/items/${id}`),
+  materialsCreateItem: (body) =>
+    request("/materials/items", { method: "POST", body: JSON.stringify(body) }),
+  materialsUpdateItem: (id, body) =>
+    request(`/materials/items/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  materialsReceipts: (limit = 100) => request(`/materials/receipts?limit=${limit}`),
+  materialsCreateReceipt: (body) =>
+    request("/materials/receipts", { method: "POST", body: JSON.stringify(body) }),
+  materialsIssues: (limit = 100) => request(`/materials/issues?limit=${limit}`),
+  materialsCreateIssue: (body) =>
+    request("/materials/issues", { method: "POST", body: JSON.stringify(body) }),
+  materialsAdjustments: (limit = 100) => request(`/materials/adjustments?limit=${limit}`),
+  materialsCreateAdjustment: (body) =>
+    request("/materials/adjustments", { method: "POST", body: JSON.stringify(body) }),
+  materialsMovements: (limit = 200) => request(`/materials/movements?limit=${limit}`),
+
+  materialsPlanningShortages: () => request("/materials/planning/shortages"),
+  materialsPlanningParts: () => request("/materials/planning/parts"),
+  materialsJobReservations: (jobId) => request(`/materials/jobs/${jobId}/reservations`),
+  materialsPartBom: (partId, includeInactive = false) =>
+    request(`/materials/parts/${partId}/bom?include_inactive=${includeInactive ? "true" : "false"}`),
+  materialsAddPartBomLine: (partId, body) =>
+    request(`/materials/parts/${partId}/bom`, { method: "POST", body: JSON.stringify(body) }),
+  materialsUpdatePartBomLine: (partId, lineId, body) =>
+    request(`/materials/parts/${partId}/bom/${lineId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  materialsDeletePartBomLine: (partId, lineId) =>
+    request(`/materials/parts/${partId}/bom/${lineId}`, { method: "DELETE" }),
+
+  materialsConsumptionRules: (includeInactive = false) =>
+    request(`/materials/consumption-rules?include_inactive=${includeInactive ? "true" : "false"}`),
+  materialsCreateConsumptionRule: (body) =>
+    request("/materials/consumption-rules", { method: "POST", body: JSON.stringify(body) }),
+  materialsUpdateConsumptionRule: (id, body) =>
+    request(`/materials/consumption-rules/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  materialsConsumptionsToday: (limit = 100) =>
+    request(`/materials/consumptions/today?limit=${limit}`),
+  materialsJobConsumptions: (jobId) => request(`/materials/jobs/${jobId}/consumptions`),
+  materialsJobMaterialCost: (jobId) => request(`/materials/jobs/${jobId}/material-cost`),
 
   getTelegramStatus: () => request("/telegram/status"),
   generateTelegramLinkCode: () =>

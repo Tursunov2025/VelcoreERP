@@ -7,6 +7,7 @@ from constants import user_can_access_stage
 from database import get_db
 from models import User
 from services.activity import touch_activity
+from services.permissions import user_has_permission
 
 security = HTTPBearer(auto_error=False)
 
@@ -65,6 +66,21 @@ def require_department_access(stage: str):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"No access to {stage} department",
+            )
+        return user
+
+    return checker
+
+
+def require_permission(key: str):
+    def checker(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if not user_has_permission(db, user, key):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: {key}",
             )
         return user
 

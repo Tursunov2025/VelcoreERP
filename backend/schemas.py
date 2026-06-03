@@ -41,6 +41,15 @@ class UserPublic(BaseModel):
         from_attributes = True
 
 
+class LoginUserOption(BaseModel):
+    username: str
+    role: str
+    department: str
+
+    class Config:
+        from_attributes = True
+
+
 class OrderHistoryResponse(BaseModel):
     id: int
     order_id: int
@@ -264,11 +273,80 @@ class AdminOrderUpdate(BaseModel):
 
 
 class SystemSettingsUpdate(BaseModel):
+    company_name: Optional[str] = None
     company_phone: Optional[str] = None
-    jwt_access_minutes: Optional[str] = None
-    jwt_refresh_days: Optional[str] = None
+    company_email: Optional[str] = None
+    company_address: Optional[str] = None
+    company_tax_id: Optional[str] = None
+    company_currency: Optional[str] = None
+
+
+class ProductionSettingsUpdate(BaseModel):
+    production_stages_json: Optional[str] = None
+    departments_json: Optional[str] = None
+    mes_job_default_priority: Optional[str] = None
+    mes_inspection_stage: Optional[str] = None
+    mes_final_stage: Optional[str] = None
+    mes_default_stages_json: Optional[str] = None
+
+
+class WarehouseSettingsUpdate(BaseModel):
+    warehouse_low_stock_alerts: Optional[str] = None
+    warehouse_finished_goods_prefix: Optional[str] = None
+    warehouse_dispatch_requires_approval: Optional[str] = None
+    warehouse_default_receipt_notes: Optional[str] = None
+
+
+class MaterialsSettingsUpdate(BaseModel):
+    materials_default_unit: Optional[str] = None
+    materials_low_stock_default: Optional[str] = None
+    materials_auto_consume_enabled: Optional[str] = None
+    materials_auto_consume_stages_json: Optional[str] = None
+    materials_categories_json: Optional[str] = None
+
+
+class CostingSettingsUpdate(BaseModel):
+    costing_currency: Optional[str] = None
+    costing_currency_symbol: Optional[str] = None
+    costing_default_markup_pct: Optional[str] = None
+    costing_track_job_material_cost: Optional[str] = None
+
+
+class ExecutiveSettingsUpdate(BaseModel):
+    nav_visibility_json: Optional[str] = None
+    dashboard_widgets_json: Optional[str] = None
+    mobile_app_json: Optional[str] = None
+
+
+class MobileVersionResponse(BaseModel):
+    latest_version: str
+    version_code: int
+    apk_url: str
+    force_update: bool
+    release_notes: str
+
+
+class MobileVersionPublish(BaseModel):
+    version_name: str
+    version_code: int
+    apk_url: str
+    release_notes: Optional[str] = ""
+    force_update: bool = False
+
+
+class BackupSettingsUpdate(BaseModel):
     auto_backup_enabled: Optional[str] = None
     auto_backup_interval_hours: Optional[str] = None
+    backup_retention_count: Optional[str] = None
+    backup_include_uploads: Optional[str] = None
+    migration_include_settings: Optional[str] = None
+    jwt_access_minutes: Optional[str] = None
+    jwt_refresh_days: Optional[str] = None
+
+
+class SettingsImportRequest(BaseModel):
+    settings: dict
+    merge: bool = True
 
 
 class BrandingSettingsUpdate(BaseModel):
@@ -371,6 +449,7 @@ class MigrationExportRequest(BaseModel):
     include_database: bool = True
     include_llp_files: bool = True
     include_branding_files: bool = True
+    include_mes_files: bool = True
     include_tasks: bool = True
     include_permissions: bool = True
     include_notification_settings: bool = True
@@ -397,12 +476,21 @@ class MigrationVerificationReport(BaseModel):
     permissions_count: int = 0
     llp_files_count: int = 0
     branding_files_count: int = 0
+    mes_files_count: int = 0
     documents_in_db: int = 0
     missing_files_count: int = 0
     missing_files: list[str] = []
     brand_settings_count: int = 0
     telegram_settings_count: int = 0
     notification_settings_count: int = 0
+    mes_categories_count: int = 0
+    mes_parts_count: int = 0
+    mes_templates_count: int = 0
+    mes_bom_lines_count: int = 0
+    mes_routes_count: int = 0
+    mes_route_steps_count: int = 0
+    mes_drawings_count: int = 0
+    mes_diagnostics: dict = {}
     ok: bool = True
 
 

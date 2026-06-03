@@ -33,6 +33,9 @@ export const DEFAULT_BRANDING = {
   emoji_finance: "💰",
   emoji_settings: "⚙️",
   emoji_llp: "📁",
+  emoji_mes: "🏭",
+  emoji_materials: "🧱",
+  emoji_controlCenter: "🎛️",
   theme_mode: "light",
   language: "uz_latn",
   clock_format: "24h",
@@ -63,6 +66,9 @@ export const EMOJI_NAV_KEYS = [
   { key: "emoji_finance", label: "Moliya" },
   { key: "emoji_settings", label: "Sozlamalar" },
   { key: "emoji_llp", label: "LLP" },
+  { key: "emoji_mes", label: "MES" },
+  { key: "emoji_materials", label: "Xom ashyo ombori" },
+  { key: "emoji_controlCenter", label: "Control Center" },
 ];
 
 export const COLOR_FIELDS = [
