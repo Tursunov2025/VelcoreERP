@@ -57,6 +57,7 @@ import MaterialsShortagesPage from "./pages/materials/MaterialsShortagesPage";
 import MaterialsConsumptionRulesPage from "./pages/materials/MaterialsConsumptionRulesPage";
 import MaterialsConsumptionsPage from "./pages/materials/MaterialsConsumptionsPage";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
+import MobileUpdateGate from "./components/mobile/MobileUpdateGate";
 
 function LoginRoute() {
   const { isLoggedIn, loading } = useAuth();
@@ -90,10 +91,8 @@ function CatchAllRoute() {
 }
 
 function AppRoutes() {
-  const { branding } = useBranding();
-
   return (
-    <LocaleProvider brandingDefaults={branding}>
+    <MobileUpdateGate>
       <ThemeApplicator>
         <Routes>
           <Route path="/login" element={<LoginRoute />} />
@@ -155,6 +154,18 @@ function AppRoutes() {
           <Route path="*" element={<CatchAllRoute />} />
         </Routes>
       </ThemeApplicator>
+    </MobileUpdateGate>
+  );
+}
+
+function AppProviders() {
+  const { branding } = useBranding();
+
+  return (
+    <LocaleProvider brandingDefaults={branding}>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </LocaleProvider>
   );
 }
@@ -163,9 +174,7 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <BrandingProvider>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <AppProviders />
       </BrandingProvider>
     </BrowserRouter>
   );
