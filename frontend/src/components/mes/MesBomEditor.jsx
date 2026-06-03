@@ -35,24 +35,47 @@ export default function MesBomEditor({ templateId, readOnly = false, onSummaryCh
     return () => window.clearTimeout(timer);
   }, [partSearch]);
 
+  const onSummaryChangeRef = useRef(onSummaryChange);
+  useEffect(() => {
+    onSummaryChangeRef.current = onSummaryChange;
+  }, [onSummaryChange]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    (async () => {
+      try {
+        const data = await api.mesGetTemplateBom(templateId);
+        if (cancelled) return;
+        setLines(data.lines || []);
+        setSummary(data.summary || null);
+        onSummaryChangeRef.current?.(data.summary || null);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [templateId]);
+
   const loadBom = useCallback(async () => {
     setError("");
     try {
       const data = await api.mesGetTemplateBom(templateId);
       setLines(data.lines || []);
       setSummary(data.summary || null);
-      onSummaryChange?.(data.summary || null);
+      onSummaryChangeRef.current?.(data.summary || null);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [templateId, onSummaryChange]);
-
-  useEffect(() => {
-    setLoading(true);
-    loadBom();
-  }, [loadBom]);
+  }, [templateId]);
 
   useEffect(() => {
     if (readOnly) return;

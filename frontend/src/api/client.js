@@ -102,6 +102,13 @@ async function request(path, options = {}, retry = true) {
       (Array.isArray(data?.detail) ? data.detail[0]?.msg : null) ||
       response.statusText;
 
+    if (response.status === 401) {
+      setStoredTokens(null);
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.assign("/login");
+      }
+    }
+
     if (response.status === 404) {
       console.error(
         `[api] ${method} ${url} → 404 Not Found. ` +

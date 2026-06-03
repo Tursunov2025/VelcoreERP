@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { useLocale } from "../../context/LocaleContext";
 import MesRouteTimeline from "./MesRouteTimeline";
@@ -21,7 +21,16 @@ export default function MesRouteDesigner({ templateId, readOnly = false, onRoute
   const [showStageForm, setShowStageForm] = useState(false);
   const [stageForm, setStageForm] = useState(emptyStageForm);
 
+  const onRouteChangeRef = useRef(onRouteChange);
+  useEffect(() => {
+    onRouteChangeRef.current = onRouteChange;
+  }, [onRouteChange]);
+
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) || routes[0] || null;
+
+  const notifyRouteChange = useCallback((route) => {
+    onRouteChangeRef.current?.(route || null);
+  }, []);
 
   const loadStages = useCallback(async () => {
     try {
@@ -42,29 +51,62 @@ export default function MesRouteDesigner({ templateId, readOnly = false, onRoute
         if (prev && list.some((r) => r.id === prev)) return prev;
         return list[0]?.id ?? null;
       });
-      const current = list.find((r) => r.id === (selectedRouteId || list[0]?.id)) || list[0];
-      onRouteChange?.(current || null);
+      const firstId = list[0]?.id ?? null;
+      const current =
+        list.find((r) => r.id === firstId) || list[0] || null;
+      notifyRouteChange(current);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [templateId, onRouteChange]);
+  }, [templateId, notifyRouteChange]);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    loadRoutes();
-    if (!readOnly) loadStages();
-  }, [loadRoutes, loadStages, readOnly]);
+    setError("");
+    setRoutes([]);
+    setSelectedRouteId(null);
+
+    (async () => {
+      try {
+        const data = await api.mesGetTemplateRoutes(templateId);
+        if (cancelled) return;
+        const list = data.routes || [];
+        setRoutes(list);
+        const nextId = list[0]?.id ?? null;
+        setSelectedRouteId(nextId);
+        const current = list.find((r) => r.id === nextId) || list[0] || null;
+        notifyRouteChange(current);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    if (!readOnly) {
+      loadStages();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [templateId, readOnly, notifyRouteChange, loadStages]);
 
   useEffect(() => {
-    onRouteChange?.(selectedRoute || null);
-  }, [selectedRoute, onRouteChange]);
+    if (!selectedRouteId && !routes.length) return;
+    const route =
+      routes.find((r) => r.id === selectedRouteId) || routes[0] || null;
+    notifyRouteChange(route);
+  }, [selectedRouteId, routes, notifyRouteChange]);
 
   const refreshRoute = async (routeId) => {
     const detail = await api.mesGetTemplateRoute(templateId, routeId);
     setRoutes((prev) => prev.map((r) => (r.id === routeId ? detail : r)));
-    onRouteChange?.(detail);
+    notifyRouteChange(detail);
   };
 
   const createRoute = async () => {
@@ -183,7 +225,7 @@ export default function MesRouteDesigner({ templateId, readOnly = false, onRoute
     try {
       const route = await api.mesReorderRouteSteps(templateId, selectedRoute.id, payload);
       setRoutes((prev) => prev.map((r) => (r.id === route.id ? route : r)));
-      onRouteChange?.(route);
+      notifyRouteChange(route);
     } catch (e) {
       setError(e.message);
     }

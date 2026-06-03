@@ -60,6 +60,23 @@ export default function MesTemplateDetailPage() {
   const [routeSummary, setRouteSummary] = useState(null);
   const [drawingCount, setDrawingCount] = useState(0);
 
+  const handleRouteChange = useCallback(
+    (route) => {
+      if (!route) return;
+      setRouteSummary((prev) => ({
+        ...(prev || {}),
+        route_count: prev?.route_count ?? template?.route_count,
+        default_route_id: route.is_default ? route.id : prev?.default_route_id,
+        default_route_name: route.is_default ? route.name : prev?.default_route_name,
+        default_route_version: route.is_default ? route.version : prev?.default_route_version,
+        estimated_total_minutes: route.is_default
+          ? route.estimated_total_minutes
+          : prev?.estimated_total_minutes,
+      }));
+    },
+    [template?.route_count]
+  );
+
   const load = useCallback(async () => {
     if (!canView) return;
     setError("");
@@ -310,19 +327,7 @@ export default function MesTemplateDetailPage() {
         <MesRouteDesigner
           templateId={id}
           readOnly={routeReadOnly}
-          onRouteChange={(route) => {
-            if (!route) return;
-            setRouteSummary((prev) => ({
-              ...(prev || {}),
-              route_count: prev?.route_count ?? template.route_count,
-              default_route_id: route.is_default ? route.id : prev?.default_route_id,
-              default_route_name: route.is_default ? route.name : prev?.default_route_name,
-              default_route_version: route.is_default ? route.version : prev?.default_route_version,
-              estimated_total_minutes: route.is_default
-                ? route.estimated_total_minutes
-                : prev?.estimated_total_minutes,
-            }));
-          }}
+          onRouteChange={handleRouteChange}
         />
       </div>
 
