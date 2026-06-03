@@ -92,9 +92,7 @@ function CatchAllRoute() {
 
 function AppRoutes() {
   return (
-    <MobileUpdateGate>
-      <ThemeApplicator>
-        <Routes>
+    <Routes>
           <Route path="/login" element={<LoginRoute />} />
           <Route element={<ProtectedRoute />}>
             <Route index element={<DashboardPage />} />
@@ -152,9 +150,7 @@ function AppRoutes() {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<CatchAllRoute />} />
-        </Routes>
-      </ThemeApplicator>
-    </MobileUpdateGate>
+    </Routes>
   );
 }
 
@@ -162,11 +158,15 @@ function AppProviders() {
   const { branding } = useBranding();
 
   return (
-    <LocaleProvider brandingDefaults={branding}>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </LocaleProvider>
+    <AuthProvider>
+      <LocaleProvider brandingDefaults={branding}>
+        <MobileUpdateGate>
+          <ThemeApplicator>
+            <AppRoutes />
+          </ThemeApplicator>
+        </MobileUpdateGate>
+      </LocaleProvider>
+    </AuthProvider>
   );
 }
 
