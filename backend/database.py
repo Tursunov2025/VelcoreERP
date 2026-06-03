@@ -316,6 +316,28 @@ def run_migrations():
             created_at DATETIME
         )""",
 
+        """CREATE TABLE IF NOT EXISTS package_labels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL UNIQUE,
+            label_code VARCHAR NOT NULL UNIQUE,
+            qr_data TEXT DEFAULT '',
+            barcode_data VARCHAR DEFAULT '',
+            printed_at DATETIME,
+            printer_name VARCHAR DEFAULT '',
+            created_at DATETIME
+        )""",
+
+        """CREATE TABLE IF NOT EXISTS package_locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL UNIQUE,
+            warehouse_zone VARCHAR DEFAULT '',
+            rack VARCHAR DEFAULT '',
+            shelf VARCHAR DEFAULT '',
+            updated_at DATETIME
+        )""",
+
+        "ALTER TABLE mes_dispatch_packages ADD COLUMN loaded_by VARCHAR",
+
     ]
 
 

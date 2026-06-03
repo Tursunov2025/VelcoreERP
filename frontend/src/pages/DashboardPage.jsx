@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState(null);
   const [operators, setOperators] = useState([]);
   const [delayedCount, setDelayedCount] = useState(0);
+  const [traceStats, setTraceStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -39,6 +40,9 @@ export default function DashboardPage() {
           api.controlCenterOrders({ delayed_only: true, limit: 200 }).catch(() => ({ summary: {} }))
         );
       }
+      if (isAdmin) {
+        tasks.push(api.traceabilityDashboard().catch(() => null));
+      }
       const results = await Promise.all(tasks);
       setOperators(results[0]?.operators || []);
       let idx = 1;
@@ -48,6 +52,10 @@ export default function DashboardPage() {
       }
       if (isAdmin && isWidgetEnabled(widgets, "delayed_summary") && results[idx]) {
         setDelayedCount(results[idx]?.summary?.delayed ?? 0);
+        idx += 1;
+      }
+      if (isAdmin && results[idx]) {
+        setTraceStats(results[idx]);
       }
     } catch (err) {
       setError(err.message);
@@ -75,6 +83,27 @@ export default function DashboardPage() {
         >
           {t("controlCenter.delayedAlert")} ({delayedCount})
         </Link>
+      ) : null}
+
+      {isAdmin && traceStats ? (
+        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Card>
+            <p className="text-sm text-[var(--brand-muted)]">{t("traceability.packagesToday")}</p>
+            <p className="mt-2 text-2xl font-black">{traceStats.packages_today ?? 0}</p>
+          </Card>
+          <Card>
+            <p className="text-sm text-[var(--brand-muted)]">{t("traceability.printedToday")}</p>
+            <p className="mt-2 text-2xl font-black">{traceStats.printed_labels_today ?? 0}</p>
+          </Card>
+          <Card>
+            <p className="text-sm text-[var(--brand-muted)]">{t("traceability.inWarehouse")}</p>
+            <p className="mt-2 text-2xl font-black">{traceStats.packages_in_warehouse ?? 0}</p>
+          </Card>
+          <Card>
+            <p className="text-sm text-[var(--brand-muted)]">{t("traceability.dispatchedToday")}</p>
+            <p className="mt-2 text-2xl font-black">{traceStats.packages_dispatched_today ?? 0}</p>
+          </Card>
+        </div>
       ) : null}
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">

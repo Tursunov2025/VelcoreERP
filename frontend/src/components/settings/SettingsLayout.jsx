@@ -16,6 +16,7 @@ const SUPER_ADMIN_TABS = [
   { id: "productionStages", label: "Bosqichlar", icon: "🏭" },
   { id: "systemLogs", label: "Jurnallar", icon: "📜" },
   { id: "mobileApp", label: "Mobil APK", icon: "📱" },
+  { id: "labelPrinters", label: "Printers", icon: "🖨️" },
 ];
 
 const OPERATIONS_TABS = [

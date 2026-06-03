@@ -933,6 +933,36 @@ class MesJobPackage(Base):
 
     job = relationship("MesProductionJob", back_populates="packages")
     location = relationship("MesWarehouseLocation")
+    label = relationship("PackageLabel", back_populates="package", uselist=False)
+    storage_location = relationship("PackageLocation", back_populates="package", uselist=False)
+
+
+class PackageLabel(Base):
+    __tablename__ = "package_labels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    package_id = Column(Integer, ForeignKey("mes_job_packages.id"), unique=True, index=True, nullable=False)
+    label_code = Column(String, unique=True, index=True, nullable=False)
+    qr_data = Column(Text, default="")
+    barcode_data = Column(String, default="")
+    printed_at = Column(DateTime, nullable=True)
+    printer_name = Column(String, default="")
+    created_at = Column(DateTime, default=utcnow)
+
+    package = relationship("MesJobPackage", back_populates="label")
+
+
+class PackageLocation(Base):
+    __tablename__ = "package_locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    package_id = Column(Integer, ForeignKey("mes_job_packages.id"), unique=True, index=True, nullable=False)
+    warehouse_zone = Column(String, default="")
+    rack = Column(String, default="")
+    shelf = Column(String, default="")
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    package = relationship("MesJobPackage", back_populates="storage_location")
 
 
 class MesWarehouseLocation(Base):
@@ -1030,6 +1060,7 @@ class MesDispatchPackage(Base):
     package_id = Column(Integer, ForeignKey("mes_job_packages.id"), unique=True, index=True, nullable=False)
     inventory_id = Column(Integer, ForeignKey("mes_finished_goods_inventory.id"), nullable=True, index=True)
     status = Column(String, default="pending", index=True)
+    loaded_by = Column(String, nullable=True)
     loaded_at = Column(DateTime, nullable=True)
     shipped_at = Column(DateTime, nullable=True)
     delivered_at = Column(DateTime, nullable=True)

@@ -6,6 +6,7 @@ import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Toast from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
+import { parseLabelCode } from "../../utils/labelCode";
 
 function ProgressBar({ value, large = false }) {
   const pct = Math.min(100, Math.max(0, Number(value) || 0));
@@ -36,6 +37,7 @@ export default function DispatchTerminalJobPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [scanCode, setScanCode] = useState("");
 
   const load = useCallback(async () => {
     if (!canUse) return;
@@ -110,6 +112,26 @@ export default function DispatchTerminalJobPage() {
       const updated = await api.mesDispatchUpdateTransport(id, transport);
       setJob(updated);
       setToast(t("mes.dispatchTransportSaved"));
+    } catch (e) {
+      setToast(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const scanLoad = async () => {
+    const code = parseLabelCode(scanCode);
+    if (!code) {
+      setToast(t("mes.dispatchScanPlaceholder"));
+      return;
+    }
+    setBusy(true);
+    setToast("");
+    try {
+      await api.mesDispatchScanLabel(id, code);
+      await load();
+      setScanCode("");
+      setToast(t("mes.dispatchPackageLoaded"));
     } catch (e) {
       setToast(e.message);
     } finally {
@@ -252,6 +274,30 @@ export default function DispatchTerminalJobPage() {
         </div>
       ) : null}
 
+      {canLoad ? (
+        <div className="mt-4 rounded-2xl border bg-[var(--brand-card)] p-4">
+          <h3 className="mb-2 text-lg font-bold">{t("mes.dispatchScanQr")}</h3>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={scanCode}
+              onChange={(e) => setScanCode(e.target.value)}
+              placeholder={t("mes.dispatchScanPlaceholder")}
+              className="min-h-[48px] flex-1 rounded-xl border px-3 font-mono text-sm"
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={scanLoad}
+              className="min-h-[48px] rounded-xl px-4 text-sm font-bold text-white disabled:opacity-60"
+              style={{ backgroundColor: "var(--brand-button)" }}
+            >
+              {t("mes.dispatchScanLoad")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {dispatch?.packages?.length ? (
         <div className="mt-4 rounded-2xl border bg-[var(--brand-card)] p-4 sm:p-6">
           <h3 className="mb-4 text-lg font-bold">{t("mes.dispatchPackages")}</h3>
@@ -260,7 +306,7 @@ export default function DispatchTerminalJobPage() {
               <div key={pkg.id} className="rounded-xl border p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-mono font-bold">{pkg.package_number}</p>
+                    <p className="font-mono font-bold">{pkg.label_code || pkg.package_number}</p>
                     <p className="text-xs text-[var(--brand-muted)]">
                       {pkg.location_code || "—"} · {pkg.net_weight_kg}/{pkg.gross_weight_kg} kg
                     </p>

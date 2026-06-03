@@ -62,6 +62,7 @@ from routers import (
     shipping_router,
     tasks_router,
     telegram_router,
+    traceability_router,
     uploads_router,
     users_router,
     warehouse_router,
@@ -84,6 +85,15 @@ _REQUIRED_MATERIALS_PATHS = (
     "/materials/movements",
 )
 
+# Phase 9 traceability API paths (must appear in OpenAPI /docs).
+_REQUIRED_TRACEABILITY_PATHS = (
+    "/traceability/dashboard",
+    "/packages/{label_code}",
+    "/track/package/{label_code}",
+    "/mes/terminal/dispatch/scan-label",
+    "/admin/settings/label-printers",
+)
+
 
 def _app_paths(app: FastAPI) -> set[str]:
     return {getattr(route, "path", "") for route in app.routes if getattr(route, "path", None)}
@@ -97,6 +107,19 @@ def _verify_materials_routes(app: FastAPI) -> None:
             "materials_router not registered — missing paths: "
             + ", ".join(missing)
             + ". Ensure main.py includes: app.include_router(materials_router.router)"
+        )
+
+
+def _verify_traceability_routes(app: FastAPI) -> None:
+    paths = _app_paths(app)
+    missing = [p for p in _REQUIRED_TRACEABILITY_PATHS if p not in paths]
+    if missing:
+        raise RuntimeError(
+            "traceability_router not registered — missing paths: "
+            + ", ".join(missing)
+            + ". Ensure main.py includes: "
+            "app.include_router(traceability_router.router) and "
+            "app.include_router(traceability_router.public_router)"
         )
 
 
@@ -117,6 +140,18 @@ async def lifespan(app: FastAPI):
         "Materials API registered: %s paths (%s)",
         len(materials_paths),
         ", ".join(materials_paths[:6]) + ("..." if len(materials_paths) > 6 else ""),
+    )
+    trace_paths = sorted(
+        p
+        for p in _app_paths(app)
+        if p.startswith("/traceability")
+        or p.startswith("/packages")
+        or p.startswith("/track/package")
+    )
+    startup_log.info(
+        "Traceability API registered: %s paths (%s)",
+        len(trace_paths),
+        ", ".join(trace_paths) if trace_paths else "none",
     )
 
     # Run schema setup here (not at import time) so uvicorn --reload workers
@@ -206,9 +241,12 @@ app.include_router(control_center_router.router)
 app.include_router(materials_router.router)
 app.include_router(migration_router.router)
 app.include_router(mobile_router.router)
+app.include_router(traceability_router.router)
+app.include_router(traceability_router.public_router)
 app.include_router(admin_router.router)
 
 _verify_materials_routes(app)
+_verify_traceability_routes(app)
 
 # Static file serving MUST be after upload API routes (POST /uploads/file).
 app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
@@ -237,6 +275,27 @@ def health_check():
             "mes": {
                 "registered": bool(mes_paths),
                 "path_count": len(mes_paths),
+            },
+            "traceability": {
+                "registered": all(p in paths for p in _REQUIRED_TRACEABILITY_PATHS),
+                "path_count": len(
+                    [
+                        p
+                        for p in paths
+                        if p.startswith("/traceability")
+                        or p.startswith("/packages")
+                        or p.startswith("/track/package")
+                        or p == "/mes/terminal/dispatch/scan-label"
+                        or p.startswith("/admin/settings/label-printers")
+                    ]
+                ),
+                "paths": sorted(
+                    p
+                    for p in paths
+                    if p in _REQUIRED_TRACEABILITY_PATHS
+                    or p.startswith("/packages/{label_code}")
+                    or p.startswith("/track/package")
+                ),
             },
         },
     }

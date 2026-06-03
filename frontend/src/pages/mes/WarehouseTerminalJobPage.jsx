@@ -28,6 +28,7 @@ export default function WarehouseTerminalJobPage() {
   const [job, setJob] = useState(null);
   const [locations, setLocations] = useState([]);
   const [selections, setSelections] = useState({});
+  const [zoneFields, setZoneFields] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -44,10 +45,17 @@ export default function WarehouseTerminalJobPage() {
       setJob(data);
       setLocations(locData.locations || []);
       const next = {};
+      const zones = {};
       (data.packages || []).forEach((pkg) => {
         next[pkg.id] = pkg.location_id ? String(pkg.location_id) : "";
+        zones[pkg.id] = {
+          warehouse_zone: pkg.warehouse_zone || "",
+          rack: pkg.rack || "",
+          shelf: pkg.shelf || "",
+        };
       });
       setSelections(next);
+      setZoneFields(zones);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -79,6 +87,28 @@ export default function WarehouseTerminalJobPage() {
       else if (action === "complete") updated = await api.mesWarehouseCompleteReceipt(id);
       setJob(updated);
       setToast(t(`mes.warehouseAction_${action}`));
+    } catch (e) {
+      setToast(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveTraceLocation = async (pkg) => {
+    if (!pkg.label_code) {
+      setToast(t("mes.traceLabel"));
+      return;
+    }
+    const fields = zoneFields[pkg.id] || {};
+    setBusy(true);
+    try {
+      await api.packageAssignLocation(pkg.label_code, {
+        warehouse_zone: fields.warehouse_zone || "",
+        rack: fields.rack || "",
+        shelf: fields.shelf || "",
+      });
+      setToast(t("controlCenter.saved"));
+      await load();
     } catch (e) {
       setToast(e.message);
     } finally {
@@ -156,7 +186,7 @@ export default function WarehouseTerminalJobPage() {
             {(job.packages || []).map((pkg) => (
               <div key={pkg.id} className="rounded-xl border p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <p className="font-mono font-bold">{pkg.package_number}</p>
+                  <p className="font-mono font-bold">{pkg.label_code || pkg.package_number}</p>
                   {pkg.location_code ? (
                     <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">
                       {pkg.location_code}
@@ -196,6 +226,51 @@ export default function WarehouseTerminalJobPage() {
                       style={{ backgroundColor: "var(--brand-button)" }}
                     >
                       {t("mes.placePackage")}
+                    </button>
+                  </div>
+                ) : null}
+                {pkg.label_code ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <input
+                      placeholder={t("mes.traceZone")}
+                      className="rounded-xl border px-3 py-2 text-sm"
+                      value={zoneFields[pkg.id]?.warehouse_zone || ""}
+                      onChange={(e) =>
+                        setZoneFields((prev) => ({
+                          ...prev,
+                          [pkg.id]: { ...prev[pkg.id], warehouse_zone: e.target.value },
+                        }))
+                      }
+                    />
+                    <input
+                      placeholder={t("mes.traceRack")}
+                      className="rounded-xl border px-3 py-2 text-sm"
+                      value={zoneFields[pkg.id]?.rack || ""}
+                      onChange={(e) =>
+                        setZoneFields((prev) => ({
+                          ...prev,
+                          [pkg.id]: { ...prev[pkg.id], rack: e.target.value },
+                        }))
+                      }
+                    />
+                    <input
+                      placeholder={t("mes.traceShelf")}
+                      className="rounded-xl border px-3 py-2 text-sm"
+                      value={zoneFields[pkg.id]?.shelf || ""}
+                      onChange={(e) =>
+                        setZoneFields((prev) => ({
+                          ...prev,
+                          [pkg.id]: { ...prev[pkg.id], shelf: e.target.value },
+                        }))
+                      }
+                    />
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => saveTraceLocation(pkg)}
+                      className="sm:col-span-3 min-h-[44px] rounded-xl border-2 border-indigo-600 text-sm font-bold text-indigo-700"
+                    >
+                      {t("mes.traceSaveLocation")}
                     </button>
                   </div>
                 ) : null}

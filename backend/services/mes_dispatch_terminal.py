@@ -103,6 +103,12 @@ def get_job_dispatch(db: Session, job_id: int) -> MesDispatch | None:
             joinedload(MesDispatch.packages)
             .joinedload(MesDispatchPackage.package)
             .joinedload(MesJobPackage.location),
+            joinedload(MesDispatch.packages)
+            .joinedload(MesDispatchPackage.package)
+            .joinedload(MesJobPackage.label),
+            joinedload(MesDispatch.packages)
+            .joinedload(MesDispatchPackage.package)
+            .joinedload(MesJobPackage.storage_location),
         )
         .filter(MesDispatch.job_id == job_id)
         .order_by(MesDispatch.id.desc())
@@ -119,7 +125,10 @@ def loading_progress_pct(dispatch: MesDispatch | None) -> float:
 
 
 def serialize_dispatch_package(dp: MesDispatchPackage) -> dict:
+    from services.package_traceability import label_fields_for_package
+
     pkg = dp.package
+    extra = label_fields_for_package(pkg) if pkg else {}
     return {
         "id": dp.id,
         "dispatch_id": dp.dispatch_id,
@@ -131,8 +140,10 @@ def serialize_dispatch_package(dp: MesDispatchPackage) -> dict:
         "location_code": pkg.location.code if pkg and pkg.location else None,
         "status": dp.status,
         "loaded_at": dp.loaded_at,
+        "loaded_by": dp.loaded_by,
         "shipped_at": dp.shipped_at,
         "delivered_at": dp.delivered_at,
+        **extra,
     }
 
 
@@ -196,6 +207,8 @@ def list_dispatch_queue(db: Session, dispatch_ids: set[int]) -> list[dict]:
         .options(
             joinedload(MesProductionJob.template),
             joinedload(MesProductionJob.packages).joinedload(MesJobPackage.location),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.label),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.storage_location),
             joinedload(MesProductionJob.route_steps),
         )
         .filter(MesProductionJob.status.in_(QUEUE_JOB_STATUSES))
@@ -629,6 +642,8 @@ def load_dispatch_job(db: Session, job_id: int) -> MesProductionJob | None:
         .options(
             joinedload(MesProductionJob.template),
             joinedload(MesProductionJob.packages).joinedload(MesJobPackage.location),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.label),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.storage_location),
             joinedload(MesProductionJob.route_steps),
         )
         .filter(MesProductionJob.id == job_id)

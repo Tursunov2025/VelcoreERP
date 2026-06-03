@@ -112,6 +112,8 @@ def serialize_package_terminal(
     loc_code = location_code
     if loc_code is None and pkg.location:
         loc_code = pkg.location.code
+    from services.package_traceability import label_fields_for_package
+
     return {
         "id": pkg.id,
         "job_id": pkg.job_id,
@@ -124,6 +126,7 @@ def serialize_package_terminal(
         "location_code": loc_code,
         "received_at": pkg.received_at,
         "placed_at": pkg.placed_at,
+        **label_fields_for_package(pkg),
     }
 
 
@@ -169,6 +172,8 @@ def list_warehouse_queue(db: Session, warehouse_ids: set[int]) -> list[dict]:
         .options(
             joinedload(MesProductionJob.template),
             joinedload(MesProductionJob.packages).joinedload(MesJobPackage.location),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.label),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.storage_location),
             joinedload(MesProductionJob.route_steps),
         )
         .filter(MesProductionJob.status.in_(QUEUE_JOB_STATUSES))
@@ -557,6 +562,8 @@ def load_warehouse_job(db: Session, job_id: int) -> MesProductionJob | None:
         .options(
             joinedload(MesProductionJob.template),
             joinedload(MesProductionJob.packages).joinedload(MesJobPackage.location),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.label),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.storage_location),
             joinedload(MesProductionJob.route_steps),
         )
         .filter(MesProductionJob.id == job_id)

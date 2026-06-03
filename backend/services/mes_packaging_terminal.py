@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session, joinedload
 from models import MesJobPackage, MesJobRouteStep, MesProductionJob, MesProductionStage
 from services.audit import log_value_change
 from services.mes_jobs import load_job
+from services.package_traceability import (
+    ensure_labels_for_job_packages,
+    label_fields_for_package,
+)
 from services.mes_terminal_common import (
     QUEUE_JOB_STATUSES,
     get_active_step,
@@ -98,6 +102,7 @@ def serialize_package(pkg: MesJobPackage) -> dict:
         "gross_weight_kg": float(pkg.gross_weight_kg or 0),
         "status": pkg.status,
         "created_at": pkg.created_at,
+        **label_fields_for_package(pkg),
     }
 
 
@@ -146,7 +151,8 @@ def list_packaging_queue(db: Session, packaging_ids: set[int]) -> list[dict]:
         db.query(MesProductionJob)
         .options(
             joinedload(MesProductionJob.template),
-            joinedload(MesProductionJob.packages),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.label),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.storage_location),
             joinedload(MesProductionJob.route_steps),
         )
         .filter(MesProductionJob.status.in_(QUEUE_JOB_STATUSES))
@@ -460,6 +466,8 @@ def _complete_packaging_step(
                 "packed",
             )
 
+    ensure_labels_for_job_packages(db, job, username=username)
+
     old_completed_at = step.completed_at.isoformat() if step.completed_at else None
     step.completed_at = now
     step.completed_parts_count = len(packages)
@@ -512,7 +520,8 @@ def load_packaging_job(db: Session, job_id: int) -> MesProductionJob | None:
         db.query(MesProductionJob)
         .options(
             joinedload(MesProductionJob.template),
-            joinedload(MesProductionJob.packages),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.label),
+            joinedload(MesProductionJob.packages).joinedload(MesJobPackage.storage_location),
             joinedload(MesProductionJob.route_steps),
         )
         .filter(MesProductionJob.id == job_id)

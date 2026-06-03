@@ -58,6 +58,9 @@ import MaterialsConsumptionRulesPage from "./pages/materials/MaterialsConsumptio
 import MaterialsConsumptionsPage from "./pages/materials/MaterialsConsumptionsPage";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 import MobileUpdateGate from "./components/mobile/MobileUpdateGate";
+import PackagePassportPage from "./pages/traceability/PackagePassportPage";
+import PublicPackageTrackPage from "./pages/traceability/PublicPackageTrackPage";
+import PackageScannerPage from "./pages/traceability/PackageScannerPage";
 
 function LoginRoute() {
   const { isLoggedIn, loading } = useAuth();
@@ -94,7 +97,10 @@ function AppRoutes() {
   return (
     <Routes>
           <Route path="/login" element={<LoginRoute />} />
+          <Route path="/track/package/:labelCode" element={<PublicPackageTrackPage />} />
           <Route element={<ProtectedRoute />}>
+            <Route path="packages/:labelCode" element={<PackagePassportPage />} />
+            <Route path="scanner" element={<PackageScannerPage />} />
             <Route index element={<DashboardPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="production" element={<ProductionPage />} />

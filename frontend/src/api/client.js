@@ -926,6 +926,28 @@ export const api = {
 
   adminMigrationHistory: () => request("/admin/migration/history"),
 
+  traceabilityDashboard: () => request("/traceability/dashboard"),
+  packagePassport: (labelCode) =>
+    request(`/packages/${encodeURIComponent(labelCode)}`),
+  packageAssignLocation: (labelCode, body) =>
+    request(`/packages/${encodeURIComponent(labelCode)}/location`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  publicPackageTrack: (labelCode) =>
+    request(`/track/package/${encodeURIComponent(labelCode)}`),
+  mesDispatchScanLabel: (jobId, labelCode) =>
+    request(`/mes/terminal/dispatch/jobs/${jobId}/scan-label`, {
+      method: "POST",
+      body: JSON.stringify({ label_code: labelCode }),
+    }),
+  adminGetLabelPrinters: () => request("/admin/settings/label-printers"),
+  adminSaveLabelPrinters: (printers) =>
+    request("/admin/settings/label-printers", {
+      method: "PUT",
+      body: JSON.stringify({ printers }),
+    }),
+
   adminMigrationRollback: async (migrationId, adminPassword) => {
     const form = new FormData();
     form.append("admin_password", adminPassword);

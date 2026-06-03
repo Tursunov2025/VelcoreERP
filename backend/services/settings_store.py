@@ -80,6 +80,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "nav_visibility_json": serialize_nav_visibility(DEFAULT_NAV_VISIBILITY),
     "dashboard_widgets_json": serialize_dashboard_widgets(DEFAULT_DASHBOARD_WIDGETS),
     "mobile_app_json": serialize_mobile_app(DEFAULT_MOBILE_APP),
+    "label_printers_json": "[]",
 }
 
 for _event in NOTIFICATION_EVENTS:
@@ -171,6 +172,8 @@ EXECUTIVE_KEYS = frozenset(
     }
 )
 
+LABEL_PRINTER_KEYS = frozenset({"label_printers_json"})
+
 SETTING_GROUPS = {
     "company": COMPANY_KEYS,
     "production": PRODUCTION_KEYS,
@@ -181,6 +184,7 @@ SETTING_GROUPS = {
     "backup": BACKUP_KEYS,
     "notifications": NOTIFICATION_KEYS,
     "executive": EXECUTIVE_KEYS,
+    "label_printers": LABEL_PRINTER_KEYS,
 }
 
 

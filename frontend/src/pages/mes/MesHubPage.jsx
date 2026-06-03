@@ -124,6 +124,12 @@ export default function MesHubPage() {
             desc: t("mes.hubPartsDesc"),
             emoji: "🔩",
           },
+          {
+            to: "/scanner",
+            title: t("traceability.scannerTitle"),
+            desc: t("traceability.scannerSubtitle"),
+            emoji: "📷",
+          },
         ]
       : []),
   ];
