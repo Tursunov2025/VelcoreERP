@@ -17,6 +17,8 @@ from config.paths import (
     DATABASE_URL,
     DB_PATH,
     DATA_ROOT,
+    UPLOAD_PATH,
+    BACKUP_PATH,
     _BACKEND_DIR,
     _REPO_ROOT,
     resolve_sqlite_file_from_url,
@@ -71,6 +73,15 @@ def _baseline() -> dict[str, int]:
     return out
 
 
+def _is_render_persistent_data_root() -> bool:
+    """Render persistent disk mount (see render.yaml disk.mountPath)."""
+    try:
+        root = DATA_ROOT.resolve().as_posix()
+    except OSError:
+        return False
+    return root.startswith("/opt/render/project/data")
+
+
 def is_guard_enabled() -> bool:
     explicit = os.getenv("DATABASE_GUARD", "").strip()
     if explicit.lower() == "false":
@@ -83,6 +94,8 @@ def is_guard_enabled() -> bool:
     if "test_" in url.lower() or "/temp/" in url.lower() or "\\temp\\" in url.lower():
         return False
     if _env_truthy("PRODUCTION") or os.getenv("ENVIRONMENT", "").lower() in ("production", "prod"):
+        return True
+    if _is_render_persistent_data_root():
         return True
     if _env_truthy("SKIP_DEMO_SEED"):
         return True
@@ -240,10 +253,17 @@ def get_database_health() -> dict[str, Any]:
     stats = collect_database_stats()
     return {
         "active_database_path": stats["active_database_path"],
+        "data_root": str(DATA_ROOT),
+        "db_path": str(DB_PATH),
+        "upload_path": str(UPLOAD_PATH),
+        "backup_path": str(BACKUP_PATH),
         "database_size": stats["database_size"],
         "table_count": stats["table_count"],
         "orders_count": stats["orders_count"],
+        "tasks_count": stats["tasks_count"],
+        "documents_count": stats["documents_count"],
         "mes_jobs_count": stats["mes_jobs_count"],
+        "users_count": stats["users_count"],
         "database_guard_enabled": stats["guard_enabled"],
         "database_baseline": stats["baseline"],
     }

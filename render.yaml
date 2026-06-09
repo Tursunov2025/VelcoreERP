@@ -7,7 +7,31 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /
+    # Persistent disk — only data under mountPath survives redeploys/restarts.
+    # DB_PATH / UPLOAD_PATH / BACKUP_PATH must live under this mount.
+    disk:
+      name: azmus-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1
     envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATA_ROOT
+        value: /opt/render/project/data
+      - key: DB_PATH
+        value: /opt/render/project/data/database/azmus.db
+      - key: UPLOAD_PATH
+        value: /opt/render/project/data/uploads
+      - key: BACKUP_PATH
+        value: /opt/render/project/data/backups
+      - key: LOG_PATH
+        value: /opt/render/project/data/logs
+      - key: MIGRATION_BACKUP_PATH
+        value: /opt/render/project/data/migrations
+      - key: DATABASE_GUARD
+        value: "true"
+      - key: SKIP_DEMO_SEED
+        value: "true"
       - key: CORS_ORIGINS
         value: "*"
       - key: PYTHON_VERSION

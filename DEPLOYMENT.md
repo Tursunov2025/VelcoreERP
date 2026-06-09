@@ -50,15 +50,39 @@ From repo root, use `render.yaml` or configure manually:
 - **Start:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 - **Health check:** `/`
 
-**Environment variables:**
+**Environment variables (API service):**
 
 | Variable | Value |
 |----------|--------|
+| `ENVIRONMENT` | `production` |
+| `DATA_ROOT` | `/opt/render/project/data` |
+| `DB_PATH` | `/opt/render/project/data/database/azmus.db` |
+| `UPLOAD_PATH` | `/opt/render/project/data/uploads` |
+| `BACKUP_PATH` | `/opt/render/project/data/backups` |
+| `LOG_PATH` | `/opt/render/project/data/logs` |
+| `MIGRATION_BACKUP_PATH` | `/opt/render/project/data/migrations` |
+| `DATABASE_GUARD` | `true` — **blocks startup if DB is missing or below production baseline** |
+| `SKIP_DEMO_SEED` | `true` — do not recreate demo operators on empty DB |
 | `CORS_ORIGINS` | `*` (allows any frontend origin) or comma-separated URLs |
 | `JWT_SECRET_KEY` | Strong random secret for production |
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather (optional) |
 | `TELEGRAM_CHAT_ID` | Admin chat/group ID (optional) |
-| `UPLOAD_DIR` | `uploads` (persist on Render disk or external storage) |
+
+**Persistent disk (required):** attach a disk in `render.yaml` (or Dashboard → Disks):
+
+- **Mount path:** `/opt/render/project/data`
+- **Size:** 1 GB minimum
+
+Only files under the disk mount path survive redeploys. Without a disk, each deploy creates a fresh empty SQLite file and the UI appears empty after import.
+
+**Re-import production data to Render:**
+
+```bash
+cd backend
+python scripts/sync_production_to_render.py
+```
+
+Local source: `D:\AzmusERP\Data\database\azmus.db` (never overwritten by the script).
 
 ## Deploy frontend (Render Static Site)
 
