@@ -3,6 +3,11 @@ from contextlib import asynccontextmanager
 
 from config.logging_setup import configure_logging
 from config.paths import DATA_ROOT, DB_PATH, LOG_PATH, UPLOAD_PATH
+from config.database_guard import (
+    DatabaseGuardError,
+    get_database_health,
+    validate_production_database_at_startup,
+)
 
 configure_logging()
 
@@ -178,6 +183,13 @@ async def lifespan(app: FastAPI):
         ", ".join(trace_paths) if trace_paths else "none",
     )
 
+    # Validate production DB before any schema bootstrap (never auto-create empty DB).
+    try:
+        validate_production_database_at_startup()
+    except DatabaseGuardError as exc:
+        startup_log.critical("Database guard blocked startup: %s", exc)
+        raise SystemExit(1) from exc
+
     # Run schema setup here (not at import time) so uvicorn --reload workers
     # do not fight over SQLite write locks while the previous worker shuts down.
     Base.metadata.create_all(bind=engine)
@@ -284,6 +296,7 @@ def health_check():
     paths = _app_paths(app)
     materials_paths = sorted(p for p in paths if p.startswith("/materials"))
     mes_paths = sorted(p for p in paths if p.startswith("/mes"))
+    db_health = get_database_health()
     return {
         "status": "ok",
         "service": "azmus-crm-erp",
@@ -291,6 +304,7 @@ def health_check():
         "auth_configured": is_auth_configured(),
         "data_root": str(DATA_ROOT),
         "database": str(DB_PATH),
+        **db_health,
         "uploads": str(UPLOAD_PATH),
         "logs": str(LOG_PATH),
         "modules": {

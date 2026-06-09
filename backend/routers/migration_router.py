@@ -18,6 +18,7 @@ from schemas import (
     MigrationPreviewResponse,
 )
 from services.audit import log_action
+from config.database_guard import DatabaseGuardError, assert_migration_import_allowed
 from services.migration import (
     BACKUP_RETENTION,
     MANIFEST_VERSION,
@@ -150,6 +151,11 @@ async def import_migration(
 
     if not preview.get("full_database_replace"):
         raise HTTPException(status_code=400, detail="Bundle must contain database.db")
+
+    try:
+        assert_migration_import_allowed(preview)
+    except DatabaseGuardError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     backup_run_id = int(datetime.utcnow().timestamp())
     backup_dir = create_pre_import_backup(backup_run_id)

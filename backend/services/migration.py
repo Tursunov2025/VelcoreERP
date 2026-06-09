@@ -148,7 +148,9 @@ def _count_from_db(db_path: Path) -> dict[str, int]:
         }
 
         return {
+            "orders": count("orders"),
             "tasks": count("tasks"),
+            "users": count("users"),
             "permissions": count("user_permissions"),
             "documents": count("documents"),
             "brand_settings": settings_like(f"{BRANDING_DB_PREFIX}%"),
@@ -486,6 +488,19 @@ def preview_import_bundle(content: bytes) -> dict[str, Any]:
         file_list = zf.namelist()
         has_db = DB_ARCHIVE_NAME in file_list
         db_info = zf.getinfo(DB_ARCHIVE_NAME) if has_db else None
+        if has_db:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+            try:
+                with zf.open(DB_ARCHIVE_NAME) as dbf:
+                    tmp.write(dbf.read())
+                tmp.close()
+                db_counts = _count_from_db(Path(tmp.name))
+                incoming = {**incoming, **db_counts}
+            finally:
+                try:
+                    Path(tmp.name).unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     return {
         "manifest_version": manifest.get("version"),
@@ -496,7 +511,9 @@ def preview_import_bundle(content: bytes) -> dict[str, Any]:
         "full_database_replace": has_db,
         "database_in_zip_bytes": db_info.file_size if db_info else 0,
         "incoming": {
+            "orders": incoming.get("orders", 0),
             "tasks": incoming.get("tasks", 0),
+            "users": incoming.get("users", 0),
             "permissions": incoming.get("permissions", 0),
             "documents": incoming.get("documents", 0),
             "llp_files": incoming.get("llp_files", 0),
@@ -512,9 +529,12 @@ def preview_import_bundle(content: bytes) -> dict[str, Any]:
             "mes_routes": incoming.get("mes_routes", 0),
             "mes_route_steps": incoming.get("mes_route_steps", 0),
             "mes_drawings": incoming.get("mes_drawings", 0),
+            "mes_production_jobs": incoming.get("mes_production_jobs", 0),
         },
         "current": {
+            "orders": current_counts.get("orders", 0),
             "tasks": current_counts.get("tasks", 0),
+            "users": current_counts.get("users", 0),
             "permissions": current_counts.get("permissions", 0),
             "documents": current_counts.get("documents", 0),
             "llp_files": current_llp,
@@ -527,6 +547,7 @@ def preview_import_bundle(content: bytes) -> dict[str, Any]:
             "mes_routes": current_counts.get("mes_routes", 0),
             "mes_route_steps": current_counts.get("mes_route_steps", 0),
             "mes_drawings": current_counts.get("mes_drawings", 0),
+            "mes_production_jobs": current_counts.get("mes_production_jobs", 0),
         },
         "bundle_files": len(file_list),
         "warnings": (

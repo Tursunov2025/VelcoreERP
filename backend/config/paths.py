@@ -76,7 +76,7 @@ MIGRATION_BACKUP_PATH = Path(
 
 
 def ensure_data_directories() -> None:
-    """Create production data folders if missing."""
+    """Create production data folders if missing (never creates the .db file)."""
     for folder in (
         DATA_ROOT,
         DB_PATH.parent,
@@ -87,6 +87,34 @@ def ensure_data_directories() -> None:
         MIGRATION_BACKUP_PATH,
     ):
         folder.mkdir(parents=True, exist_ok=True)
+
+
+def warn_if_non_production_db_path() -> None:
+    """Log when configured DB is not the canonical Windows production path."""
+    import logging
+
+    canonical = Path(r"D:\AzmusERP\Data\database\azmus.db")
+    forbidden_names = {"azmus_new.db", "database.db", "app.db", "sqlite.db"}
+    name = DB_PATH.name.lower()
+    log = logging.getLogger("azmus.paths")
+    try:
+        backend = _BACKEND_DIR.resolve()
+        if name in forbidden_names or (
+            DB_PATH.resolve().parent == backend and name.endswith(".db")
+        ):
+            log.error(
+                "DB_PATH %s is inside the application folder — use %s for production",
+                DB_PATH,
+                canonical,
+            )
+        elif DB_PATH.resolve() != canonical.resolve() and canonical.drive:
+            log.warning(
+                "DB_PATH %s is not canonical production path %s",
+                DB_PATH,
+                canonical,
+            )
+    except OSError:
+        pass
 
 
 def sqlite_database_url() -> str:
@@ -105,3 +133,4 @@ def resolve_sqlite_file_from_url(database_url: str) -> Path:
 DATABASE_URL = os.getenv("DATABASE_URL") or sqlite_database_url()
 
 ensure_data_directories()
+warn_if_non_production_db_path()
