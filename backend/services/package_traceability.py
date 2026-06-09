@@ -24,6 +24,7 @@ from models import (
     PackageLocation,
 )
 from services.audit import log_action
+from services.feature_flags import print_agent_enabled, traceability_enabled
 from services.print_jobs import queue_print_for_label
 
 LABEL_PREFIX = "PKG"
@@ -118,6 +119,9 @@ def create_label_for_package(
     if existing:
         return existing
 
+    if not traceability_enabled():
+        return existing
+
     job = pkg.job or db.query(MesProductionJob).filter(MesProductionJob.id == pkg.job_id).first()
     label_code = generate_label_code(db)
     track_url = public_track_url(label_code)
@@ -130,7 +134,7 @@ def create_label_for_package(
     db.add(label)
     db.flush()
 
-    if auto_print:
+    if auto_print and print_agent_enabled():
         try:
             print_job = queue_print_for_label(db, label, pkg, username=username)
             if print_job and print_job.status == "completed":
@@ -171,6 +175,8 @@ def ensure_labels_for_job_packages(
     *,
     username: str,
 ) -> list[PackageLabel]:
+    if not traceability_enabled():
+        return []
     labels = []
     for pkg in job.packages or []:
         if pkg.status not in ("packed", "placed", "received", "loaded"):

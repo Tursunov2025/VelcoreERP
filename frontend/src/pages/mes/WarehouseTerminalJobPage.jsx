@@ -6,6 +6,7 @@ import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Toast from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
+import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 
 function ProgressBar({ value, large = false }) {
   const pct = Math.min(100, Math.max(0, Number(value) || 0));
@@ -23,6 +24,7 @@ export default function WarehouseTerminalJobPage() {
   const { id } = useParams();
   const { hasPermission, isAdmin } = useAuth();
   const { t } = useLocale();
+  const { traceabilityEnabled } = useFeatureFlags();
   const canUse = isAdmin || hasPermission("mes_terminal_warehouse");
 
   const [job, setJob] = useState(null);
@@ -229,7 +231,7 @@ export default function WarehouseTerminalJobPage() {
                     </button>
                   </div>
                 ) : null}
-                {pkg.label_code ? (
+                {traceabilityEnabled && pkg.label_code ? (
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <input
                       placeholder={t("mes.traceZone")}

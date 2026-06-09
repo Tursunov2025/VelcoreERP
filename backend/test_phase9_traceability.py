@@ -12,6 +12,7 @@ from unittest.mock import patch
 TEST_DB = tempfile.NamedTemporaryFile(suffix=".db", delete=False).name
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB.replace(chr(92), '/')}"
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-phase9")
+os.environ["TRACEABILITY_ENABLED"] = "true"
 
 BACKEND = Path(__file__).resolve().parent
 sys.path.insert(0, str(BACKEND))

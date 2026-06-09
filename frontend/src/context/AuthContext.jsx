@@ -58,8 +58,17 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    let settled = false;
+    const safetyTimer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        setLoading(false);
+      }
+    }, 12_000);
+
     Promise.all([api.getMe(), loadPermissions()])
       .then(([data, perms]) => {
+        if (settled) return;
         setUser({
           username: data.username,
           role: data.role,
@@ -69,7 +78,11 @@ export function AuthProvider({ children }) {
         setPermissions(perms);
       })
       .catch(() => setStoredTokens(null))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        settled = true;
+        clearTimeout(safetyTimer);
+        setLoading(false);
+      });
   }, []);
 
   const login = useCallback(async (username, password) => {

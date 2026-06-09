@@ -14,6 +14,7 @@ from services.control_center_config import (
     get_mobile_app_config,
     get_nav_visibility,
 )
+from services.feature_flags import print_agent_enabled, traceability_enabled
 from services.orders_control_center import export_items_csv, list_control_center_items
 from services.settings_store import get_settings_for_admin
 
@@ -31,6 +32,10 @@ def get_ui_config(
         "nav_visibility": get_nav_visibility(settings),
         "dashboard_widgets": get_dashboard_widgets(settings),
         "mobile_app": get_mobile_app_config(settings) if user.role == "admin" or user.department == "Admin" else None,
+        "feature_flags": {
+            "traceability_enabled": traceability_enabled(),
+            "print_agent_enabled": print_agent_enabled(),
+        },
     }
 
 

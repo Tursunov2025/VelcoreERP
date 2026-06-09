@@ -2,10 +2,12 @@ import { Link } from "react-router-dom";
 import PageHeader from "../../components/ui/PageHeader";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
+import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 
 export default function MesHubPage() {
   const { hasPermission, isAdmin } = useAuth();
   const { t } = useLocale();
+  const { traceabilityEnabled } = useFeatureFlags();
   const canView = hasPermission("mes_view");
   const canLazer = isAdmin || hasPermission("mes_terminal_lazer");
   const canSvarshik = isAdmin || hasPermission("mes_terminal_svarshik");
@@ -124,12 +126,16 @@ export default function MesHubPage() {
             desc: t("mes.hubPartsDesc"),
             emoji: "🔩",
           },
-          {
-            to: "/scanner",
-            title: t("traceability.scannerTitle"),
-            desc: t("traceability.scannerSubtitle"),
-            emoji: "📷",
-          },
+          ...(traceabilityEnabled
+            ? [
+                {
+                  to: "/scanner",
+                  title: t("traceability.scannerTitle"),
+                  desc: t("traceability.scannerSubtitle"),
+                  emoji: "📷",
+                },
+              ]
+            : []),
         ]
       : []),
   ];

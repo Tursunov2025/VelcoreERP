@@ -1,3 +1,5 @@
+import { useFeatureFlags } from "../../hooks/useFeatureFlags";
+
 const CENTRAL_TABS = [
   { id: "company", label: "Kompaniya", icon: "🏢" },
   { id: "production", label: "Ishlab chiqarish", icon: "🏭" },
@@ -16,7 +18,7 @@ const SUPER_ADMIN_TABS = [
   { id: "productionStages", label: "Bosqichlar", icon: "🏭" },
   { id: "systemLogs", label: "Jurnallar", icon: "📜" },
   { id: "mobileApp", label: "Mobil APK", icon: "📱" },
-  { id: "labelPrinters", label: "Printers", icon: "🖨️" },
+  { id: "labelPrinters", label: "Printers", icon: "🖨️", requiresPrintAgent: true },
 ];
 
 const OPERATIONS_TABS = [
@@ -36,6 +38,11 @@ const OPERATIONS_TABS = [
 const TABS = [...CENTRAL_TABS, ...OPERATIONS_TABS];
 
 export default function SettingsLayout({ activeTab, onTabChange, children }) {
+  const { printAgentEnabled } = useFeatureFlags();
+  const superAdminTabs = SUPER_ADMIN_TABS.filter(
+    (tab) => !tab.requiresPrintAgent || printAgentEnabled
+  );
+
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
       <aside className="shrink-0 lg:w-56">
@@ -63,7 +70,7 @@ export default function SettingsLayout({ activeTab, onTabChange, children }) {
           Super Admin
         </p>
         <nav className="mb-4 flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
-          {SUPER_ADMIN_TABS.map((tab) => (
+          {superAdminTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"

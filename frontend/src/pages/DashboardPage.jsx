@@ -12,11 +12,13 @@ import { isWidgetEnabled } from "../constants/controlCenter";
 import { useAuth } from "../context/AuthContext";
 import { useLocale } from "../context/LocaleContext";
 import { useUiConfig } from "../hooks/useUiConfig";
+import { useFeatureFlags } from "../hooks/useFeatureFlags";
 
 export default function DashboardPage() {
   const { t } = useLocale();
   const { isAdmin } = useAuth();
   const { config } = useUiConfig();
+  const { traceabilityEnabled } = useFeatureFlags();
   const widgets = config?.dashboard_widgets || [];
   const [analytics, setAnalytics] = useState(null);
   const [operators, setOperators] = useState([]);
@@ -40,7 +42,7 @@ export default function DashboardPage() {
           api.controlCenterOrders({ delayed_only: true, limit: 200 }).catch(() => ({ summary: {} }))
         );
       }
-      if (isAdmin) {
+      if (isAdmin && traceabilityEnabled) {
         tasks.push(api.traceabilityDashboard().catch(() => null));
       }
       const results = await Promise.all(tasks);
@@ -54,7 +56,7 @@ export default function DashboardPage() {
         setDelayedCount(results[idx]?.summary?.delayed ?? 0);
         idx += 1;
       }
-      if (isAdmin && results[idx]) {
+      if (isAdmin && traceabilityEnabled && results[idx]) {
         setTraceStats(results[idx]);
       }
     } catch (err) {
@@ -68,7 +70,7 @@ export default function DashboardPage() {
     load();
     const id = setInterval(load, 20000);
     return () => clearInterval(id);
-  }, [isAdmin, widgets.length]);
+  }, [isAdmin, traceabilityEnabled, widgets.length]);
 
   const summary = analytics?.summary || {};
 
@@ -85,7 +87,7 @@ export default function DashboardPage() {
         </Link>
       ) : null}
 
-      {isAdmin && traceStats ? (
+      {isAdmin && traceabilityEnabled && traceStats ? (
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Card>
             <p className="text-sm text-[var(--brand-muted)]">{t("traceability.packagesToday")}</p>

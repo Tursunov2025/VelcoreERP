@@ -15,6 +15,7 @@ from models import (
     PrintAgentHeartbeat,
     PrintJob,
 )
+from services.feature_flags import print_agent_enabled
 from services.label_printer import get_printers_config, pick_auto_printer, print_package_label
 from services.print_label_image import build_label_png_bytes, label_meta_from_package
 from services.settings_store import get_settings_group
@@ -94,6 +95,8 @@ def queue_print_for_label(
     username: str,
     try_network_print: bool = True,
 ) -> PrintJob | None:
+    if not print_agent_enabled():
+        return None
     printer = resolve_printer_for_job(db)
     pname = printer_display_name(printer)
     print_job = create_print_job(

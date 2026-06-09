@@ -6,6 +6,7 @@ import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Toast from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
+import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 import { parseLabelCode } from "../../utils/labelCode";
 
 function ProgressBar({ value, large = false }) {
@@ -24,6 +25,7 @@ export default function DispatchTerminalJobPage() {
   const { id } = useParams();
   const { hasPermission, isAdmin } = useAuth();
   const { t } = useLocale();
+  const { traceabilityEnabled } = useFeatureFlags();
   const canUse = isAdmin || hasPermission("mes_terminal_dispatch");
 
   const [job, setJob] = useState(null);
@@ -274,7 +276,7 @@ export default function DispatchTerminalJobPage() {
         </div>
       ) : null}
 
-      {canLoad ? (
+      {canLoad && traceabilityEnabled ? (
         <div className="mt-4 rounded-2xl border bg-[var(--brand-card)] p-4">
           <h3 className="mb-2 text-lg font-bold">{t("mes.dispatchScanQr")}</h3>
           <div className="flex gap-2">

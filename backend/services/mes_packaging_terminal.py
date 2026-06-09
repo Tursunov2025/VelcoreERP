@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from models import MesJobPackage, MesJobRouteStep, MesProductionJob, MesProductionStage
 from services.audit import log_value_change
 from services.mes_jobs import load_job
+from services.feature_flags import traceability_enabled
 from services.package_traceability import (
     ensure_labels_for_job_packages,
     label_fields_for_package,
@@ -466,7 +467,8 @@ def _complete_packaging_step(
                 "packed",
             )
 
-    ensure_labels_for_job_packages(db, job, username=username)
+    if traceability_enabled():
+        ensure_labels_for_job_packages(db, job, username=username)
 
     old_completed_at = step.completed_at.isoformat() if step.completed_at else None
     step.completed_at = now

@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { isTraceabilityEnabledForRoutes } from "./constants/featureFlags";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { BrandingProvider, useBranding } from "./context/BrandingContext";
 import { LocaleProvider } from "./context/LocaleContext";
@@ -94,13 +95,21 @@ function CatchAllRoute() {
 }
 
 function AppRoutes() {
+  const traceabilityEnabled = isTraceabilityEnabledForRoutes();
+
   return (
     <Routes>
           <Route path="/login" element={<LoginRoute />} />
-          <Route path="/track/package/:labelCode" element={<PublicPackageTrackPage />} />
+          {traceabilityEnabled ? (
+            <Route path="/track/package/:labelCode" element={<PublicPackageTrackPage />} />
+          ) : null}
           <Route element={<ProtectedRoute />}>
-            <Route path="packages/:labelCode" element={<PackagePassportPage />} />
-            <Route path="scanner" element={<PackageScannerPage />} />
+            {traceabilityEnabled ? (
+              <>
+                <Route path="packages/:labelCode" element={<PackagePassportPage />} />
+                <Route path="scanner" element={<PackageScannerPage />} />
+              </>
+            ) : null}
             <Route index element={<DashboardPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="production" element={<ProductionPage />} />
