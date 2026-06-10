@@ -1,0 +1,25 @@
+# Copy to:
+#   C:\Users\<YOUR_USER>\.cloudflared\config.yml
+#
+# Create tunnel:
+#   cloudflared tunnel login
+#   cloudflared tunnel create azmus-erp
+#   cloudflared tunnel route dns azmus-erp erp.YOUR_DOMAIN.com
+#   cloudflared tunnel route dns azmus-erp api-erp.YOUR_DOMAIN.com
+
+tunnel: <TUNNEL_ID_FROM_CLOUDFLARE>
+credentials-file: C:\Users\<YOUR_USER>\.cloudflared\<TUNNEL_ID_FROM_CLOUDFLARE>.json
+
+ingress:
+  # Public ERP UI. The frontend is served locally by Vite preview.
+  - hostname: erp.YOUR_DOMAIN.com
+    service: http://127.0.0.1:5173
+
+  # Public API. Frontend must be built with:
+  #   VITE_API_URL=https://api-erp.YOUR_DOMAIN.com
+  - hostname: api-erp.YOUR_DOMAIN.com
+    service: http://127.0.0.1:8000
+
+  # Block unknown hostnames.
+  - service: http_status:404
+

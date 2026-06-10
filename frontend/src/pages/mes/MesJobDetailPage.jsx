@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../api/client";
+import BackButton from "../../components/ui/BackButton";
 import ErrorAlert from "../../components/ui/ErrorAlert";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import PageHeader from "../../components/ui/PageHeader";
@@ -138,9 +139,7 @@ export default function MesJobDetailPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Link to="/mes/jobs" className="text-sm text-[var(--brand-primary)] hover:underline">
-          ← {t("mes.jobsTitle")}
-        </Link>
+        <BackButton fallback="/mes/jobs" label={t("mes.jobsTitle")} />
         <div className="flex flex-wrap gap-2">
           {job.status === "draft" && canManage && (
             <>

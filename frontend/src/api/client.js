@@ -498,6 +498,81 @@ export const api = {
   llpDeleteDocument: (id) => request(`/llp/documents/${id}`, { method: "DELETE" }),
   llpMarkRead: (id) => request(`/llp/documents/${id}/read`, { method: "POST" }),
 
+  exportShipments: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    const qs = q.toString();
+    return request(`/export-shipments${qs ? `?${qs}` : ""}`);
+  },
+  exportShipmentDashboard: () => request("/export-shipments/dashboard"),
+  exportShipment: (id) => request(`/export-shipments/${id}`),
+  createExportShipment: (body) =>
+    request("/export-shipments", { method: "POST", body: JSON.stringify(body) }),
+  createExportShipmentFromOrder: (body) =>
+    request("/export-shipments/from-order", { method: "POST", body: JSON.stringify(body) }),
+  updateExportShipment: (id, body) =>
+    request(`/export-shipments/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  updateExportShipmentStatus: (id, status) =>
+    request(`/export-shipments/${id}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    }),
+  generateExportDocuments: (id) =>
+    request(`/export-shipments/${id}/generate-documents`, { method: "POST" }),
+
+  // Phase 11B — Multi Currency
+  currencies: () => request("/currencies"),
+  currencyDashboard: () => request("/currencies/dashboard"),
+  currencyRateHistory: (code, limit = 60) =>
+    request(`/currencies/rates/history?currency_code=${encodeURIComponent(code)}&limit=${limit}`),
+  addCurrencyRate: (body) =>
+    request("/currencies/rates", { method: "POST", body: JSON.stringify(body) }),
+  convertCurrency: (amount, from, to) =>
+    request(`/currencies/convert?amount=${amount}&from=${from}&to=${to}`),
+
+  // Phase 11B — Transport Management
+  transports: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    const qs = q.toString();
+    return request(`/transports${qs ? `?${qs}` : ""}`);
+  },
+  transportDashboard: () => request("/transports/dashboard"),
+  transport: (id) => request(`/transports/${id}`),
+  createTransport: (body) =>
+    request("/transports", { method: "POST", body: JSON.stringify(body) }),
+  updateTransport: (id, body) =>
+    request(`/transports/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  updateTransportStatus: (id, status, comment = "") =>
+    request(`/transports/${id}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status, comment }),
+    }),
+
+  // Phase 11B — CRM / Customer debt
+  crmLedger: (q = "") => request(`/crm/ledger${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  crmTopDebtors: (limit = 5) => request(`/crm/top-debtors?limit=${limit}`),
+  crmPayments: (customer = "") =>
+    request(`/crm/payments${customer ? `?customer=${encodeURIComponent(customer)}` : ""}`),
+  crmRecordPayment: (body) =>
+    request("/crm/payments", { method: "POST", body: JSON.stringify(body) }),
+
+  // Phase 11B — Dashboard KPIs + Warehouse forecast
+  dashboardKpis: () => request("/dashboard/kpis"),
+  warehouseForecast: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    const qs = q.toString();
+    return request(`/warehouse-forecast${qs ? `?${qs}` : ""}`);
+  },
+  warehouseForecastAlerts: (limit = 8) => request(`/warehouse-forecast/alerts?limit=${limit}`),
+
   mesGetCategories: (includeInactive = false) =>
     request(`/mes/categories?include_inactive=${includeInactive ? "true" : "false"}`),
   mesCreateCategory: (body) =>

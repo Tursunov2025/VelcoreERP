@@ -17,6 +17,7 @@ DEFAULT_NAV_VISIBILITY: dict[str, bool] = {
     "chat": True,
     "tasks": True,
     "llp": True,
+    "exportShipments": True,
     "mes": True,
     "materials": True,
     "lazerTerminal": True,
@@ -32,6 +33,10 @@ DEFAULT_NAV_VISIBILITY: dict[str, bool] = {
     "invoices": True,
     "controlCenter": True,
     "settings": True,
+    "crm": True,
+    "transport": True,
+    "currencies": True,
+    "forecast": True,
 }
 
 DEFAULT_DASHBOARD_WIDGETS: list[dict[str, Any]] = [
@@ -40,6 +45,10 @@ DEFAULT_DASHBOARD_WIDGETS: list[dict[str, Any]] = [
     {"id": "online_operators", "enabled": True, "order": 3},
     {"id": "production_chart", "enabled": True, "order": 4},
     {"id": "delayed_summary", "enabled": True, "order": 5},
+    {"id": "export_shipments", "enabled": True, "order": 6},
+    {"id": "currency_rates", "enabled": True, "order": 7},
+    {"id": "top_debtors", "enabled": True, "order": 8},
+    {"id": "warehouse_forecast", "enabled": True, "order": 9},
 ]
 
 DEFAULT_MOBILE_APP: dict[str, Any] = {

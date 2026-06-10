@@ -56,6 +56,11 @@ MATERIALS_PERMISSIONS = [
     "materials_edit",
 ]
 
+EXPORT_PERMISSIONS = [
+    "export_view",
+    "export_manage",
+]
+
 MES_PERMISSIONS = [
     "mes_view",
     "mes_edit",
@@ -99,7 +104,13 @@ MES_DEFAULT_PRODUCTION_STAGES = [
     ("Yuklash", "Ombor"),
 ]
 
-ALL_PERMISSION_KEYS = PERMISSION_MODULES + LLP_PERMISSIONS + MES_PERMISSIONS + MATERIALS_PERMISSIONS
+ALL_PERMISSION_KEYS = (
+    PERMISSION_MODULES
+    + LLP_PERMISSIONS
+    + MES_PERMISSIONS
+    + MATERIALS_PERMISSIONS
+    + EXPORT_PERMISSIONS
+)
 
 DEFAULT_OPERATOR_PERMISSIONS = {
     "orders": True,
@@ -131,6 +142,8 @@ DEFAULT_OPERATOR_PERMISSIONS = {
     "mes_terminal_dispatch": False,
     "materials_view": False,
     "materials_edit": False,
+    "export_view": False,
+    "export_manage": False,
 }
 
 NOTIFICATION_EVENTS = [

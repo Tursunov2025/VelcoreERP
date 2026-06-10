@@ -45,7 +45,12 @@ from routers import (
     auth_router,
     branding_router,
     chat_router,
+    crm_router,
+    currency_router,
+    dashboard_router,
     finance_router,
+    forecast_router,
+    export_shipments_router,
     llp_router,
     mes_jobs_router,
     mes_lazer_terminal_router,
@@ -68,6 +73,7 @@ from routers import (
     tasks_router,
     telegram_router,
     traceability_router,
+    transport_router,
     printing_router,
     uploads_router,
     users_router,
@@ -254,6 +260,12 @@ app.include_router(production_router.router)
 app.include_router(operators_router.router)
 app.include_router(analytics_router.router)
 app.include_router(finance_router.router)
+app.include_router(export_shipments_router.router)
+app.include_router(currency_router.router)
+app.include_router(transport_router.router)
+app.include_router(crm_router.router)
+app.include_router(dashboard_router.router)
+app.include_router(forecast_router.router)
 app.include_router(uploads_router.router)
 app.include_router(shipping_router.router)
 app.include_router(chat_router.router)

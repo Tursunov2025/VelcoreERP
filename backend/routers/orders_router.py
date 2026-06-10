@@ -27,6 +27,7 @@ def _serialize_order(order: Order) -> dict:
         client=order.client,
         phone=order.phone or "",
         amount=order.amount or "0",
+        currency=order.currency or "UZS",
         comment=order.comment or "",
         destination=order.destination or "",
         status=order.status,
@@ -118,6 +119,7 @@ async def create_order(
         client=data.client,
         phone=data.phone,
         amount=data.amount,
+        currency=(data.currency or "UZS").upper(),
         comment=data.comment,
         destination=data.destination,
         status=FIRST_STAGE,
@@ -169,7 +171,7 @@ def update_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    for field in ("client", "phone", "amount", "comment", "destination", "estimated_finish_at"):
+    for field in ("client", "phone", "amount", "currency", "comment", "destination", "estimated_finish_at"):
         val = getattr(data, field, None)
         if val is not None:
             setattr(order, field, val)

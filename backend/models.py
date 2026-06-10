@@ -55,6 +55,7 @@ class Order(Base):
     comment = Column(Text, default="")
     destination = Column(String, default="")
     status = Column(String, default="Kesish")
+    currency = Column(String, default="UZS")
     operator_id = Column(Integer, nullable=True)
     image_url = Column(String, nullable=True)
     in_warehouse = Column(Boolean, default=False)
@@ -154,6 +155,75 @@ class ShipmentArchive(Base):
     shipped_at = Column(DateTime, default=utcnow)
     operator_username = Column(String, nullable=False)
     comment = Column(Text, default="")
+
+
+class ExportShipment(Base):
+    __tablename__ = "export_shipments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_number = Column(String, unique=True, index=True, nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
+    customer = Column(String, nullable=False)
+    country = Column(String, default="Kazakhstan")
+    contract_number = Column(String, default="")
+    currency = Column(String, default="KZT")
+    shipment_date = Column(DateTime, default=utcnow)
+    status = Column(String, default="Draft", index=True)
+    total_quantity = Column(Float, default=0)
+    total_weight = Column(Float, default=0)
+    total_amount = Column(Float, default=0)
+    notes = Column(Text, default="")
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    sent_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True)
+
+    order = relationship("Order")
+    items = relationship(
+        "ExportShipmentItem", back_populates="shipment", cascade="all, delete-orphan"
+    )
+    documents = relationship(
+        "ExportShipmentDocument", back_populates="shipment", cascade="all, delete-orphan"
+    )
+
+
+class ExportShipmentItem(Base):
+    __tablename__ = "export_shipment_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, ForeignKey("export_shipments.id"), index=True, nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
+    product_name = Column(String, nullable=False)
+    description = Column(Text, default="")
+    quantity = Column(Float, default=1)
+    unit = Column(String, default="pcs")
+    weight_kg = Column(Float, default=0)
+    unit_price = Column(Float, default=0)
+    total_amount = Column(Float, default=0)
+    sort_order = Column(Integer, default=0)
+
+    shipment = relationship("ExportShipment", back_populates="items")
+    order = relationship("Order")
+
+
+class ExportShipmentDocument(Base):
+    __tablename__ = "export_shipment_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, ForeignKey("export_shipments.id"), index=True, nullable=False)
+    document_type = Column(String, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    filename = Column(String, default="")
+    content_type = Column(String, default="")
+    file_size = Column(Integer, default=0)
+    llp_document_id = Column(Integer, ForeignKey("documents.id"), nullable=True, index=True)
+    generated_by = Column(String, nullable=False)
+    generated_at = Column(DateTime, default=utcnow)
+
+    shipment = relationship("ExportShipment", back_populates="documents")
+    llp_document = relationship("Document")
 
 
 class ChatRoom(Base):
@@ -1107,4 +1177,92 @@ class MobileAppVersion(Base):
     apk_url = Column(String, nullable=False, default="")
     release_notes = Column(Text, default="")
     force_update = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utcnow)
+
+
+# --- Phase 11B: Multi Currency ---
+
+
+class Currency(Base):
+    __tablename__ = "currencies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    symbol = Column(String, default="")
+    is_base = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=utcnow)
+
+
+class ExchangeRate(Base):
+    """Rate to base currency (UZS): 1 unit of currency_code = rate_to_base UZS."""
+
+    __tablename__ = "exchange_rates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    currency_code = Column(String, index=True, nullable=False)
+    rate_to_base = Column(Float, nullable=False)
+    rate_date = Column(DateTime, default=utcnow, index=True)
+    created_by = Column(String, default="system")
+    created_at = Column(DateTime, default=utcnow)
+
+
+# --- Phase 11B: Transport Management ---
+
+
+class Transport(Base):
+    __tablename__ = "transports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    export_shipment_id = Column(
+        Integer, ForeignKey("export_shipments.id"), nullable=True, index=True
+    )
+    vehicle = Column(String, nullable=False)
+    driver_name = Column(String, default="")
+    driver_phone = Column(String, default="")
+    shipment_weight_kg = Column(Float, default=0)
+    departure_date = Column(DateTime, nullable=True)
+    arrival_date = Column(DateTime, nullable=True)
+    status = Column(String, default="Draft", index=True)
+    notes = Column(Text, default="")
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    export_shipment = relationship("ExportShipment")
+    events = relationship(
+        "TransportEvent", back_populates="transport", cascade="all, delete-orphan"
+    )
+
+
+class TransportEvent(Base):
+    """Status timeline entry for a transport."""
+
+    __tablename__ = "transport_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transport_id = Column(Integer, ForeignKey("transports.id"), index=True, nullable=False)
+    status = Column(String, nullable=False)
+    comment = Column(Text, default="")
+    created_by = Column(String, default="system")
+    created_at = Column(DateTime, default=utcnow)
+
+    transport = relationship("Transport", back_populates="events")
+
+
+# --- Phase 11B: Customer Debt Tracking ---
+
+
+class CustomerPayment(Base):
+    __tablename__ = "customer_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer = Column(String, index=True, nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
+    amount = Column(Float, nullable=False)
+    currency = Column(String, default="UZS")
+    notes = Column(Text, default="")
+    created_by = Column(String, nullable=False)
     created_at = Column(DateTime, default=utcnow)

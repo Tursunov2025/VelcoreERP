@@ -20,6 +20,11 @@ import OrdersControlCenterPage from "./pages/OrdersControlCenterPage";
 import ChatPage from "./pages/ChatPage";
 import TasksPage from "./pages/TasksPage";
 import LlpPage from "./pages/LlpPage";
+import ExportShipmentsPage from "./pages/ExportShipmentsPage";
+import CrmPage from "./pages/CrmPage";
+import CurrenciesPage from "./pages/CurrenciesPage";
+import TransportPage from "./pages/TransportPage";
+import WarehouseForecastPage from "./pages/WarehouseForecastPage";
 import MesHubPage from "./pages/mes/MesHubPage";
 import MesCategoriesPage from "./pages/mes/MesCategoriesPage";
 import MesPartsPage from "./pages/mes/MesPartsPage";
@@ -118,6 +123,11 @@ function AppRoutes() {
             <Route path="chat" element={<ChatPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="llp" element={<LlpPage />} />
+            <Route path="export-shipments" element={<ExportShipmentsPage />} />
+            <Route path="crm" element={<CrmPage />} />
+            <Route path="currencies" element={<CurrenciesPage />} />
+            <Route path="transport" element={<TransportPage />} />
+            <Route path="materials/forecast" element={<WarehouseForecastPage />} />
             <Route path="mes" element={<MesHubPage />} />
             <Route path="mes/categories" element={<MesCategoriesPage />} />
             <Route path="mes/parts" element={<MesPartsPage />} />

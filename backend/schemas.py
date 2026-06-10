@@ -77,6 +77,7 @@ class OrderCreate(BaseModel):
     client: str
     phone: str = ""
     amount: str = "0"
+    currency: str = "UZS"
     comment: str = ""
     destination: str = ""
     image_url: Optional[str] = None
@@ -88,6 +89,7 @@ class OrderUpdate(BaseModel):
     client: Optional[str] = None
     phone: Optional[str] = None
     amount: Optional[str] = None
+    currency: Optional[str] = None
     comment: Optional[str] = None
     destination: Optional[str] = None
     estimated_finish_at: Optional[datetime] = None
@@ -98,6 +100,7 @@ class OrderResponse(BaseModel):
     client: str
     phone: str
     amount: str
+    currency: str = "UZS"
     comment: str
     destination: str
     status: str

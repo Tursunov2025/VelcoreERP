@@ -1,14 +1,13 @@
 import { useAuth } from "../../context/AuthContext";
 import { useBranding } from "../../context/BrandingContext";
-import { useLocale } from "../../context/LocaleContext";
+import LogoutButton from "./LogoutButton";
 import MobileNav from "./MobileNav";
 import Sidebar from "./Sidebar";
 import UiQuickControls from "./UiQuickControls";
 
 export default function AppShell({ children }) {
-  const { username, role, department, logout } = useAuth();
+  const { username, role, department } = useAuth();
   const { branding } = useBranding();
-  const { t } = useLocale();
 
   return (
     <div
@@ -24,14 +23,7 @@ export default function AppShell({ children }) {
           </div>
           <div className="flex items-center gap-2">
             <UiQuickControls compact variant="light" />
-            <button
-              type="button"
-              onClick={logout}
-              className="brand-btn px-3 py-2 text-xs text-white"
-              style={{ backgroundColor: "var(--brand-danger)" }}
-            >
-              {t("common.logout")}
-            </button>
+            <LogoutButton compact className="brand-btn bg-red-500 px-3 py-2 text-xs text-white" />
           </div>
         </header>
         <main className="flex-1 p-4 text-[var(--brand-text)] md:p-8">{children}</main>

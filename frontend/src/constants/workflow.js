@@ -88,6 +88,16 @@ export const NAV_ITEMS = [
 
   { path: "/llp", label: "LLP", iconKey: "llp", permission: "llp_view" },
 
+  { path: "/crm", label: "CRM", iconKey: "crm", permission: "orders" },
+
+  { path: "/export-shipments", label: "Export Shipments", iconKey: "exportShipments", permission: "export_view" },
+
+  { path: "/transport", label: "Transport", iconKey: "transport", permission: "export_view" },
+
+  { path: "/currencies", label: "Valyutalar", iconKey: "currencies", permission: "finance" },
+
+  { path: "/materials/forecast", label: "Ombor prognozi", iconKey: "forecast", permission: "materials_view" },
+
   { path: "/mes", label: "MES", iconKey: "mes", permission: "mes_view" },
 
   { path: "/materials", label: "Xom ashyo ombori", iconKey: "materials", permission: "materials_view" },
@@ -117,6 +127,140 @@ export const NAV_ITEMS = [
 ];
 
 
+
+/**
+ * Phase 11B — Variant B grouped sidebar.
+ * Each section has a default emoji (used when branding emoji is not set),
+ * a primary path and optional children rendered as a collapsible group.
+ * Section is visible when at least one of its items passes permission filters.
+ */
+export const NAV_SECTIONS = [
+  {
+    id: "dashboard",
+    iconKey: "dashboard",
+    emoji: "🏠",
+    path: "/",
+    permission: null,
+  },
+  {
+    id: "crm",
+    iconKey: "crm",
+    emoji: "👥",
+    path: "/crm",
+    permission: "orders",
+    children: [
+      { path: "/crm", iconKey: "crmLedger", permission: "orders" },
+      { path: "/chat", iconKey: "chat", permission: "chat" },
+      { path: "/tasks", iconKey: "tasks", permission: "tasks" },
+    ],
+  },
+  {
+    id: "orders",
+    iconKey: "orders",
+    emoji: "📦",
+    path: "/orders",
+    permission: "orders",
+    children: [
+      { path: "/orders", iconKey: "orders", permission: "orders" },
+      { path: "/control-center", iconKey: "controlCenter", adminOnly: true, permission: null },
+    ],
+  },
+  {
+    id: "production",
+    iconKey: "production",
+    emoji: "🏭",
+    path: "/production",
+    permission: "production",
+    children: [
+      { path: "/production", iconKey: "production", permission: "production" },
+      { path: "/mes", iconKey: "mes", permission: "mes_view" },
+      { path: "/operators", iconKey: "operators", permission: "production" },
+    ],
+  },
+  {
+    id: "technology",
+    iconKey: "technology",
+    emoji: "📋",
+    path: "/mes/templates",
+    permission: "mes_view",
+    children: [
+      { path: "/mes/templates", iconKey: "mesTemplates", permission: "mes_view" },
+      { path: "/mes/parts", iconKey: "mesParts", permission: "mes_view" },
+      { path: "/materials/part-bom", iconKey: "materialsBom", permission: "materials_view" },
+    ],
+  },
+  {
+    id: "warehouse",
+    iconKey: "warehouse",
+    emoji: "📦",
+    path: "/warehouse",
+    permission: "warehouse",
+    children: [
+      { path: "/warehouse", iconKey: "warehouse", permission: "warehouse" },
+      { path: "/materials", iconKey: "materials", permission: "materials_view" },
+      { path: "/materials/forecast", iconKey: "forecast", permission: "materials_view" },
+      { path: "/mes/terminal/warehouse", iconKey: "warehouseTerminal", permission: "mes_terminal_warehouse" },
+    ],
+  },
+  {
+    id: "exportLogistics",
+    iconKey: "exportLogistics",
+    emoji: "🚚",
+    path: "/export-shipments",
+    permission: "export_view",
+    children: [
+      { path: "/export-shipments", iconKey: "exportShipments", permission: "export_view" },
+      { path: "/transport", iconKey: "transport", permission: "export_view" },
+      { path: "/shipping", iconKey: "shipping", permission: "warehouse" },
+      { path: "/llp", iconKey: "llp", permission: "llp_view" },
+    ],
+  },
+  {
+    id: "finance",
+    iconKey: "finance",
+    emoji: "💰",
+    path: "/finance",
+    permission: "finance",
+    children: [
+      { path: "/finance", iconKey: "finance", permission: "finance" },
+      { path: "/currencies", iconKey: "currencies", permission: "finance" },
+      { path: "/analytics", iconKey: "analytics", permission: "finance" },
+      { path: "/invoices", iconKey: "invoices", permission: "finance" },
+    ],
+  },
+  {
+    id: "settings",
+    iconKey: "settings",
+    emoji: "⚙️",
+    path: "/settings",
+    adminOnly: true,
+    permission: "settings",
+  },
+];
+
+function itemAllowed(item, permissions, isAdmin) {
+  if (item.adminOnly && !isAdmin) return false;
+  if (!item.permission) return true;
+  if (isAdmin) return true;
+  if (item.iconKey === "mes") {
+    return MES_ANY_PERMISSIONS.some((key) => Boolean(permissions?.[key]));
+  }
+  return Boolean(permissions?.[item.permission]);
+}
+
+/** Filter grouped sections: section stays if its main path or any child is allowed. */
+export function filterNavSections(sections, permissions, isAdmin) {
+  return sections
+    .map((section) => {
+      const children = (section.children || []).filter((child) =>
+        itemAllowed(child, permissions, isAdmin)
+      );
+      const selfAllowed = itemAllowed(section, permissions, isAdmin);
+      if (!selfAllowed && children.length === 0) return null;
+      return { ...section, children };
+    })
+    .filter(Boolean);
+}
 
 export const ADMIN_NAV_ITEM = {
 

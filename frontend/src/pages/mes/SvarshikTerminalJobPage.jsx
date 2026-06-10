@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { api } from "../../api/client";
+import BackButton from "../../components/ui/BackButton";
 import ErrorAlert from "../../components/ui/ErrorAlert";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Toast from "../../components/ui/Toast";
@@ -152,12 +153,7 @@ export default function SvarshikTerminalJobPage() {
 
   return (
     <div className="pb-36">
-      <Link
-        to="/mes/terminal/svarshik"
-        className="mb-4 inline-block min-h-[44px] text-sm font-semibold text-[var(--brand-primary)]"
-      >
-        ← {t("mes.svarshikTerminal")}
-      </Link>
+      <BackButton fallback="/mes/terminal/svarshik" label={t("mes.svarshikTerminal")} className="mb-4" />
 
       <div className="rounded-2xl border bg-[var(--brand-card)] p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">

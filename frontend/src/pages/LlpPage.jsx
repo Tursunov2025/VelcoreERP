@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, API_BASE, getStoredTokens } from "../api/client";
+import BackButton from "../components/ui/BackButton";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
@@ -191,6 +192,7 @@ export default function LlpPage() {
 
   return (
     <div>
+      <BackButton fallback="/" label="Dashboard" className="mb-4" />
       <PageHeader title={t("llp.title")} subtitle={t("llp.subtitle")} />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">

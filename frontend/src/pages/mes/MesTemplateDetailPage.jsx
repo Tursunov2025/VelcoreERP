@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, API_BASE } from "../../api/client";
+import BackButton from "../../components/ui/BackButton";
 import MesBomEditor from "../../components/mes/MesBomEditor";
 import MesRouteDesigner from "../../components/mes/MesRouteDesigner";
 import MesDrawingsGallery from "../../components/mes/MesDrawingsGallery";
@@ -145,9 +146,7 @@ export default function MesTemplateDetailPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Link to="/mes/templates" className="text-sm text-[var(--brand-primary)] hover:underline">
-          ← {t("mes.templatesTitle")}
-        </Link>
+        <BackButton fallback="/mes/templates" label={t("mes.templatesTitle")} />
         <div className="flex flex-wrap gap-2">
           {canEdit && (
             <Link

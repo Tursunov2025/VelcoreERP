@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import BackButton from "../components/ui/BackButton";
 import { useAuth } from "../context/AuthContext";
 import WorkflowOrderCard from "../components/workflow/WorkflowOrderCard";
 import OrderModal from "../components/modals/OrderModal";
@@ -49,6 +50,7 @@ export default function OrdersPage() {
 
   return (
     <div>
+      <BackButton fallback="/" label="Dashboard" className="mb-4" />
       <PageHeader
         title={t("orders.title")}
         subtitle={t("orders.subtitle")}

@@ -18,6 +18,10 @@ export const DASHBOARD_WIDGET_DEFS = [
   { id: "online_operators", labelKey: "controlCenter.widgetOperators" },
   { id: "production_chart", labelKey: "controlCenter.widgetProductionChart" },
   { id: "delayed_summary", labelKey: "controlCenter.widgetDelayed" },
+  { id: "export_shipments", labelKey: "controlCenter.widgetExportShipments" },
+  { id: "currency_rates", labelKey: "controlCenter.widgetCurrencyRates" },
+  { id: "top_debtors", labelKey: "controlCenter.widgetTopDebtors" },
+  { id: "warehouse_forecast", labelKey: "controlCenter.widgetWarehouseForecast" },
 ];
 
 export const DEFAULT_DASHBOARD_WIDGETS = DASHBOARD_WIDGET_DEFS.map((w, i) => ({

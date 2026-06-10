@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../../api/client";
+import BackButton from "../../components/ui/BackButton";
 import ErrorAlert from "../../components/ui/ErrorAlert";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import PageHeader from "../../components/ui/PageHeader";
@@ -135,9 +135,7 @@ export default function MaterialPartBomPage() {
 
   return (
     <div className="pb-24">
-      <Link to="/materials" className="mb-4 inline-block min-h-[44px] text-sm font-semibold text-[var(--brand-primary)]">
-        ← {t("materials.title")}
-      </Link>
+      <BackButton fallback="/materials" label={t("materials.title")} className="mb-4" />
 
       <PageHeader title={t("materials.partBomTitle")} subtitle={t("materials.partBomSubtitle")} />
 

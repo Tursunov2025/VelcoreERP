@@ -356,6 +356,138 @@ def run_migrations():
             agent_version VARCHAR DEFAULT ''
         )""",
 
+        """CREATE TABLE IF NOT EXISTS export_shipments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shipment_number VARCHAR NOT NULL UNIQUE,
+            order_id INTEGER,
+            customer VARCHAR NOT NULL,
+            country VARCHAR DEFAULT 'Kazakhstan',
+            contract_number VARCHAR DEFAULT '',
+            currency VARCHAR DEFAULT 'KZT',
+            shipment_date DATETIME,
+            status VARCHAR DEFAULT 'Draft',
+            total_quantity FLOAT DEFAULT 0,
+            total_weight FLOAT DEFAULT 0,
+            total_amount FLOAT DEFAULT 0,
+            notes TEXT DEFAULT '',
+            created_by VARCHAR NOT NULL,
+            created_at DATETIME,
+            updated_at DATETIME,
+            sent_at DATETIME,
+            delivered_at DATETIME
+        )""",
+
+        """CREATE TABLE IF NOT EXISTS export_shipment_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shipment_id INTEGER NOT NULL,
+            order_id INTEGER,
+            product_name VARCHAR NOT NULL,
+            description TEXT DEFAULT '',
+            quantity FLOAT DEFAULT 1,
+            unit VARCHAR DEFAULT 'pcs',
+            weight_kg FLOAT DEFAULT 0,
+            unit_price FLOAT DEFAULT 0,
+            total_amount FLOAT DEFAULT 0,
+            sort_order INTEGER DEFAULT 0
+        )""",
+
+        """CREATE TABLE IF NOT EXISTS export_shipment_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shipment_id INTEGER NOT NULL,
+            document_type VARCHAR NOT NULL,
+            title VARCHAR NOT NULL,
+            url VARCHAR NOT NULL,
+            filename VARCHAR DEFAULT '',
+            content_type VARCHAR DEFAULT '',
+            file_size INTEGER DEFAULT 0,
+            llp_document_id INTEGER,
+            generated_by VARCHAR NOT NULL,
+            generated_at DATETIME
+        )""",
+
+        "CREATE INDEX IF NOT EXISTS ix_export_shipments_status ON export_shipments (status)",
+        "CREATE INDEX IF NOT EXISTS ix_export_shipments_number ON export_shipments (shipment_number)",
+        "CREATE INDEX IF NOT EXISTS ix_export_shipment_items_shipment ON export_shipment_items (shipment_id)",
+        "CREATE INDEX IF NOT EXISTS ix_export_shipment_documents_shipment ON export_shipment_documents (shipment_id)",
+
+        # Phase 11B — ERP Modernization Suite (additive only)
+        "ALTER TABLE orders ADD COLUMN currency VARCHAR DEFAULT 'UZS'",
+
+        """CREATE TABLE IF NOT EXISTS currencies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code VARCHAR NOT NULL UNIQUE,
+            name VARCHAR NOT NULL,
+            symbol VARCHAR DEFAULT '',
+            is_base BOOLEAN DEFAULT 0,
+            is_active BOOLEAN DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            created_at DATETIME
+        )""",
+
+        """CREATE TABLE IF NOT EXISTS exchange_rates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            currency_code VARCHAR NOT NULL,
+            rate_to_base FLOAT NOT NULL,
+            rate_date DATETIME,
+            created_by VARCHAR DEFAULT 'system',
+            created_at DATETIME
+        )""",
+
+        """CREATE TABLE IF NOT EXISTS transports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            export_shipment_id INTEGER,
+            vehicle VARCHAR NOT NULL,
+            driver_name VARCHAR DEFAULT '',
+            driver_phone VARCHAR DEFAULT '',
+            shipment_weight_kg FLOAT DEFAULT 0,
+            departure_date DATETIME,
+            arrival_date DATETIME,
+            status VARCHAR DEFAULT 'Draft',
+            notes TEXT DEFAULT '',
+            created_by VARCHAR NOT NULL,
+            created_at DATETIME,
+            updated_at DATETIME,
+            FOREIGN KEY (export_shipment_id) REFERENCES export_shipments (id)
+        )""",
+
+        """CREATE TABLE IF NOT EXISTS transport_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            transport_id INTEGER NOT NULL,
+            status VARCHAR NOT NULL,
+            comment TEXT DEFAULT '',
+            created_by VARCHAR DEFAULT 'system',
+            created_at DATETIME,
+            FOREIGN KEY (transport_id) REFERENCES transports (id)
+        )""",
+
+        """CREATE TABLE IF NOT EXISTS customer_payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer VARCHAR NOT NULL,
+            order_id INTEGER,
+            amount FLOAT NOT NULL,
+            currency VARCHAR DEFAULT 'UZS',
+            notes TEXT DEFAULT '',
+            created_by VARCHAR NOT NULL,
+            created_at DATETIME,
+            FOREIGN KEY (order_id) REFERENCES orders (id)
+        )""",
+
+        "CREATE INDEX IF NOT EXISTS ix_exchange_rates_code_date ON exchange_rates (currency_code, rate_date)",
+        "CREATE INDEX IF NOT EXISTS ix_transports_status ON transports (status)",
+        "CREATE INDEX IF NOT EXISTS ix_transports_export_shipment ON transports (export_shipment_id)",
+        "CREATE INDEX IF NOT EXISTS ix_transport_events_transport ON transport_events (transport_id)",
+        "CREATE INDEX IF NOT EXISTS ix_customer_payments_customer ON customer_payments (customer)",
+
+        # Seed the four supported currencies (idempotent, never overwrites)
+        "INSERT OR IGNORE INTO currencies (code, name, symbol, is_base, is_active, sort_order, created_at) "
+        "VALUES ('UZS', 'Uzbek so''m', 'so''m', 1, 1, 0, CURRENT_TIMESTAMP)",
+        "INSERT OR IGNORE INTO currencies (code, name, symbol, is_base, is_active, sort_order, created_at) "
+        "VALUES ('KZT', 'Kazakhstani tenge', '₸', 0, 1, 1, CURRENT_TIMESTAMP)",
+        "INSERT OR IGNORE INTO currencies (code, name, symbol, is_base, is_active, sort_order, created_at) "
+        "VALUES ('USD', 'US Dollar', '$', 0, 1, 2, CURRENT_TIMESTAMP)",
+        "INSERT OR IGNORE INTO currencies (code, name, symbol, is_base, is_active, sort_order, created_at) "
+        "VALUES ('RUB', 'Russian ruble', '₽', 0, 1, 3, CURRENT_TIMESTAMP)",
+
     ]
 
 

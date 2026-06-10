@@ -14,50 +14,85 @@ import { useLocale } from "../context/LocaleContext";
 import { useUiConfig } from "../hooks/useUiConfig";
 import { useFeatureFlags } from "../hooks/useFeatureFlags";
 
+const KPI_CARDS = [
+  { key: "orders", label: "Orders", emoji: "📦", to: "/orders" },
+  { key: "production_jobs", label: "Production Jobs", emoji: "🏭", to: "/mes/jobs" },
+  { key: "finished_products", label: "Finished Products", emoji: "✅", to: "/mes/terminal/warehouse" },
+  { key: "shipped_orders", label: "Shipped Orders", emoji: "🚚", to: "/shipping" },
+  { key: "customers", label: "Customers", emoji: "👥", to: "/crm" },
+  { key: "materials", label: "Materials", emoji: "🧱", to: "/materials" },
+  { key: "llp_documents", label: "LLP Documents", emoji: "📄", to: "/llp" },
+  { key: "export_shipments", label: "Export Shipments", emoji: "🌍", to: "/export-shipments" },
+];
+
+const QUICK_ACTIONS = [
+  { label: "New Order", emoji: "➕", to: "/orders" },
+  { label: "New Job", emoji: "🛠️", to: "/mes/jobs/new" },
+  { label: "Material Receipt", emoji: "📥", to: "/materials/receipts" },
+  { label: "Export Shipment", emoji: "🚚", to: "/export-shipments" },
+  { label: "Reports", emoji: "📊", to: "/analytics" },
+];
+
+function formatNumber(value) {
+  const n = Number(value || 0);
+  return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
+}
+
 export default function DashboardPage() {
   const { t } = useLocale();
   const { isAdmin } = useAuth();
   const { config } = useUiConfig();
   const { traceabilityEnabled } = useFeatureFlags();
   const widgets = config?.dashboard_widgets || [];
+  const [kpis, setKpis] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [operators, setOperators] = useState([]);
   const [delayedCount, setDelayedCount] = useState(0);
   const [traceStats, setTraceStats] = useState(null);
+  const [exportStats, setExportStats] = useState(null);
+  const [currencyStats, setCurrencyStats] = useState(null);
+  const [topDebtors, setTopDebtors] = useState(null);
+  const [forecastAlerts, setForecastAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = async () => {
-    setLoading(true);
     setError("");
     try {
-      const tasks = [api.getOnlineOperators()];
-      if (isWidgetEnabled(widgets, "order_stats") || isWidgetEnabled(widgets, "production_chart")) {
-        tasks.push(
-          api.getDashboardAnalytics().catch(() => null)
-        );
-      }
+      const [
+        kpiData,
+        operatorData,
+        analyticsData,
+        currencyData,
+        debtorData,
+        forecastData,
+        exportData,
+      ] = await Promise.all([
+        api.dashboardKpis().catch(() => null),
+        api.getOnlineOperators().catch(() => null),
+        api.getDashboardAnalytics().catch(() => null),
+        api.currencyDashboard().catch(() => null),
+        api.crmTopDebtors(5).catch(() => null),
+        api.warehouseForecastAlerts(6).catch(() => null),
+        isWidgetEnabled(widgets, "export_shipments")
+          ? api.exportShipmentDashboard().catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      setKpis(kpiData);
+      setOperators(operatorData?.operators || []);
+      setAnalytics(analyticsData);
+      setCurrencyStats(currencyData);
+      setTopDebtors(debtorData);
+      setForecastAlerts(forecastData);
+      setExportStats(exportData);
       if (isAdmin && isWidgetEnabled(widgets, "delayed_summary")) {
-        tasks.push(
-          api.controlCenterOrders({ delayed_only: true, limit: 200 }).catch(() => ({ summary: {} }))
-        );
+        const delayed = await api
+          .controlCenterOrders({ delayed_only: true, limit: 200 })
+          .catch(() => ({ summary: {} }));
+        setDelayedCount(delayed?.summary?.delayed ?? 0);
       }
       if (isAdmin && traceabilityEnabled) {
-        tasks.push(api.traceabilityDashboard().catch(() => null));
-      }
-      const results = await Promise.all(tasks);
-      setOperators(results[0]?.operators || []);
-      let idx = 1;
-      if (isWidgetEnabled(widgets, "order_stats") || isWidgetEnabled(widgets, "production_chart")) {
-        setAnalytics(results[idx] || null);
-        idx += 1;
-      }
-      if (isAdmin && isWidgetEnabled(widgets, "delayed_summary") && results[idx]) {
-        setDelayedCount(results[idx]?.summary?.delayed ?? 0);
-        idx += 1;
-      }
-      if (isAdmin && traceabilityEnabled && results[idx]) {
-        setTraceStats(results[idx]);
+        setTraceStats(await api.traceabilityDashboard().catch(() => null));
       }
     } catch (err) {
       setError(err.message);
@@ -68,11 +103,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 20000);
+    const id = setInterval(load, 30000);
     return () => clearInterval(id);
   }, [isAdmin, traceabilityEnabled, widgets.length]);
-
-  const summary = analytics?.summary || {};
 
   return (
     <div>
@@ -86,6 +119,44 @@ export default function DashboardPage() {
           {t("controlCenter.delayedAlert")} ({delayedCount})
         </Link>
       ) : null}
+
+      {/* Quick Actions */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {QUICK_ACTIONS.map((action) => (
+          <Link
+            key={action.label}
+            to={action.to}
+            className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
+            style={{ backgroundColor: "var(--brand-button)" }}
+          >
+            <span>{action.emoji}</span>
+            {action.label}
+          </Link>
+        ))}
+      </div>
+
+      {/* KPI cards */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {loading && !kpis
+          ? [1, 2, 3, 4, 5, 6, 7, 8].map((i) => <CardSkeleton key={i} />)
+          : KPI_CARDS.map((card) => (
+              <Link
+                key={card.key}
+                to={card.to}
+                className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brand-muted)]">
+                    {card.label}
+                  </p>
+                  <span className="text-lg">{card.emoji}</span>
+                </div>
+                <p className="mt-2 text-3xl font-black text-[var(--brand-text)]">
+                  {kpis ? formatNumber(kpis[card.key]) : "—"}
+                </p>
+              </Link>
+            ))}
+      </div>
 
       {isAdmin && traceabilityEnabled && traceStats ? (
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -108,30 +179,132 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {loading ? (
-          [1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)
-        ) : (
-          <>
-            {isWidgetEnabled(widgets, "order_stats") ? (
-              <>
-                <Card>
-                  <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.totalOrders")}</p>
-                  <p className="mt-2 text-2xl font-black">{summary.total_orders ?? "—"}</p>
-                </Card>
-                <Card>
-                  <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.active")}</p>
-                  <p className="mt-2 text-2xl font-black">{summary.active_orders ?? "—"}</p>
-                </Card>
-                <Card>
-                  <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.completed")}</p>
-                  <p className="mt-2 text-2xl font-black">{summary.completed_orders ?? "—"}</p>
-                </Card>
-              </>
-            ) : null}
-            {isWidgetEnabled(widgets, "clock") ? <DashboardClock /> : null}
-          </>
-        )}
+      {/* Currency / Debtors / Forecast widget row */}
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        {currencyStats?.rates?.length ? (
+          <Link
+            to="/currencies"
+            className="rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-bold text-[var(--brand-text)]">💱 Exchange Rates</h2>
+              <span className="text-xs text-[var(--brand-muted)]">1 unit → UZS</span>
+            </div>
+            <div className="space-y-2">
+              {currencyStats.rates.map((rate) => {
+                const delta =
+                  rate.rate_to_base != null && rate.previous_rate != null
+                    ? rate.rate_to_base - rate.previous_rate
+                    : null;
+                return (
+                  <div key={rate.code} className="flex items-center justify-between text-sm">
+                    <span className="font-mono font-bold text-[var(--brand-text)]">
+                      {rate.code} {rate.symbol}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-bold text-[var(--brand-text)]">
+                        {rate.rate_to_base != null ? rate.rate_to_base.toLocaleString() : "—"}
+                      </span>
+                      {delta != null && delta !== 0 ? (
+                        <span className={delta > 0 ? "text-green-600" : "text-red-500"}>
+                          {delta > 0 ? "▲" : "▼"}
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Link>
+        ) : null}
+
+        {topDebtors?.debtors ? (
+          <Link
+            to="/crm"
+            className="rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-bold text-[var(--brand-text)]">💸 Top Debtors</h2>
+              <span className="text-xs text-[var(--brand-muted)]">UZS</span>
+            </div>
+            {topDebtors.debtors.length === 0 ? (
+              <p className="text-sm text-[var(--brand-muted)]">No outstanding debt</p>
+            ) : (
+              <div className="space-y-2">
+                {topDebtors.debtors.map((debtor) => (
+                  <div key={debtor.customer} className="flex items-center justify-between text-sm">
+                    <span className="truncate font-semibold text-[var(--brand-text)]">
+                      {debtor.customer}
+                    </span>
+                    <span className="font-bold text-red-500">
+                      {debtor.outstanding_debt.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Link>
+        ) : null}
+
+        {forecastAlerts ? (
+          <Link
+            to="/materials/forecast"
+            className="rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-bold text-[var(--brand-text)]">📉 Low Stock Alerts</h2>
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
+                {forecastAlerts.total_low_stock ?? 0}
+              </span>
+            </div>
+            {!forecastAlerts.alerts?.length ? (
+              <p className="text-sm text-[var(--brand-muted)]">No low stock materials</p>
+            ) : (
+              <div className="space-y-2">
+                {forecastAlerts.alerts.map((alert) => (
+                  <div key={alert.material_id} className="flex items-center justify-between text-sm">
+                    <span className="truncate font-semibold text-[var(--brand-text)]">
+                      {alert.name}
+                    </span>
+                    <span className="text-xs font-bold text-amber-600">
+                      {alert.days_remaining != null
+                        ? `${alert.days_remaining}d left`
+                        : `${formatNumber(alert.quantity)} ${alert.unit}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Link>
+        ) : null}
+      </div>
+
+      {isWidgetEnabled(widgets, "export_shipments") && exportStats ? (
+        <Link
+          to="/export-shipments"
+          className="mb-6 grid gap-4 rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md sm:grid-cols-4"
+        >
+          <div>
+            <p className="text-sm text-[var(--brand-muted)]">Export Shipments</p>
+            <p className="mt-2 text-2xl font-black">{exportStats.total ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-sm text-[var(--brand-muted)]">Ready</p>
+            <p className="mt-2 text-xl font-black text-blue-600">{exportStats.ready ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-sm text-[var(--brand-muted)]">Sent</p>
+            <p className="mt-2 text-xl font-black text-amber-600">{exportStats.sent ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-sm text-[var(--brand-muted)]">Delivered</p>
+            <p className="mt-2 text-xl font-black text-green-600">{exportStats.delivered ?? 0}</p>
+          </div>
+        </Link>
+      ) : null}
+
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        {isWidgetEnabled(widgets, "clock") ? <DashboardClock /> : null}
       </div>
 
       {isWidgetEnabled(widgets, "online_operators") ? (

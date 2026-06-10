@@ -39,6 +39,11 @@ export const LLP_PERMISSIONS = [
   { id: "llp_read_confirm", label: "LLP — O'qildi" },
 ];
 
+export const EXPORT_PERMISSIONS = [
+  { id: "export_view", label: "Export — Ko'rish" },
+  { id: "export_manage", label: "Export — Boshqarish" },
+];
+
 export const NOTIFICATION_EVENTS = [
   { id: "new_order", label: "Yangi zakaz" },
   { id: "order_completed", label: "Zakaz tayyor" },

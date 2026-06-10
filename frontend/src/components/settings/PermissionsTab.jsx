@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
-import { LLP_PERMISSIONS, MATERIALS_PERMISSIONS, MES_PERMISSIONS, PERMISSION_MODULES } from "../../constants/permissions";
+import {
+  EXPORT_PERMISSIONS,
+  LLP_PERMISSIONS,
+  MATERIALS_PERMISSIONS,
+  MES_PERMISSIONS,
+  PERMISSION_MODULES,
+} from "../../constants/permissions";
 import Toast from "../ui/Toast";
 
 function isAdminUser(user) {
@@ -150,6 +156,19 @@ export default function PermissionsTab() {
         <PermissionMatrix
           users={users}
           modules={MATERIALS_PERMISSIONS}
+          savingId={savingId}
+          onToggle={togglePermission}
+        />
+      </div>
+
+      <div>
+        <h2 className="mb-2 text-xl font-black">Export hujjatlari</h2>
+        <p className="mb-4 text-sm text-gray-500">
+          Kazakhstan eksport jo'natmalari va hujjatlarini boshqarish.
+        </p>
+        <PermissionMatrix
+          users={users}
+          modules={EXPORT_PERMISSIONS}
           savingId={savingId}
           onToggle={togglePermission}
         />

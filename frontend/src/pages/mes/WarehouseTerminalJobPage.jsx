@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { api } from "../../api/client";
+import BackButton from "../../components/ui/BackButton";
 import ErrorAlert from "../../components/ui/ErrorAlert";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Toast from "../../components/ui/Toast";
@@ -146,12 +147,7 @@ export default function WarehouseTerminalJobPage() {
 
   return (
     <div className="pb-36">
-      <Link
-        to="/mes/terminal/warehouse"
-        className="mb-4 inline-block min-h-[44px] text-sm font-semibold text-[var(--brand-primary)]"
-      >
-        ← {t("mes.warehouseTerminal")}
-      </Link>
+      <BackButton fallback="/mes/terminal/warehouse" label={t("mes.warehouseTerminal")} className="mb-4" />
 
       <div className="rounded-2xl border bg-[var(--brand-card)] p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
