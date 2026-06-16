@@ -22,17 +22,21 @@ export default function DriverTrackingPage() {
   const [online, setOnline] = useState(navigator.onLine);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(true);
   const watchIdRef = useRef(null);
   const intervalRef = useRef(null);
   const latestPosRef = useRef(null);
 
   const loadMeta = useCallback(async () => {
+    setError("");
     try {
       const [v, d] = await Promise.all([api.gpsVehicles(), api.gpsDrivers()]);
       setVehicles(v.vehicles || []);
       setDrivers(d.drivers || []);
     } catch (e) {
       setError(e.message);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
