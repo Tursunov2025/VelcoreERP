@@ -13,6 +13,7 @@ from auth.deps import get_current_user
 from database import get_db
 from models import ExportShipment, Transport, TransportEvent, User
 from services.audit import log_action
+from services.gps_fleet import gps_for_transport
 from services.permissions import user_has_permission
 
 router = APIRouter(prefix="/transports", tags=["transports"])
@@ -55,7 +56,7 @@ class TransportStatusUpdate(BaseModel):
     comment: str = ""
 
 
-def serialize_transport(transport: Transport, with_events: bool = False) -> dict:
+def serialize_transport(transport: Transport, with_events: bool = False, db: Session | None = None) -> dict:
     data = {
         "id": transport.id,
         "vehicle": transport.vehicle,
@@ -89,6 +90,8 @@ def serialize_transport(transport: Transport, with_events: bool = False) -> dict
             }
             for e in sorted(transport.events, key=lambda e: (e.created_at or datetime.min, e.id))
         ]
+    if db is not None:
+        data["gps"] = gps_for_transport(db, transport.id)
     return data
 
 
@@ -128,7 +131,7 @@ def list_transports(
     transports = query.order_by(desc(Transport.created_at)).limit(300).all()
     return {
         "statuses": TRANSPORT_STATUSES,
-        "transports": [serialize_transport(t, with_events=True) for t in transports],
+        "transports": [serialize_transport(t, with_events=True, db=db) for t in transports],
     }
 
 
@@ -153,7 +156,7 @@ def get_transport(
 ):
     if not _can_view(db, user):
         raise HTTPException(status_code=403, detail="Forbidden")
-    return serialize_transport(_get_transport(db, transport_id), with_events=True)
+    return serialize_transport(_get_transport(db, transport_id), with_events=True, db=db)
 
 
 @router.post("/")
@@ -196,7 +199,7 @@ def create_transport(
     )
     db.commit()
     log_action(db, user.username, "transport_create", f"transport={transport.id}")
-    return serialize_transport(_get_transport(db, transport.id), with_events=True)
+    return serialize_transport(_get_transport(db, transport.id), with_events=True, db=db)
 
 
 @router.put("/{transport_id}")
@@ -222,7 +225,7 @@ def update_transport(
         setattr(transport, field, value)
     db.commit()
     log_action(db, user.username, "transport_update", f"transport={transport.id}")
-    return serialize_transport(_get_transport(db, transport.id), with_events=True)
+    return serialize_transport(_get_transport(db, transport.id), with_events=True, db=db)
 
 
 @router.post("/{transport_id}/status")
@@ -252,4 +255,4 @@ def update_transport_status(
     log_action(
         db, user.username, "transport_status", f"transport={transport.id} -> {payload.status}"
     )
-    return serialize_transport(_get_transport(db, transport.id), with_events=True)
+    return serialize_transport(_get_transport(db, transport.id), with_events=True, db=db)

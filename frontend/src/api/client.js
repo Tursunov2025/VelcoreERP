@@ -1,5 +1,5 @@
 const RAW_API_BASE =
-  import.meta.env.VITE_API_URL || "https://azmus-crm.onrender.com";
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 // Strip any trailing slash so `${API_BASE}${path}` never produces a double slash.
 const API_BASE = RAW_API_BASE.replace(/\/+$/, "");
@@ -572,6 +572,35 @@ export const api = {
     return request(`/warehouse-forecast${qs ? `?${qs}` : ""}`);
   },
   warehouseForecastAlerts: (limit = 8) => request(`/warehouse-forecast/alerts?limit=${limit}`),
+
+  // Phase 12 — GPS Fleet Tracking
+  gpsVehicles: () => request("/gps/vehicles"),
+  gpsCreateVehicle: (body) =>
+    request("/gps/vehicles", { method: "POST", body: JSON.stringify(body) }),
+  gpsDrivers: () => request("/gps/drivers"),
+  gpsCreateDriver: (body) =>
+    request("/gps/drivers", { method: "POST", body: JSON.stringify(body) }),
+  gpsUpdateLocation: (body) =>
+    request("/gps/location/update", { method: "POST", body: JSON.stringify(body) }),
+  gpsLatestLocations: (vehicleId = null) =>
+    request(
+      vehicleId
+        ? `/gps/location/latest?vehicle_id=${vehicleId}`
+        : "/gps/location/latest"
+    ),
+  gpsLocationHistory: (vehicleId, limit = 100) =>
+    request(`/gps/location/history?vehicle_id=${vehicleId}&limit=${limit}`),
+  gpsTrips: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    const qs = q.toString();
+    return request(`/gps/trips${qs ? `?${qs}` : ""}`);
+  },
+  gpsCreateTrip: (body) =>
+    request("/gps/trips", { method: "POST", body: JSON.stringify(body) }),
+  gpsDashboard: () => request("/gps/dashboard"),
 
   mesGetCategories: (includeInactive = false) =>
     request(`/mes/categories?include_inactive=${includeInactive ? "true" : "false"}`),

@@ -24,7 +24,8 @@ export default function OrdersPage() {
     setLoading(true);
     setError("");
     try {
-      setOrders(await api.getOrders());
+      const data = await api.getOrders();
+      setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
     } finally {

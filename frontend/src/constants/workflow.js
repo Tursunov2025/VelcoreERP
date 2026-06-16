@@ -211,6 +211,7 @@ export const NAV_SECTIONS = [
     children: [
       { path: "/export-shipments", iconKey: "exportShipments", permission: "export_view" },
       { path: "/transport", iconKey: "transport", permission: "export_view" },
+      { path: "/transport/live-map", iconKey: "liveMap", permission: "export_view" },
       { path: "/shipping", iconKey: "shipping", permission: "warehouse" },
       { path: "/llp", iconKey: "llp", permission: "llp_view" },
     ],

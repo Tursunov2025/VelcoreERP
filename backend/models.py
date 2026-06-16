@@ -1266,3 +1266,68 @@ class CustomerPayment(Base):
     notes = Column(Text, default="")
     created_by = Column(String, nullable=False)
     created_at = Column(DateTime, default=utcnow)
+
+
+# --- Phase 12: GPS Fleet Tracking ---
+
+
+class Vehicle(Base):
+    __tablename__ = "vehicles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plate_number = Column(String, unique=True, index=True, nullable=False)
+    model = Column(String, default="")
+    status = Column(String, default="active", index=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    locations = relationship("GpsLocation", back_populates="vehicle")
+    trips = relationship("TripRoute", back_populates="vehicle")
+
+
+class Driver(Base):
+    __tablename__ = "drivers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String, nullable=False)
+    phone = Column(String, default="")
+    telegram_username = Column(String, default="")
+    status = Column(String, default="active", index=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    locations = relationship("GpsLocation", back_populates="driver")
+    trips = relationship("TripRoute", back_populates="driver")
+
+
+class GpsLocation(Base):
+    __tablename__ = "gps_locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), index=True, nullable=False)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), index=True, nullable=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    speed = Column(Float, default=0)
+    battery_level = Column(Float, nullable=True)
+    recorded_at = Column(DateTime, default=utcnow, index=True)
+
+    vehicle = relationship("Vehicle", back_populates="locations")
+    driver = relationship("Driver", back_populates="locations")
+
+
+class TripRoute(Base):
+    __tablename__ = "trip_routes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transport_id = Column(Integer, ForeignKey("transports.id"), nullable=True, index=True)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), index=True, nullable=False)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), index=True, nullable=True)
+    origin = Column(String, default="")
+    destination = Column(String, default="")
+    status = Column(String, default="Planned", index=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    transport = relationship("Transport")
+    vehicle = relationship("Vehicle", back_populates="trips")
+    driver = relationship("Driver", back_populates="trips")

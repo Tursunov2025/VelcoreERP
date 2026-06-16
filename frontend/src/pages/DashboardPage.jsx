@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [currencyStats, setCurrencyStats] = useState(null);
   const [topDebtors, setTopDebtors] = useState(null);
   const [forecastAlerts, setForecastAlerts] = useState(null);
+  const [gpsStats, setGpsStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -67,6 +68,7 @@ export default function DashboardPage() {
         debtorData,
         forecastData,
         exportData,
+        gpsData,
       ] = await Promise.all([
         api.dashboardKpis().catch(() => null),
         api.getOnlineOperators().catch(() => null),
@@ -77,6 +79,7 @@ export default function DashboardPage() {
         isWidgetEnabled(widgets, "export_shipments")
           ? api.exportShipmentDashboard().catch(() => null)
           : Promise.resolve(null),
+        api.gpsDashboard().catch(() => null),
       ]);
       setKpis(kpiData);
       setOperators(operatorData?.operators || []);
@@ -85,6 +88,7 @@ export default function DashboardPage() {
       setTopDebtors(debtorData);
       setForecastAlerts(forecastData);
       setExportStats(exportData);
+      setGpsStats(gpsData);
       if (isAdmin && isWidgetEnabled(widgets, "delayed_summary")) {
         const delayed = await api
           .controlCenterOrders({ delayed_only: true, limit: 200 })
@@ -278,6 +282,52 @@ export default function DashboardPage() {
           </Link>
         ) : null}
       </div>
+
+      {gpsStats ? (
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Link
+            to="/transport/live-map"
+            className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
+          >
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🚚 Online Trucks</p>
+            <p className="mt-1 text-2xl font-black text-green-600">
+              {gpsStats.online_trucks ?? 0}
+              <span className="text-sm font-normal text-[var(--brand-muted)]">
+                {" "}
+                / {gpsStats.total_vehicles ?? 0}
+              </span>
+            </p>
+          </Link>
+          <Link
+            to="/transport/live-map"
+            className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
+          >
+            <p className="text-xs uppercase text-[var(--brand-muted)]">📍 Active Routes</p>
+            <p className="mt-1 text-2xl font-black">{gpsStats.active_routes ?? 0}</p>
+          </Link>
+          <div className="rounded-3xl border bg-[var(--brand-card)] p-4">
+            <p className="text-xs uppercase text-[var(--brand-muted)]">⚡ Average Speed</p>
+            <p className="mt-1 text-2xl font-black">{gpsStats.average_speed_kmh ?? 0} km/h</p>
+          </div>
+          <Link
+            to="/transport"
+            className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
+          >
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🕒 ETA Arrivals</p>
+            {!gpsStats.eta_arrivals?.length ? (
+              <p className="mt-1 text-sm text-[var(--brand-muted)]">No active trips</p>
+            ) : (
+              <div className="mt-1 space-y-1">
+                {gpsStats.eta_arrivals.slice(0, 2).map((row) => (
+                  <p key={row.trip_id} className="truncate text-xs font-semibold">
+                    {row.plate_number} → {row.destination || "—"}
+                  </p>
+                ))}
+              </div>
+            )}
+          </Link>
+        </div>
+      ) : null}
 
       {isWidgetEnabled(widgets, "export_shipments") && exportStats ? (
         <Link

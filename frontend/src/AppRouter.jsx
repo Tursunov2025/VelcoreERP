@@ -24,6 +24,8 @@ import ExportShipmentsPage from "./pages/ExportShipmentsPage";
 import CrmPage from "./pages/CrmPage";
 import CurrenciesPage from "./pages/CurrenciesPage";
 import TransportPage from "./pages/TransportPage";
+import LiveMapPage from "./pages/LiveMapPage";
+import DriverTrackingPage from "./pages/DriverTrackingPage";
 import WarehouseForecastPage from "./pages/WarehouseForecastPage";
 import MesHubPage from "./pages/mes/MesHubPage";
 import MesCategoriesPage from "./pages/mes/MesCategoriesPage";
@@ -127,6 +129,8 @@ function AppRoutes() {
             <Route path="crm" element={<CrmPage />} />
             <Route path="currencies" element={<CurrenciesPage />} />
             <Route path="transport" element={<TransportPage />} />
+            <Route path="transport/live-map" element={<LiveMapPage />} />
+            <Route path="driver-tracking" element={<DriverTrackingPage />} />
             <Route path="materials/forecast" element={<WarehouseForecastPage />} />
             <Route path="mes" element={<MesHubPage />} />
             <Route path="mes/categories" element={<MesCategoriesPage />} />

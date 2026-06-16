@@ -488,6 +488,54 @@ def run_migrations():
         "INSERT OR IGNORE INTO currencies (code, name, symbol, is_base, is_active, sort_order, created_at) "
         "VALUES ('RUB', 'Russian ruble', '₽', 0, 1, 3, CURRENT_TIMESTAMP)",
 
+        # Phase 12 — GPS Fleet Tracking (additive only)
+        """CREATE TABLE IF NOT EXISTS vehicles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plate_number VARCHAR NOT NULL UNIQUE,
+            model VARCHAR DEFAULT '',
+            status VARCHAR DEFAULT 'active',
+            created_at DATETIME
+        )""",
+        """CREATE TABLE IF NOT EXISTS drivers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            full_name VARCHAR NOT NULL,
+            phone VARCHAR DEFAULT '',
+            telegram_username VARCHAR DEFAULT '',
+            status VARCHAR DEFAULT 'active',
+            created_at DATETIME
+        )""",
+        """CREATE TABLE IF NOT EXISTS gps_locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehicle_id INTEGER NOT NULL,
+            driver_id INTEGER,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            speed REAL DEFAULT 0,
+            battery_level REAL,
+            recorded_at DATETIME,
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles (id),
+            FOREIGN KEY (driver_id) REFERENCES drivers (id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS trip_routes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            transport_id INTEGER,
+            vehicle_id INTEGER NOT NULL,
+            driver_id INTEGER,
+            origin VARCHAR DEFAULT '',
+            destination VARCHAR DEFAULT '',
+            status VARCHAR DEFAULT 'Planned',
+            started_at DATETIME,
+            completed_at DATETIME,
+            created_at DATETIME,
+            FOREIGN KEY (transport_id) REFERENCES transports (id),
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles (id),
+            FOREIGN KEY (driver_id) REFERENCES drivers (id)
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_gps_locations_vehicle_recorded ON gps_locations (vehicle_id, recorded_at)",
+        "CREATE INDEX IF NOT EXISTS ix_gps_locations_driver_recorded ON gps_locations (driver_id, recorded_at)",
+        "CREATE INDEX IF NOT EXISTS ix_trip_routes_transport ON trip_routes (transport_id)",
+        "CREATE INDEX IF NOT EXISTS ix_trip_routes_status ON trip_routes (status)",
+
     ]
 
 

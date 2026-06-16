@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import BackButton from "../components/ui/BackButton";
 import ErrorAlert from "../components/ui/ErrorAlert";
@@ -118,6 +119,22 @@ export default function TransportPage() {
     <div className="pb-24">
       <BackButton fallback="/export-shipments" label="Export & Logistics" className="mb-4" />
       <PageHeader title="Transport Management" subtitle="Vehicles, drivers and delivery tracking" />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Link
+          to="/transport/live-map"
+          className="rounded-xl px-4 py-2.5 text-sm font-bold text-white"
+          style={{ backgroundColor: "var(--brand-button)" }}
+        >
+          📍 Live Map
+        </Link>
+        <Link
+          to="/driver-tracking"
+          className="rounded-xl border px-4 py-2.5 text-sm font-bold text-[var(--brand-text)]"
+        >
+          Driver GPS
+        </Link>
+      </div>
 
       {/* Status summary */}
       <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -315,6 +332,26 @@ export default function TransportPage() {
                     </p>
                   </div>
                 ))}
+                {transport.gps?.latest ? (
+                  <div className="mt-3 rounded-xl border bg-[var(--brand-background)] p-3 text-sm">
+                    <p className="font-bold text-[var(--brand-text)]">📍 Live GPS</p>
+                    <p className="text-[var(--brand-muted)]">
+                      {transport.gps.vehicle?.plate_number} · {transport.gps.driver?.full_name}
+                    </p>
+                    <p>
+                      {transport.gps.latest.latitude?.toFixed(5)},{" "}
+                      {transport.gps.latest.longitude?.toFixed(5)} · {transport.gps.latest.speed}{" "}
+                      km/h
+                    </p>
+                    <p className="text-xs text-[var(--brand-muted)]">
+                      Updated:{" "}
+                      {transport.gps.latest.recorded_at
+                        ? new Date(transport.gps.latest.recorded_at).toLocaleString()
+                        : "—"}
+                      {transport.gps.latest.online ? " · Online" : " · Offline"}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>

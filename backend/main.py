@@ -50,6 +50,7 @@ from routers import (
     dashboard_router,
     finance_router,
     forecast_router,
+    gps_router,
     export_shipments_router,
     llp_router,
     mes_jobs_router,
@@ -266,6 +267,7 @@ app.include_router(transport_router.router)
 app.include_router(crm_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(forecast_router.router)
+app.include_router(gps_router.router)
 app.include_router(uploads_router.router)
 app.include_router(shipping_router.router)
 app.include_router(chat_router.router)
