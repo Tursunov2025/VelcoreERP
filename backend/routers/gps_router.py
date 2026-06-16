@@ -186,6 +186,98 @@ def create_driver(
     return _serialize_driver(driver, None)
 
 
+def _normalize_plate(raw: str) -> str:
+    return " ".join(raw.strip().upper().split())
+
+
+@router.get("/suggestions/transports")
+def transport_suggestions(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Transports whose vehicle/driver text is not yet in GPS fleet tables."""
+    if not _can_view(db, user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    existing_plates = {
+        v.plate_number.upper()
+        for v in db.query(Vehicle.plate_number).all()
+    }
+    existing_driver_names = {
+        d.full_name.strip().lower()
+        for d in db.query(Driver.full_name).all()
+    }
+    suggestions = []
+    seen_plates: set[str] = set()
+    for t in db.query(Transport).order_by(desc(Transport.created_at)).all():
+        plate = _normalize_plate(t.vehicle or "")
+        if not plate or plate in existing_plates or plate in seen_plates:
+            continue
+        seen_plates.add(plate)
+        driver_name = (t.driver_name or "").strip()
+        suggestions.append(
+            {
+                "transport_id": t.id,
+                "plate_number": plate,
+                "model": "",
+                "driver_name": driver_name,
+                "driver_phone": (t.driver_phone or "").strip(),
+                "driver_exists": driver_name.lower() in existing_driver_names,
+                "transport_status": t.status,
+            }
+        )
+    return {"suggestions": suggestions}
+
+
+@router.post("/import/from-transports")
+def import_from_transports(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create GPS vehicles/drivers from legacy transport free-text fields."""
+    if not _can_manage(db, user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    existing_plates = {
+        v.plate_number.upper(): v for v in db.query(Vehicle).all()
+    }
+    existing_drivers = {
+        d.full_name.strip().lower(): d for d in db.query(Driver).all()
+    }
+    vehicles_created = 0
+    drivers_created = 0
+    for t in db.query(Transport).all():
+        plate = _normalize_plate(t.vehicle or "")
+        if plate and plate not in existing_plates:
+            v = Vehicle(plate_number=plate, model="", status="active")
+            db.add(v)
+            db.flush()
+            existing_plates[plate] = v
+            vehicles_created += 1
+        name = (t.driver_name or "").strip()
+        if name and name.lower() not in existing_drivers:
+            d = Driver(
+                full_name=name,
+                phone=(t.driver_phone or "").strip(),
+                status="active",
+            )
+            db.add(d)
+            db.flush()
+            existing_drivers[name.lower()] = d
+            drivers_created += 1
+    db.commit()
+    log_action(
+        db,
+        user.username,
+        "gps_import_transports",
+        f"vehicles={vehicles_created} drivers={drivers_created}",
+    )
+    return {
+        "vehicles_created": vehicles_created,
+        "drivers_created": drivers_created,
+        "vehicles": db.query(Vehicle).count(),
+        "drivers": db.query(Driver).count(),
+    }
+
+
 @router.post("/location/update")
 def update_location(
     payload: LocationUpdateIn,

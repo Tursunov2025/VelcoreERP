@@ -601,6 +601,9 @@ export const api = {
   gpsCreateTrip: (body) =>
     request("/gps/trips", { method: "POST", body: JSON.stringify(body) }),
   gpsDashboard: () => request("/gps/dashboard"),
+  gpsTransportSuggestions: () => request("/gps/suggestions/transports"),
+  gpsImportFromTransports: () =>
+    request("/gps/import/from-transports", { method: "POST" }),
 
   mesGetCategories: (includeInactive = false) =>
     request(`/mes/categories?include_inactive=${includeInactive ? "true" : "false"}`),

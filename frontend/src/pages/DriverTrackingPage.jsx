@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import BackButton from "../components/ui/BackButton";
 import ErrorAlert from "../components/ui/ErrorAlert";
@@ -154,6 +155,36 @@ export default function DriverTrackingPage() {
       </div>
 
       <div className="mb-4 space-y-3 rounded-3xl border bg-[var(--brand-card)] p-4">
+        {(vehicles.length === 0 || drivers.length === 0) && !loading ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+            <p className="font-semibold text-amber-900 dark:text-amber-200">
+              {vehicles.length === 0 && drivers.length === 0
+                ? "No fleet vehicles or drivers registered yet."
+                : vehicles.length === 0
+                  ? "No vehicles registered — select or create one first."
+                  : "No drivers registered — optional but recommended."}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {vehicles.length === 0 ? (
+                <Link
+                  to="/transport/vehicles"
+                  className="rounded-lg px-3 py-1.5 text-xs font-bold text-white"
+                  style={{ backgroundColor: "var(--brand-button)" }}
+                >
+                  + Create Vehicle
+                </Link>
+              ) : null}
+              {drivers.length === 0 ? (
+                <Link
+                  to="/transport/drivers"
+                  className="rounded-lg border px-3 py-1.5 text-xs font-bold"
+                >
+                  + Create Driver
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         <select
           value={vehicleId}
           onChange={(e) => setVehicleId(e.target.value)}

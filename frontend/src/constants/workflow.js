@@ -212,6 +212,8 @@ export const NAV_SECTIONS = [
       { path: "/export-shipments", iconKey: "exportShipments", permission: "export_view" },
       { path: "/transport", iconKey: "transport", permission: "export_view" },
       { path: "/transport/live-map", iconKey: "liveMap", permission: "export_view" },
+      { path: "/transport/vehicles", iconKey: "fleetVehicles", permission: "export_view" },
+      { path: "/transport/drivers", iconKey: "fleetDrivers", permission: "export_view" },
       { path: "/shipping", iconKey: "shipping", permission: "warehouse" },
       { path: "/llp", iconKey: "llp", permission: "llp_view" },
     ],

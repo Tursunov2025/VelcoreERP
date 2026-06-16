@@ -129,6 +129,18 @@ export default function TransportPage() {
           📍 Live Map
         </Link>
         <Link
+          to="/transport/vehicles"
+          className="rounded-xl border px-4 py-2.5 text-sm font-bold text-[var(--brand-text)]"
+        >
+          Fleet Vehicles
+        </Link>
+        <Link
+          to="/transport/drivers"
+          className="rounded-xl border px-4 py-2.5 text-sm font-bold text-[var(--brand-text)]"
+        >
+          Fleet Drivers
+        </Link>
+        <Link
           to="/driver-tracking"
           className="rounded-xl border px-4 py-2.5 text-sm font-bold text-[var(--brand-text)]"
         >
