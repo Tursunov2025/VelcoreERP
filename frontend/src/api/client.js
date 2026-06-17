@@ -1,12 +1,32 @@
-const RAW_API_BASE =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+let API_BASE = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
-// Strip any trailing slash so `${API_BASE}${path}` never produces a double slash.
-const API_BASE = RAW_API_BASE.replace(/\/+$/, "");
+let apiConfigPromise = null;
 
-if (import.meta.env.DEV) {
-  // Helps diagnose "Not Found" issues caused by hitting the wrong backend.
-  console.info(`[api] base URL = ${API_BASE}`);
+/** Load /remote-api.json written by start_quick_tunnel.ps1 (overrides baked VITE_API_URL). */
+async function ensureApiBase() {
+  if (apiConfigPromise) return apiConfigPromise;
+  apiConfigPromise = (async () => {
+    try {
+      const res = await fetch(`/remote-api.json?_=${Date.now()}`, { cache: "no-store" });
+      if (res.ok) {
+        const cfg = await res.json();
+        if (cfg?.apiUrl) {
+          API_BASE = String(cfg.apiUrl).replace(/\/+$/, "");
+        }
+      }
+    } catch {
+      /* use build-time default */
+    }
+    if (import.meta.env.DEV) {
+      console.info(`[api] base URL = ${API_BASE}`);
+    }
+    return API_BASE;
+  })();
+  return apiConfigPromise;
+}
+
+export function getApiBase() {
+  return API_BASE;
 }
 
 const TOKEN_KEY = "azmus_tokens";
@@ -31,6 +51,7 @@ export function setStoredTokens(tokens) {
 let refreshPromise = null;
 
 async function refreshAccessToken() {
+  await ensureApiBase();
   const tokens = getStoredTokens();
   if (!tokens?.refresh_token) return null;
 
@@ -64,6 +85,7 @@ async function refreshAccessToken() {
 }
 
 async function request(path, options = {}, retry = true) {
+  await ensureApiBase();
   const tokens = getStoredTokens();
   const headers = { ...options.headers };
 

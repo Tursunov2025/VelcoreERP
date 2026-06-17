@@ -1,0 +1,9 @@
+[Unit]
+Description=Velcore ERP daily backup (PostgreSQL + uploads)
+
+[Service]
+Type=oneshot
+User=azmus
+Group=azmus
+EnvironmentFile=/etc/azmus/.env
+ExecStart=/var/www/azmus/app/deploy/enterprise/scripts/daily_backup.sh

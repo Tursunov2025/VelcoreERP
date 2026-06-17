@@ -1,0 +1,20 @@
+[Unit]
+Description=Velcore ERP API (FastAPI / uvicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=azmus
+Group=azmus
+WorkingDirectory=/var/www/azmus/app/backend
+EnvironmentFile=/etc/azmus/.env
+Environment=AZMUS_ENV_FILE=/etc/azmus/.env
+ExecStart=/var/www/azmus/app/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/lib/azmus/data/logs/uvicorn.out.log
+StandardError=append:/var/lib/azmus/data/logs/uvicorn.err.log
+
+[Install]
+WantedBy=multi-user.target

@@ -10,6 +10,8 @@ export default defineConfig({
   preview: {
     host: true,
     port: 5173,
+    // Cloudflare quick tunnel sends *.trycloudflare.com as Host
+    allowedHosts: true,
   },
   build: {
     sourcemap: false,

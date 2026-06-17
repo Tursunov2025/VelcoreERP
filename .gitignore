@@ -1,30 +1,70 @@
-# Local databases and caches
-backend/*.db
-backend/*.db-wal
-backend/*.db-shm
-backend/backups/
-backend/__pycache__/
+# --- Python ---
+__pycache__/
 **/__pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.pyo
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
 
-# Test artifacts
-backend/test_*.db
+# --- Node ---
+node_modules/
+**/node_modules/
 
-# Frontend build and backups
-frontend/dist/
-frontend/backups/
-frontend/node_modules/
-deploy/AzmusERP-Production/scripts/node_modules/
-deploy/AzmusERP-Production/scripts/package-lock.json
+# --- Build outputs ---
+dist/
+**/dist/
+build/
+**/build/
 
-# Deploy APK binaries (build locally)
-deploy/**/apk/*.apk
-driver-app/node_modules/
+# Android / Capacitor (driver-app)
 driver-app/android/.gradle/
 driver-app/android/app/build/
 driver-app/android/build/
-driver-app/dist/
+driver-app/android/capacitor-cordova-android-plugins/
 
-# IDE
+# --- Environment & secrets (keep *.example and *.template) ---
+.env
+.env.*
+!.env.example
+!**/.env.example
+!.env.production.template
+!**/.env.production.template
+
+# --- Databases ---
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# --- Local data & backups ---
+backend/backups/
+frontend/backups/
+deploy/**/apk/*.apk
+
+# --- Logs & runtime (local / VPS paths) ---
+*.log
+remote_access_urls.txt
+
+# --- IDE & OS ---
 .idea/
 .vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Deploy scripts (local npm in scripts folder) ---
+deploy/AzmusERP-Production/scripts/node_modules/
+deploy/AzmusERP-Production/scripts/package-lock.json
+
+# --- Misc ---
+print-agent/.venv/
+MetalKedr/

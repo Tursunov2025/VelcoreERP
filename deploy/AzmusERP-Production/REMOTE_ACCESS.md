@@ -8,7 +8,67 @@ D:\AzmusERP\Data\database\azmus.db
 
 No data is migrated to Render, Vercel, Cloudflare, or Tailscale. The backend runs on the server PC and remote users reach it through a tunnel.
 
-## Architecture
+## Quick start (no Cloudflare account)
+
+Use this for immediate phone/internet access. URLs change every restart.
+
+```powershell
+cd C:\Users\user\Desktop\AzmusCRM
+.\deploy\AzmusERP-Production\scripts\start_quick_tunnel.bat
+```
+
+Or directly:
+
+```powershell
+.\deploy\AzmusERP-Production\scripts\start_quick_tunnel.ps1
+```
+
+The script will:
+
+1. Auto-download `cloudflared` to `D:\AzmusERP\tools\cloudflared.exe` if missing
+2. Start backend on `http://127.0.0.1:8000` using `D:\AzmusERP\Data\database\azmus.db`
+3. Open a public API tunnel (`*.trycloudflare.com`)
+4. Rebuild frontend with that API URL baked in
+5. Start frontend preview on port `5173`
+6. Open a public UI tunnel
+7. Write URLs to `D:\AzmusERP\Data\logs\remote_access_urls.txt`
+
+### cloudflared install check
+
+```powershell
+where cloudflared
+```
+
+If not found, either run the quick tunnel script (auto-installs) or:
+
+```powershell
+.\deploy\AzmusERP-Production\scripts\ensure_cloudflared.ps1
+```
+
+Manual install: <https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/>
+
+Binary location after auto-install: `D:\AzmusERP\tools\cloudflared.exe`
+
+Optional PATH (PowerShell profile or system env):
+
+```powershell
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";D:\AzmusERP\tools", "User")
+```
+
+### GPS pages (phone)
+
+After login on the public UI URL:
+
+- `/driver-tracking` — driver sends GPS from phone (requires HTTPS; tunnel provides this)
+- `/transport/live-map` — fleet map for dispatchers
+
+Example (URLs from last run; yours will differ):
+
+```text
+https://prevention-solve-collecting-contractor.trycloudflare.com/driver-tracking
+https://prevention-solve-collecting-contractor.trycloudflare.com/transport/live-map
+```
+
 
 ```mermaid
 flowchart LR

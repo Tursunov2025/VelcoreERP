@@ -1,0 +1,8 @@
+[Unit]
+Description=Velcore ERP healthcheck (Telegram on downtime)
+
+[Service]
+Type=oneshot
+User=azmus
+EnvironmentFile=/etc/azmus/.env
+ExecStart=/var/www/azmus/app/deploy/enterprise/scripts/healthcheck.sh

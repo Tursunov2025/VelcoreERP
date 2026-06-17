@@ -7,29 +7,15 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /
-    # Persistent disk — only data under mountPath survives redeploys/restarts.
-    # DB_PATH / UPLOAD_PATH / BACKUP_PATH must live under this mount.
-    disk:
-      name: azmus-data
-      mountPath: /opt/render/project/data
-      sizeGB: 1
+    # NOTE: Render is NOT the production data store. All production data lives
+    # only on the local server (D:\AzmusERP\Data) and is served to the internet
+    # through a Cloudflare/Tailscale tunnel in front of the local backend.
+    # No persistent disk; DATABASE_GUARD intentionally disabled here.
     envVars:
       - key: ENVIRONMENT
         value: production
-      - key: DATA_ROOT
-        value: /opt/render/project/data
-      - key: DB_PATH
-        value: /opt/render/project/data/database/azmus.db
-      - key: UPLOAD_PATH
-        value: /opt/render/project/data/uploads
-      - key: BACKUP_PATH
-        value: /opt/render/project/data/backups
-      - key: LOG_PATH
-        value: /opt/render/project/data/logs
-      - key: MIGRATION_BACKUP_PATH
-        value: /opt/render/project/data/migrations
       - key: DATABASE_GUARD
-        value: "true"
+        value: "false"
       - key: SKIP_DEMO_SEED
         value: "true"
       - key: CORS_ORIGINS
@@ -50,8 +36,10 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
+      # Local production backend exposed via Cloudflare Tunnel (data stays on
+      # D:\AzmusERP\Data). Update when the tunnel URL changes.
       - key: VITE_API_URL
-        value: https://azmus-crm.onrender.com
+        value: https://bonds-sapphire-alliance-exception.trycloudflare.com
     routes:
       - type: rewrite
         source: /*
