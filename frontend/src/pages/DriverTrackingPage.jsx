@@ -7,7 +7,7 @@ import PageHeader from "../components/ui/PageHeader";
 import Toast from "../components/ui/Toast";
 import { useAuth } from "../context/AuthContext";
 
-const UPDATE_INTERVAL_MS = 60_000;
+const UPDATE_INTERVAL_MS = 5_000;
 
 export default function DriverTrackingPage() {
   const { username } = useAuth();
@@ -16,6 +16,7 @@ export default function DriverTrackingPage() {
   const [vehicleId, setVehicleId] = useState("");
   const [driverId, setDriverId] = useState("");
   const [tracking, setTracking] = useState(false);
+  const [pageActive, setPageActive] = useState(!document.hidden);
   const [lastSent, setLastSent] = useState(null);
   const [coords, setCoords] = useState(null);
   const [battery, setBattery] = useState(null);
@@ -23,9 +24,11 @@ export default function DriverTrackingPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sendCount, setSendCount] = useState(0);
   const watchIdRef = useRef(null);
   const intervalRef = useRef(null);
   const latestPosRef = useRef(null);
+  const sendingRef = useRef(false);
 
   const loadMeta = useCallback(async () => {
     setError("");
@@ -44,28 +47,37 @@ export default function DriverTrackingPage() {
     loadMeta();
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
+    const onVisibility = () => setPageActive(!document.hidden);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [loadMeta]);
 
   useEffect(() => {
     if (navigator.getBattery) {
-      navigator.getBattery().then((b) => {
-        setBattery(Math.round(b.level * 100));
-        b.addEventListener("levelchange", () => setBattery(Math.round(b.level * 100)));
-      }).catch(() => {});
+      navigator
+        .getBattery()
+        .then((b) => {
+          setBattery(Math.round(b.level * 100));
+          b.addEventListener("levelchange", () => setBattery(Math.round(b.level * 100)));
+        })
+        .catch(() => {});
     }
   }, []);
 
   const sendLocation = useCallback(async () => {
     const pos = latestPosRef.current;
-    if (!pos || !vehicleId) return;
+    if (!pos || !vehicleId || sendingRef.current) return;
+    if (!pageActive || !navigator.onLine) return;
+
+    sendingRef.current = true;
     try {
-      await api.gpsUpdateLocation({
+      const result = await api.gpsUpdateLocation({
         vehicle_id: Number(vehicleId),
         driver_id: driverId ? Number(driverId) : null,
         latitude: pos.coords.latitude,
@@ -74,15 +86,21 @@ export default function DriverTrackingPage() {
         battery_level: battery,
       });
       setLastSent(new Date());
+      setSendCount((c) => c + 1);
       setCoords({
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
         accuracy: pos.coords.accuracy,
       });
+      if (result.duplicate_skipped) {
+        setToast("");
+      }
     } catch (e) {
       setToast(e.message);
+    } finally {
+      sendingRef.current = false;
     }
-  }, [vehicleId, driverId, battery]);
+  }, [vehicleId, driverId, battery, pageActive]);
 
   const startTracking = () => {
     if (!vehicleId) {
@@ -105,7 +123,7 @@ export default function DriverTrackingPage() {
         });
       },
       (err) => setError(err.message),
-      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 20_000 }
+      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 15_000 }
     );
     sendLocation();
     intervalRef.current = setInterval(sendLocation, UPDATE_INTERVAL_MS);
@@ -130,14 +148,14 @@ export default function DriverTrackingPage() {
       <BackButton fallback="/transport/live-map" label="Live Map" className="mb-4" />
       <PageHeader
         title="Driver GPS Tracking"
-        subtitle={`Share location every 60s · logged in as ${username}`}
+        subtitle={`Live updates every 5s · ${username}${pageActive ? "" : " · paused (tab hidden)"}`}
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border bg-[var(--brand-card)] p-3">
           <p className="text-xs uppercase text-[var(--brand-muted)]">Status</p>
-          <p className={`font-bold ${tracking ? "text-green-600" : "text-gray-500"}`}>
-            {tracking ? "Tracking ON" : "Offline"}
+          <p className={`font-bold ${tracking && pageActive ? "text-green-600" : "text-gray-500"}`}>
+            {tracking && pageActive ? "Live tracking" : tracking ? "Paused" : "Offline"}
           </p>
         </div>
         <div className="rounded-2xl border bg-[var(--brand-card)] p-3">
@@ -154,6 +172,7 @@ export default function DriverTrackingPage() {
           <p className="text-xs uppercase text-[var(--brand-muted)]">Last sent</p>
           <p className="text-sm font-bold">
             {lastSent ? lastSent.toLocaleTimeString() : "—"}
+            {sendCount > 0 ? ` (${sendCount})` : ""}
           </p>
         </div>
       </div>
@@ -228,7 +247,7 @@ export default function DriverTrackingPage() {
               className="flex-1 rounded-xl py-3 font-bold text-white"
               style={{ backgroundColor: "var(--brand-button)" }}
             >
-              Start sharing GPS
+              Start live GPS
             </button>
           ) : (
             <button

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import FleetMap from "../components/gps/FleetMap";
+import FleetMap, { formatGpsAge } from "../components/gps/FleetMap";
 import BackButton from "../components/ui/BackButton";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
+
+const REFRESH_MS = 5_000;
 
 export default function LiveMapPage() {
   const [locations, setLocations] = useState([]);
@@ -13,12 +15,14 @@ export default function LiveMapPage() {
   const [route, setRoute] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastRefresh, setLastRefresh] = useState(null);
 
   const load = useCallback(async () => {
     setError("");
     try {
       const data = await api.gpsLatestLocations();
       setLocations(data.locations || []);
+      setLastRefresh(new Date());
     } catch (e) {
       setError(e.message);
     } finally {
@@ -28,7 +32,7 @@ export default function LiveMapPage() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 30000);
+    const id = setInterval(load, REFRESH_MS);
     return () => clearInterval(id);
   }, [load]);
 
@@ -47,7 +51,11 @@ export default function LiveMapPage() {
       <BackButton fallback="/transport" label="Transport" className="mb-4" />
       <PageHeader
         title="Live Fleet Map"
-        subtitle="Real-time truck locations (OpenStreetMap)"
+        subtitle={
+          lastRefresh
+            ? `Auto-refresh every 5s · updated ${lastRefresh.toLocaleTimeString()}`
+            : "Real-time truck locations (OpenStreetMap)"
+        }
         actions={
           <Link
             to="/driver-tracking"
@@ -77,13 +85,22 @@ export default function LiveMapPage() {
             <div className="flex items-center justify-between">
               <p className="font-mono font-bold text-[var(--brand-text)]">{loc.plate_number}</p>
               <span
-                className={`h-2.5 w-2.5 rounded-full ${loc.online ? "bg-green-500" : "bg-gray-400"}`}
-              />
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                  loc.online
+                    ? loc.moving
+                      ? "bg-green-100 text-green-700"
+                      : "bg-emerald-100 text-emerald-700"
+                    : "bg-gray-100 text-gray-500"
+                }`}
+              >
+                {loc.online ? (loc.moving ? "Moving" : "Online") : "Offline"}
+              </span>
             </div>
             <p className="text-sm text-[var(--brand-muted)]">{loc.driver_name || "No driver"}</p>
             <p className="mt-1 text-xs text-[var(--brand-muted)]">
-              {loc.speed ?? 0} km/h ·{" "}
-              {loc.recorded_at ? new Date(loc.recorded_at).toLocaleString() : "—"}
+              {Math.round(loc.speed ?? 0)} km/h · 🔋{" "}
+              {loc.battery_level != null ? `${Math.round(loc.battery_level)}%` : "—"} ·{" "}
+              {formatGpsAge(loc.seconds_since_update)}
             </p>
           </button>
         ))}

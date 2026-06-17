@@ -536,6 +536,18 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_trip_routes_transport ON trip_routes (transport_id)",
         "CREATE INDEX IF NOT EXISTS ix_trip_routes_status ON trip_routes (status)",
 
+        # Phase 12.1 — GPS alert dedup state
+        """CREATE TABLE IF NOT EXISTS gps_alert_state (
+            vehicle_id INTEGER PRIMARY KEY,
+            last_city VARCHAR DEFAULT '',
+            last_country VARCHAR DEFAULT '',
+            offline_alert_sent INTEGER DEFAULT 0,
+            destination_alert_sent INTEGER DEFAULT 0,
+            border_alert_sent INTEGER DEFAULT 0,
+            updated_at DATETIME,
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+        )""",
+
     ]
 
 

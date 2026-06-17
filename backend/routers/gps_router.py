@@ -16,8 +16,10 @@ from services.audit import log_action
 from services.gps_fleet import (
     build_dashboard,
     latest_locations_by_vehicle,
+    save_location,
     serialize_location,
 )
+from services.gps_alerts import mark_vehicle_online
 from services.permissions import user_has_permission
 
 router = APIRouter(prefix="/gps", tags=["gps"])
@@ -292,25 +294,33 @@ def update_location(
         if not driver:
             raise HTTPException(status_code=404, detail="Driver not found")
         driver.status = "on_trip"
-    loc = GpsLocation(
+
+    loc, saved = save_location(
+        db,
         vehicle_id=payload.vehicle_id,
         driver_id=payload.driver_id,
         latitude=payload.latitude,
         longitude=payload.longitude,
         speed=payload.speed,
         battery_level=payload.battery_level,
-        recorded_at=datetime.utcnow(),
     )
-    db.add(loc)
+    mark_vehicle_online(db, payload.vehicle_id)
     db.commit()
     db.refresh(loc)
-    log_action(
-        db,
-        user.username,
-        "gps_location_update",
-        f"vehicle={payload.vehicle_id} lat={payload.latitude}",
-    )
-    return serialize_location(loc)
+
+    if saved:
+        log_action(
+            db,
+            user.username,
+            "gps_location_update",
+            f"vehicle={payload.vehicle_id} lat={payload.latitude}",
+        )
+
+    result = serialize_location(loc) or {}
+    result["saved"] = saved
+    if not saved:
+        result["duplicate_skipped"] = True
+    return result
 
 
 @router.get("/location/latest")

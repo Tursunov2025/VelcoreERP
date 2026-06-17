@@ -76,6 +76,25 @@ export default function TransportPage() {
     return () => window.clearTimeout(id);
   }, [statusFilter, search]);
 
+  useEffect(() => {
+    if (!expanded) return undefined;
+
+    const poll = async () => {
+      try {
+        const detail = await api.transport(expanded);
+        setTransports((prev) =>
+          prev.map((t) => (t.id === expanded ? { ...t, gps: detail.gps } : t))
+        );
+      } catch {
+        /* ignore poll errors */
+      }
+    };
+
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => clearInterval(id);
+  }, [expanded]);
+
   const counts = useMemo(() => {
     const result = { total: transports.length };
     STATUSES.forEach((s) => {
@@ -346,21 +365,45 @@ export default function TransportPage() {
                 ))}
                 {transport.gps?.latest ? (
                   <div className="mt-3 rounded-xl border bg-[var(--brand-background)] p-3 text-sm">
-                    <p className="font-bold text-[var(--brand-text)]">📍 Live GPS</p>
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-[var(--brand-text)]">📍 Live GPS</p>
+                      <span
+                        className={`text-xs font-bold ${
+                          transport.gps.latest.online ? "text-green-600" : "text-gray-500"
+                        }`}
+                      >
+                        {transport.gps.latest.online
+                          ? transport.gps.latest.moving
+                            ? "Moving"
+                            : "Online"
+                          : "Offline"}
+                      </span>
+                    </div>
                     <p className="text-[var(--brand-muted)]">
                       {transport.gps.vehicle?.plate_number} · {transport.gps.driver?.full_name}
                     </p>
+                    {transport.gps.current_city ? (
+                      <p className="font-semibold">📌 {transport.gps.current_city}</p>
+                    ) : null}
                     <p>
                       {transport.gps.latest.latitude?.toFixed(5)},{" "}
-                      {transport.gps.latest.longitude?.toFixed(5)} · {transport.gps.latest.speed}{" "}
-                      km/h
+                      {transport.gps.latest.longitude?.toFixed(5)} ·{" "}
+                      {Math.round(transport.gps.latest.speed ?? 0)} km/h · 🔋{" "}
+                      {transport.gps.latest.battery_level != null
+                        ? `${Math.round(transport.gps.latest.battery_level)}%`
+                        : "—"}
                     </p>
                     <p className="text-xs text-[var(--brand-muted)]">
                       Updated:{" "}
                       {transport.gps.latest.recorded_at
                         ? new Date(transport.gps.latest.recorded_at).toLocaleString()
                         : "—"}
-                      {transport.gps.latest.online ? " · Online" : " · Offline"}
+                      {transport.gps.latest.seconds_since_update != null
+                        ? ` (${transport.gps.latest.seconds_since_update}s ago)`
+                        : ""}
+                      {transport.gps.eta_hours != null
+                        ? ` · ETA ~${transport.gps.eta_hours}h`
+                        : ""}
                     </p>
                   </div>
                 ) : null}

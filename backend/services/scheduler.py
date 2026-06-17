@@ -4,8 +4,10 @@ import os
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from services.auto_backup import run_daily_backup
+from services.gps_alerts import run_gps_alerts_sync
 from services.task_overdue_reminders import run_overdue_reminders_job
 
 logger = logging.getLogger("azmus.scheduler")
@@ -80,6 +82,14 @@ def start_reminder_scheduler() -> None:
             id="daily_database_backup",
             replace_existing=True,
             misfire_grace_time=7200,
+        )
+    if os.getenv("DISABLE_GPS_ALERTS", "").lower() not in ("1", "true", "yes"):
+        _scheduler.add_job(
+            run_gps_alerts_sync,
+            IntervalTrigger(minutes=1),
+            id="gps_fleet_alerts",
+            replace_existing=True,
+            misfire_grace_time=120,
         )
     _scheduler.start()
     logger.info(

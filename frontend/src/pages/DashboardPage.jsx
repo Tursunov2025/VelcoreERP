@@ -111,6 +111,20 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [isAdmin, traceabilityEnabled, widgets.length]);
 
+  useEffect(() => {
+    const refreshGps = async () => {
+      try {
+        const gpsData = await api.gpsDashboard();
+        setGpsStats(gpsData);
+      } catch {
+        /* keep last stats */
+      }
+    };
+    refreshGps();
+    const id = setInterval(refreshGps, 5000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div>
       <PageHeader title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
@@ -284,12 +298,12 @@ export default function DashboardPage() {
       </div>
 
       {gpsStats ? (
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Link
             to="/transport/live-map"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
-            <p className="text-xs uppercase text-[var(--brand-muted)]">🚚 Online Trucks</p>
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🚚 Online</p>
             <p className="mt-1 text-2xl font-black text-green-600">
               {gpsStats.online_trucks ?? 0}
               <span className="text-sm font-normal text-[var(--brand-muted)]">
@@ -302,11 +316,22 @@ export default function DashboardPage() {
             to="/transport/live-map"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
-            <p className="text-xs uppercase text-[var(--brand-muted)]">📍 Active Routes</p>
-            <p className="mt-1 text-2xl font-black">{gpsStats.active_routes ?? 0}</p>
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🟢 Moving</p>
+            <p className="mt-1 text-2xl font-black text-green-600">
+              {gpsStats.moving_vehicles ?? 0}
+            </p>
+          </Link>
+          <Link
+            to="/transport/live-map"
+            className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
+          >
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🅿️ Stopped</p>
+            <p className="mt-1 text-2xl font-black text-amber-600">
+              {gpsStats.stopped_vehicles ?? 0}
+            </p>
           </Link>
           <div className="rounded-3xl border bg-[var(--brand-card)] p-4">
-            <p className="text-xs uppercase text-[var(--brand-muted)]">⚡ Average Speed</p>
+            <p className="text-xs uppercase text-[var(--brand-muted)]">⚡ Avg Speed</p>
             <p className="mt-1 text-2xl font-black">{gpsStats.average_speed_kmh ?? 0} km/h</p>
           </div>
           <Link
@@ -321,6 +346,7 @@ export default function DashboardPage() {
                 {gpsStats.eta_arrivals.slice(0, 2).map((row) => (
                   <p key={row.trip_id} className="truncate text-xs font-semibold">
                     {row.plate_number} → {row.destination || "—"}
+                    {row.eta_hours != null ? ` (~${row.eta_hours}h)` : ""}
                   </p>
                 ))}
               </div>

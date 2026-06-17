@@ -1331,3 +1331,17 @@ class TripRoute(Base):
     transport = relationship("Transport")
     vehicle = relationship("Vehicle", back_populates="trips")
     driver = relationship("Driver", back_populates="trips")
+
+
+class GpsAlertState(Base):
+    """Per-vehicle alert dedup state for Telegram GPS notifications."""
+
+    __tablename__ = "gps_alert_state"
+
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), primary_key=True)
+    last_city = Column(String, default="")
+    last_country = Column(String, default="")
+    offline_alert_sent = Column(Integer, default=0)
+    destination_alert_sent = Column(Integer, default=0)
+    border_alert_sent = Column(Integer, default=0)
+    updated_at = Column(DateTime, nullable=True)

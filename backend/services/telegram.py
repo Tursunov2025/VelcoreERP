@@ -165,3 +165,43 @@ def format_llp_important_alert(document, uploaded_by: str) -> str:
         f"Fayl: {document.original_filename or document.filename}\n"
         f"Yuklagan: {uploaded_by}"
     )
+
+
+def _driver_line(driver) -> str:
+    if not driver:
+        return "—"
+    name = getattr(driver, "full_name", None) or str(driver)
+    phone = getattr(driver, "phone", "") or ""
+    return f"{name}" + (f" ({phone})" if phone else "")
+
+
+def format_gps_offline_alert(plate: str, driver, offline_minutes: int, destination: str) -> str:
+    return (
+        f"📴 <b>GPS offline</b>\n"
+        f"Vehicle: {plate}\n"
+        f"Driver: {_driver_line(driver)}\n"
+        f"No signal for {offline_minutes} min\n"
+        f"Destination: {destination or '—'}"
+    )
+
+
+def format_gps_destination_alert(plate: str, driver, city: str, destination: str) -> str:
+    return (
+        f"🏙 <b>Arrived at destination area</b>\n"
+        f"Vehicle: {plate}\n"
+        f"Driver: {_driver_line(driver)}\n"
+        f"Current city: {city}\n"
+        f"Trip destination: {destination}"
+    )
+
+
+def format_gps_border_alert(
+    plate: str, driver, from_country: str, to_country: str, location: str
+) -> str:
+    return (
+        f"🛃 <b>Border crossing</b>\n"
+        f"Vehicle: {plate}\n"
+        f"Driver: {_driver_line(driver)}\n"
+        f"{from_country} → {to_country}\n"
+        f"Near: {location or '—'}"
+    )
