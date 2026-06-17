@@ -1,0 +1,15 @@
+{
+  "appId": "com.azmus.driver",
+  "appName": "Azmus Driver",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#0f172a"
+    }
+  }
+}

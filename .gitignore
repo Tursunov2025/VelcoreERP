@@ -14,9 +14,16 @@ backend/test_*.db
 frontend/dist/
 frontend/backups/
 frontend/node_modules/
+deploy/AzmusERP-Production/scripts/node_modules/
+deploy/AzmusERP-Production/scripts/package-lock.json
 
 # Deploy APK binaries (build locally)
 deploy/**/apk/*.apk
+driver-app/node_modules/
+driver-app/android/.gradle/
+driver-app/android/app/build/
+driver-app/android/build/
+driver-app/dist/
 
 # IDE
 .idea/
