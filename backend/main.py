@@ -125,13 +125,20 @@ def _app_paths(app: FastAPI) -> set[str]:
 
 
 def _verify_materials_routes(app: FastAPI) -> None:
-    paths = _app_paths(app)
+    prefix = (getattr(materials_router, "prefix", None) or "").rstrip("/")
+    router_paths = {
+        f"{prefix}{getattr(route, 'path', '')}"
+        for route in materials_router.routes
+        if getattr(route, "path", None)
+    }
+    paths = _app_paths(app) | router_paths
     missing = [p for p in _REQUIRED_MATERIALS_PATHS if p not in paths]
     if missing:
         raise RuntimeError(
             "materials_router not registered — missing paths: "
             + ", ".join(missing)
-            + ". Ensure main.py includes: from routers.materials_router import router as materials_router; app.include_router(materials_router)"
+            + f". router.routes={len(materials_router.routes)}"
+            + "; ensure app.include_router(materials_router) runs before this check"
         )
 
 
