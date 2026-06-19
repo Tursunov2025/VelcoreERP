@@ -124,16 +124,29 @@ def _app_paths(app: FastAPI) -> set[str]:
     return {getattr(route, "path", "") for route in app.routes if getattr(route, "path", None)}
 
 
+def _router_declared_paths(router) -> set[str]:
+    prefix = (getattr(router, "prefix", None) or "").rstrip("/")
+    paths: set[str] = set()
+    for route in getattr(router, "routes", ()):
+        sub = getattr(route, "path", None)
+        if not sub:
+            continue
+        if prefix and (sub == prefix or sub.startswith(f"{prefix}/")):
+            paths.add(sub)
+        elif prefix:
+            paths.add(f"{prefix}{sub}" if sub.startswith("/") else f"{prefix}/{sub}")
+        else:
+            paths.add(sub)
+    return paths
+
+
 def _verify_materials_routes(app: FastAPI) -> None:
-    prefix = (getattr(materials_router, "prefix", None) or "").rstrip("/")
-    router_paths = {
-        f"{prefix}{getattr(route, 'path', '')}"
-        for route in materials_router.routes
-        if getattr(route, "path", None)
-    }
+    router_paths = _router_declared_paths(materials_router)
     paths = _app_paths(app) | router_paths
     missing = [p for p in _REQUIRED_MATERIALS_PATHS if p not in paths]
     if missing:
+        print("sorted(router_paths)", sorted(router_paths))
+        print("sorted(paths)", sorted(paths))
         raise RuntimeError(
             "materials_router not registered — missing paths: "
             + ", ".join(missing)
