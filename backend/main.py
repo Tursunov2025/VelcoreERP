@@ -156,13 +156,21 @@ def _verify_materials_routes(app: FastAPI) -> None:
 
 
 def _verify_printing_routes(app: FastAPI) -> None:
-    paths = _app_paths(app)
+    router_paths = _router_declared_paths(printing_router.router) | _router_declared_paths(
+        printing_router.admin_router
+    )
+    paths = _app_paths(app) | router_paths
     missing = [p for p in _REQUIRED_PRINTING_PATHS if p not in paths]
     if missing:
+        print("sorted(router_paths)", sorted(router_paths))
+        print("sorted(paths)", sorted(paths))
         raise RuntimeError(
             "printing_router not registered — missing paths: "
             + ", ".join(missing)
-            + ". Ensure main.py includes app.include_router(printing_router.router)"
+            + f". router.routes={len(printing_router.router.routes)}"
+            + f" admin_router.routes={len(printing_router.admin_router.routes)}"
+            + "; ensure app.include_router(printing_router.router) and "
+            "app.include_router(printing_router.admin_router) run before this check"
         )
 
 
