@@ -62,7 +62,6 @@ from routers import (
     mes_warehouse_terminal_router,
     mes_dispatch_terminal_router,
     control_center_router,
-    materials_router,
     mes_router,
     mes_svarshik_terminal_router,
     migration_router,
@@ -81,6 +80,7 @@ from routers import (
     warehouse_router,
 )
 from routers.auth_router import login as jwt_login
+from routers.materials_router import router as materials_router
 from routers.uploads_router import UPLOAD_DIR as _UPLOAD_DIR
 from schemas import LoginRequest
 from services.scheduler import start_reminder_scheduler, stop_reminder_scheduler
@@ -131,7 +131,7 @@ def _verify_materials_routes(app: FastAPI) -> None:
         raise RuntimeError(
             "materials_router not registered — missing paths: "
             + ", ".join(missing)
-            + ". Ensure main.py includes: app.include_router(materials_router.router)"
+            + ". Ensure main.py includes: from routers.materials_router import router as materials_router; app.include_router(materials_router)"
         )
 
 
@@ -257,6 +257,7 @@ app.include_router(auth_router.router)
 app.include_router(users_router.router)
 app.include_router(orders_router.router)
 app.include_router(warehouse_router.router)
+app.include_router(materials_router)
 app.include_router(production_router.router)
 app.include_router(operators_router.router)
 app.include_router(analytics_router.router)
@@ -288,7 +289,6 @@ app.include_router(mes_warehouse_terminal_router.router)
 app.include_router(mes_warehouse_terminal_router.admin_router)
 app.include_router(mes_dispatch_terminal_router.router)
 app.include_router(control_center_router.router)
-app.include_router(materials_router.router)
 app.include_router(migration_router.router)
 app.include_router(mobile_router.router)
 app.include_router(traceability_router.router)
