@@ -167,15 +167,21 @@ def _verify_printing_routes(app: FastAPI) -> None:
 
 
 def _verify_traceability_routes(app: FastAPI) -> None:
-    paths = _app_paths(app)
+    router_paths = _router_declared_paths(traceability_router.router) | _router_declared_paths(
+        traceability_router.public_router
+    )
+    paths = _app_paths(app) | router_paths
     missing = [p for p in _REQUIRED_TRACEABILITY_PATHS if p not in paths]
     if missing:
+        print("sorted(router_paths)", sorted(router_paths))
+        print("sorted(paths)", sorted(paths))
         raise RuntimeError(
             "traceability_router not registered — missing paths: "
             + ", ".join(missing)
-            + ". Ensure main.py includes: "
-            "app.include_router(traceability_router.router) and "
-            "app.include_router(traceability_router.public_router)"
+            + f". router.routes={len(traceability_router.router.routes)}"
+            + f" public_router.routes={len(traceability_router.public_router.routes)}"
+            + "; ensure app.include_router(traceability_router.router) and "
+            "app.include_router(traceability_router.public_router) run before this check"
         )
 
 
