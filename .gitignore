@@ -52,6 +52,7 @@ deploy/**/apk/*.apk
 # --- Logs & runtime (local / VPS paths) ---
 *.log
 remote_access_urls.txt
+frontend/public/remote-api.json
 
 # --- IDE & OS ---
 .idea/

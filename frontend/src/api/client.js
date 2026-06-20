@@ -1,11 +1,24 @@
 let API_BASE = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
+const BUILT_IN_API_URL = API_BASE;
+const IS_PRODUCTION_BUILD = import.meta.env.PROD;
+
 let apiConfigPromise = null;
 
-/** Load /remote-api.json written by start_quick_tunnel.ps1 (overrides baked VITE_API_URL). */
+/** Load /remote-api.json only for local tunnel dev — never override production API URL. */
 async function ensureApiBase() {
   if (apiConfigPromise) return apiConfigPromise;
   apiConfigPromise = (async () => {
+    const isLocalBuiltIn =
+      !BUILT_IN_API_URL ||
+      BUILT_IN_API_URL.includes("127.0.0.1") ||
+      BUILT_IN_API_URL.includes("localhost");
+
+    if (IS_PRODUCTION_BUILD && !isLocalBuiltIn) {
+      API_BASE = BUILT_IN_API_URL;
+      return API_BASE;
+    }
+
     try {
       const res = await fetch(`/remote-api.json?_=${Date.now()}`, { cache: "no-store" });
       if (res.ok) {
@@ -154,16 +167,17 @@ export function uploadUrl(path) {
 }
 
 export const api = {
-  login: (body) =>
-    fetch(`${API_BASE}/auth/login`, {
+  login: async (body) => {
+    await ensureApiBase();
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Login failed");
-      return data;
-    }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Login failed");
+    return data;
+  },
 
   getMe: () => request("/auth/me"),
   getUsers: () => request("/users"),

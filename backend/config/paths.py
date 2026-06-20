@@ -23,6 +23,8 @@ def _load_env_files() -> None:
         candidates.append(Path(explicit))
     candidates.extend(
         [
+            Path("/etc/velcore/.env"),
+            Path("/etc/azmus/.env"),
             _BACKEND_DIR / ".env",
             _REPO_ROOT / ".env",
             Path(r"D:\AzmusERP\Application\.env"),

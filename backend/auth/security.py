@@ -8,14 +8,12 @@ from jose import JWTError, jwt
 
 logger = logging.getLogger("azmus.auth")
 
-SECRET_KEY = (os.getenv("JWT_SECRET_KEY") or "").strip()
-if not SECRET_KEY:
-    logger.error(
-        "JWT_SECRET_KEY is not set. The API will start, but login and JWT auth are disabled "
-        "until JWT_SECRET_KEY is configured in the environment."
-    )
-
 ALGORITHM = "HS256"
+
+
+def get_secret_key() -> str:
+    """Read JWT secret at call time so /etc/velcore/.env loads before auth runs."""
+    return (os.getenv("JWT_SECRET_KEY") or "").strip()
 
 
 def _env_access_minutes() -> int | None:
@@ -56,24 +54,21 @@ def get_refresh_token_expire_days() -> int:
     return get_cached_int("jwt_refresh_days", 7)
 
 
-ACCESS_TOKEN_EXPIRE_MINUTES = get_access_token_expire_minutes()
-REFRESH_TOKEN_EXPIRE_DAYS = get_refresh_token_expire_days()
-
-
 class AuthNotConfiguredError(RuntimeError):
     """Raised when JWT operations are attempted without JWT_SECRET_KEY."""
 
 
 def is_auth_configured() -> bool:
-    return bool(SECRET_KEY)
+    return bool(get_secret_key())
 
 
 def _require_secret_key() -> str:
-    if not SECRET_KEY:
+    secret = get_secret_key()
+    if not secret:
         raise AuthNotConfiguredError(
-            "JWT_SECRET_KEY is not configured. Set it in Render environment variables."
+            "JWT_SECRET_KEY is not configured. Set it in /etc/velcore/.env or the process environment."
         )
-    return SECRET_KEY
+    return secret
 
 
 def _normalize_password(password: str) -> bytes:
@@ -117,9 +112,10 @@ def create_refresh_token(data: dict) -> str:
 
 
 def decode_token(token: str) -> Optional[dict]:
-    if not SECRET_KEY:
+    secret = get_secret_key()
+    if not secret:
         return None
     try:
-        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return jwt.decode(token, secret, algorithms=[ALGORITHM])
     except JWTError:
         return None

@@ -1,0 +1,22 @@
+[Unit]
+Description=Velcore ERP API (FastAPI / uvicorn)
+Documentation=https://github.com/Tursunov2025/VelcoreERP
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/velcore/backend
+EnvironmentFile=-/etc/velcore/.env
+Environment=AZMUS_ENV_FILE=/etc/velcore/.env
+ExecStart=/var/www/velcore/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillMode=mixed
+
+StandardOutput=append:/var/lib/velcore/data/logs/uvicorn.out.log
+StandardError=append:/var/lib/velcore/data/logs/uvicorn.err.log
+
+[Install]
+WantedBy=multi-user.target
