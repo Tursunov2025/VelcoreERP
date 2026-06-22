@@ -76,13 +76,18 @@ def start_reminder_scheduler() -> None:
         misfire_grace_time=3600,
     )
     if os.getenv("AUTO_BACKUP_ENABLED", "true").lower() in ("1", "true", "yes"):
-        _scheduler.add_job(
-            _run_daily_backup_sync,
-            CronTrigger(**backup_trigger),
-            id="daily_database_backup",
-            replace_existing=True,
-            misfire_grace_time=7200,
-        )
+        from config.paths import DATABASE_URL
+
+        if DATABASE_URL.startswith("sqlite"):
+            _scheduler.add_job(
+                _run_daily_backup_sync,
+                CronTrigger(**backup_trigger),
+                id="daily_database_backup",
+                replace_existing=True,
+                misfire_grace_time=7200,
+            )
+        else:
+            logger.info("daily SQLite backup skipped — DATABASE_URL is not SQLite")
     if os.getenv("DISABLE_GPS_ALERTS", "").lower() not in ("1", "true", "yes"):
         _scheduler.add_job(
             run_gps_alerts_sync,
