@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { jsPDF } from "jspdf";
-import { api, getStoredTokens, API_BASE } from "../api/client";
+import { api, authenticatedFetch } from "../api/client";
 import StageTimeline from "../components/controlCenter/StageTimeline";
 import AdminRoute from "../components/layout/AdminRoute";
 import ErrorAlert from "../components/ui/ErrorAlert";
@@ -59,7 +59,6 @@ export default function OrdersControlCenterPage() {
   }, [load]);
 
   const exportCsv = async () => {
-    const tokens = getStoredTokens();
     const params = new URLSearchParams({
       q,
       customer,
@@ -67,9 +66,7 @@ export default function OrdersControlCenterPage() {
       type,
       delayed_only: delayedOnly ? "true" : "false",
     });
-    const res = await fetch(`${API_BASE}/control-center/orders/export.csv?${params}`, {
-      headers: tokens?.access_token ? { Authorization: `Bearer ${tokens.access_token}` } : {},
-    });
+    const res = await authenticatedFetch(`/control-center/orders/export.csv?${params}`);
     if (!res.ok) throw new Error("Export failed");
     const blob = await res.blob();
     downloadBlob(blob, "orders-control-center.csv");

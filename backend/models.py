@@ -1333,6 +1333,31 @@ class TripRoute(Base):
     driver = relationship("Driver", back_populates="trips")
 
 
+class TransportTask(Base):
+    """GPS monitoring work assignment — vehicle + driver + route task."""
+
+    __tablename__ = "transport_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, default="")
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), index=True, nullable=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), index=True, nullable=True)
+    transport_id = Column(Integer, ForeignKey("transports.id"), index=True, nullable=True)
+    origin = Column(String, default="")
+    destination = Column(String, default="")
+    status = Column(String, default="assigned", index=True)
+    tracking_active = Column(Boolean, default=False)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_by = Column(String, default="")
+    created_at = Column(DateTime, default=utcnow)
+
+    vehicle = relationship("Vehicle")
+    driver = relationship("Driver")
+    transport = relationship("Transport")
+
+
 class GpsAlertState(Base):
     """Per-vehicle alert dedup state for Telegram GPS notifications."""
 

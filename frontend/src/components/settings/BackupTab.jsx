@@ -1,30 +1,25 @@
 import { useState } from "react";
-import { api, API_BASE } from "../../api/client";
+import { api, authenticatedFetch } from "../../api/client";
 import Toast from "../ui/Toast";
 
 export default function BackupTab() {
   const [toast, setToast] = useState("");
   const [importing, setImporting] = useState(false);
 
-  const exportDb = () => {
-    const tokens = JSON.parse(localStorage.getItem("azmus_tokens") || "{}");
-    const url = `${API_BASE}/admin/backup/export`;
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "");
-    fetch(url, {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    })
-      .then((res) => res.blob())
-      .then((blob) => {
-        const objectUrl = URL.createObjectURL(blob);
-        link.href = objectUrl;
-        link.download = `azmus_backup_${Date.now()}.db`;
-        link.click();
-        URL.revokeObjectURL(objectUrl);
-        setToast("Backup yuklab olindi");
-      })
-      .catch((e) => setToast(e.message));
+  const exportDb = async () => {
+    try {
+      const res = await authenticatedFetch("/admin/backup/export");
+      if (!res.ok) throw new Error("Backup failed");
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `azmus_backup_${Date.now()}.db`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setToast("Backup yuklab olindi");
+    } catch (e) {
+      setToast(e.message);
+    }
   };
 
   const importDb = async (e) => {

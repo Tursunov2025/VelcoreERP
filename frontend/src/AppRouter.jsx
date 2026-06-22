@@ -28,6 +28,9 @@ import LiveMapPage from "./pages/LiveMapPage";
 import DriverTrackingPage from "./pages/DriverTrackingPage";
 import VehiclesPage from "./pages/VehiclesPage";
 import DriversPage from "./pages/DriversPage";
+import GpsMonitoringHubPage from "./pages/gps/GpsMonitoringHubPage";
+import TransportTasksPage from "./pages/gps/TransportTasksPage";
+import DriverMobilePage from "./pages/driver/DriverMobilePage";
 import WarehouseForecastPage from "./pages/WarehouseForecastPage";
 import MesHubPage from "./pages/mes/MesHubPage";
 import MesCategoriesPage from "./pages/mes/MesCategoriesPage";
@@ -109,6 +112,7 @@ function AppRoutes() {
   return (
     <Routes>
           <Route path="/login" element={<LoginRoute />} />
+          <Route path="/driver" element={<DriverMobilePage />} />
           {traceabilityEnabled ? (
             <Route path="/track/package/:labelCode" element={<PublicPackageTrackPage />} />
           ) : null}
@@ -135,6 +139,12 @@ function AppRoutes() {
             <Route path="transport/vehicles" element={<VehiclesPage />} />
             <Route path="transport/drivers" element={<DriversPage />} />
             <Route path="driver-tracking" element={<DriverTrackingPage />} />
+            <Route path="gps" element={<GpsMonitoringHubPage />} />
+            <Route path="gps/monitoring" element={<LiveMapPage />} />
+            <Route path="gps/transports" element={<TransportPage />} />
+            <Route path="gps/vehicles" element={<VehiclesPage />} />
+            <Route path="gps/drivers" element={<DriversPage />} />
+            <Route path="gps/tasks" element={<TransportTasksPage />} />
             <Route path="materials/forecast" element={<WarehouseForecastPage />} />
             <Route path="mes" element={<MesHubPage />} />
             <Route path="mes/categories" element={<MesCategoriesPage />} />

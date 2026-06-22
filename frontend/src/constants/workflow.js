@@ -92,6 +92,8 @@ export const NAV_ITEMS = [
 
   { path: "/export-shipments", label: "Export Shipments", iconKey: "exportShipments", permission: "export_view" },
 
+  { path: "/gps", label: "GPS Monitoring", iconKey: "gpsMonitoring", permission: "export_view" },
+
   { path: "/transport", label: "Transport", iconKey: "transport", permission: "export_view" },
 
   { path: "/currencies", label: "Valyutalar", iconKey: "currencies", permission: "finance" },
@@ -210,6 +212,12 @@ export const NAV_SECTIONS = [
     permission: "export_view",
     children: [
       { path: "/export-shipments", iconKey: "exportShipments", permission: "export_view" },
+      { path: "/gps", iconKey: "gpsMonitoring", permission: "export_view" },
+      { path: "/gps/monitoring", iconKey: "liveMap", permission: "export_view" },
+      { path: "/gps/transports", iconKey: "transport", permission: "export_view" },
+      { path: "/gps/vehicles", iconKey: "fleetVehicles", permission: "export_view" },
+      { path: "/gps/drivers", iconKey: "fleetDrivers", permission: "export_view" },
+      { path: "/gps/tasks", iconKey: "gpsTasks", permission: "export_view" },
       { path: "/transport", iconKey: "transport", permission: "export_view" },
       { path: "/transport/live-map", iconKey: "liveMap", permission: "export_view" },
       { path: "/transport/vehicles", iconKey: "fleetVehicles", permission: "export_view" },

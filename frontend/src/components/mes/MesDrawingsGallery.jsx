@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, API_BASE } from "../../api/client";
+import { api, getApiBase } from "../../api/client";
 import { useLocale } from "../../context/LocaleContext";
 
 function resolveUrl(url) {
   if (!url) return null;
   if (url.startsWith("http")) return url;
-  return `${API_BASE}${url}`;
+  return `${getApiBase()}${url}`;
 }
 
 function isImage(contentType, url) {

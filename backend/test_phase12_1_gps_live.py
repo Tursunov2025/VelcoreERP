@@ -146,6 +146,56 @@ def test_api_dedup_and_dashboard(client: TestClient, headers: dict) -> None:
     assert "moving_vehicles" in body
     assert "stopped_vehicles" in body
     assert body["online_trucks"] >= 1
+    assert "live_vehicles" in body
+
+
+def test_gps_api_aliases_and_transport_tasks(client: TestClient, headers: dict) -> None:
+    v = client.post(
+        "/gps/vehicles",
+        headers=headers,
+        json={"plate_number": "ALIAS01", "model": "MAN", "status": "active"},
+    )
+    assert v.status_code == 200
+    vehicle_id = v.json()["id"]
+
+    payload = {
+        "vehicle_id": vehicle_id,
+        "latitude": 41.31,
+        "longitude": 69.28,
+        "speed": 50,
+        "battery_level": 77,
+    }
+    upd = client.post("/gps/update", headers=headers, json=payload)
+    assert upd.status_code == 200
+    assert upd.json()["saved"] is True
+
+    live = client.get("/gps/live", headers=headers)
+    assert live.status_code == 200
+    assert any(row["vehicle_id"] == vehicle_id for row in live.json()["locations"])
+
+    hist = client.get(f"/gps/history/{vehicle_id}", headers=headers)
+    assert hist.status_code == 200
+    assert len(hist.json()["history"]) >= 1
+
+    task = client.post(
+        "/gps/tasks",
+        headers=headers,
+        json={
+            "title": "Toshkent → Samarqand",
+            "vehicle_id": vehicle_id,
+            "origin": "Toshkent",
+            "destination": "Samarqand",
+        },
+    )
+    assert task.status_code == 200
+    task_id = task.json()["id"]
+
+    start = client.post(f"/gps/tasks/{task_id}/start", headers=headers)
+    assert start.status_code == 200
+    assert start.json()["tracking_active"] is True
+
+    listed = client.get("/gps/tasks", headers=headers)
+    assert any(t["id"] == task_id for t in listed.json()["tasks"])
 
 
 def test_city_match() -> None:
@@ -161,6 +211,7 @@ def main() -> None:
     client = TestClient(app)
     headers = auth_headers(client)
     test_api_dedup_and_dashboard(client, headers)
+    test_gps_api_aliases_and_transport_tasks(client, headers)
 
     print("ALL PHASE 12.1 LIVE GPS TESTS PASSED")
 

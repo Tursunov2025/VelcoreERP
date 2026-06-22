@@ -1,20 +1,71 @@
-let API_BASE = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
+const PRODUCTION_API_URL = "https://api.velcore.uz";
+const DEVELOPMENT_API_URL = "http://127.0.0.1:8000";
+const VELCORE_HOSTS = new Set(["erp.velcore.uz", "api.velcore.uz"]);
+
+/** Runtime override when build was compiled with wrong VITE_API_URL (VPS hostname). */
+export function productionApiUrlFromHost() {
+  if (typeof window === "undefined") return "";
+  if (VELCORE_HOSTS.has(window.location.hostname)) {
+    return PRODUCTION_API_URL;
+  }
+  return "";
+}
+
+function readMetaApiUrl() {
+  if (typeof document === "undefined") return "";
+  return (document.querySelector('meta[name="velcore-api-url"]')?.getAttribute("content") || "")
+    .trim()
+    .replace(/\/+$/, "");
+}
+
+function resolveBuiltInApiUrl() {
+  const hostOverride = productionApiUrlFromHost();
+  if (hostOverride) return hostOverride;
+
+  const metaUrl = readMetaApiUrl();
+  if (metaUrl) return metaUrl;
+
+  const fromEnv = (import.meta.env.VITE_API_URL || "").trim();
+  if (fromEnv) return fromEnv.replace(/\/+$/, "");
+  return import.meta.env.PROD ? PRODUCTION_API_URL : DEVELOPMENT_API_URL;
+}
+
+let API_BASE = resolveBuiltInApiUrl();
 
 const BUILT_IN_API_URL = API_BASE;
 const IS_PRODUCTION_BUILD = import.meta.env.PROD;
 
+function isLocalApiUrl(url) {
+  return !url || url.includes("127.0.0.1") || url.includes("localhost");
+}
+
 let apiConfigPromise = null;
 
-/** Load /remote-api.json only for local tunnel dev — never override production API URL. */
+/** Load /remote-api.json only for local dev — never override Velcore production API URL. */
 async function ensureApiBase() {
   if (apiConfigPromise) return apiConfigPromise;
   apiConfigPromise = (async () => {
-    const isLocalBuiltIn =
-      !BUILT_IN_API_URL ||
-      BUILT_IN_API_URL.includes("127.0.0.1") ||
-      BUILT_IN_API_URL.includes("localhost");
+    const hostOverride = productionApiUrlFromHost();
+    if (hostOverride) {
+      API_BASE = hostOverride;
+      return API_BASE;
+    }
 
-    if (IS_PRODUCTION_BUILD && !isLocalBuiltIn) {
+    if (IS_PRODUCTION_BUILD) {
+      if (isLocalApiUrl(BUILT_IN_API_URL)) {
+        API_BASE = PRODUCTION_API_URL;
+        if (import.meta.env.DEV) {
+          console.warn(
+            `[api] Production build had local VITE_API_URL (${BUILT_IN_API_URL}); using ${PRODUCTION_API_URL}`
+          );
+        }
+      } else {
+        API_BASE = BUILT_IN_API_URL;
+      }
+      return API_BASE;
+    }
+
+    if (!isLocalApiUrl(BUILT_IN_API_URL)) {
       API_BASE = BUILT_IN_API_URL;
       return API_BASE;
     }
@@ -39,7 +90,24 @@ async function ensureApiBase() {
 }
 
 export function getApiBase() {
-  return API_BASE;
+  return productionApiUrlFromHost() || API_BASE;
+}
+
+/** Always call before raw fetch() outside request(). */
+export async function getResolvedApiBase() {
+  await ensureApiBase();
+  return getApiBase();
+}
+
+export async function authenticatedFetch(path, options = {}) {
+  await ensureApiBase();
+  const tokens = getStoredTokens();
+  const headers = { ...options.headers };
+  if (tokens?.access_token) {
+    headers.Authorization = `Bearer ${tokens.access_token}`;
+  }
+  const url = path.startsWith("http") ? path : `${getApiBase()}${path}`;
+  return fetch(url, { ...options, headers });
 }
 
 const TOKEN_KEY = "azmus_tokens";
@@ -111,7 +179,7 @@ async function request(path, options = {}, retry = true) {
   }
 
   const method = options.method || "GET";
-  const url = `${API_BASE}${path}`;
+  const url = `${getApiBase()}${path}`;
 
   let response;
   try {
@@ -119,7 +187,7 @@ async function request(path, options = {}, retry = true) {
   } catch (networkErr) {
     console.error(`[api] ${method} ${url} — network error:`, networkErr);
     throw new Error(
-      `Server bilan bog'lanib bo'lmadi (${API_BASE}). Backend ishlayotganini tekshiring.`
+      `Server bilan bog'lanib bo'lmadi (${getApiBase()}). Backend ishlayotganini tekshiring.`
     );
   }
 
@@ -163,7 +231,7 @@ async function request(path, options = {}, retry = true) {
 export function uploadUrl(path) {
   if (!path) return "";
   if (path.startsWith("http")) return path;
-  return `${API_BASE}${path}`;
+  return `${getApiBase()}${path}`;
 }
 
 export const api = {
@@ -618,14 +686,30 @@ export const api = {
     request("/gps/drivers", { method: "POST", body: JSON.stringify(body) }),
   gpsUpdateLocation: (body) =>
     request("/gps/location/update", { method: "POST", body: JSON.stringify(body) }),
+  gpsUpdate: (body) =>
+    request("/gps/update", { method: "POST", body: JSON.stringify(body) }),
   gpsLatestLocations: (vehicleId = null) =>
     request(
       vehicleId
         ? `/gps/location/latest?vehicle_id=${vehicleId}`
         : "/gps/location/latest"
     ),
+  gpsLive: (vehicleId = null) =>
+    request(vehicleId ? `/gps/live?vehicle_id=${vehicleId}` : "/gps/live"),
   gpsLocationHistory: (vehicleId, limit = 100) =>
     request(`/gps/location/history?vehicle_id=${vehicleId}&limit=${limit}`),
+  gpsHistory: (vehicleId, limit = 100) =>
+    request(`/gps/history/${vehicleId}?limit=${limit}`),
+  gpsTransportTasks: (status = "") =>
+    request(status ? `/gps/tasks?status=${encodeURIComponent(status)}` : "/gps/tasks"),
+  gpsCreateTransportTask: (body) =>
+    request("/gps/tasks", { method: "POST", body: JSON.stringify(body) }),
+  gpsUpdateTransportTask: (id, body) =>
+    request(`/gps/tasks/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  gpsStartTransportTask: (id) =>
+    request(`/gps/tasks/${id}/start`, { method: "POST" }),
+  gpsStopTransportTask: (id) =>
+    request(`/gps/tasks/${id}/stop`, { method: "POST" }),
   gpsTrips: (params = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -1106,4 +1190,15 @@ export const api = {
   },
 };
 
-export { API_BASE };
+export async function apiDownload(path, filename) {
+  const res = await authenticatedFetch(path);
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename || "download";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}

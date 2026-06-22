@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, API_BASE } from "../../api/client";
+import { api, getApiBase } from "../../api/client";
 import ErrorAlert from "../../components/ui/ErrorAlert";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import PageHeader from "../../components/ui/PageHeader";
@@ -24,7 +24,7 @@ const emptyForm = {
 function imageUrl(url) {
   if (!url) return null;
   if (url.startsWith("http")) return url;
-  return `${API_BASE}${url}`;
+  return `${getApiBase()}${url}`;
 }
 
 export default function MesTemplateFormPage() {

@@ -83,7 +83,7 @@ export default function VehiclesPage() {
 
   return (
     <div className="pb-24">
-      <BackButton fallback="/transport" label="Transport" className="mb-4" />
+      <BackButton fallback="/gps" label="GPS Monitoring" className="mb-4" />
       <PageHeader
         title="Fleet Vehicles"
         subtitle="GPS-tracked trucks linked to transport shipments"

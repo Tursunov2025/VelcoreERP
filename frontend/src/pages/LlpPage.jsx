@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, API_BASE, getStoredTokens } from "../api/client";
+import { api, apiDownload } from "../api/client";
 import BackButton from "../components/ui/BackButton";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -165,23 +165,14 @@ export default function LlpPage() {
 
   const downloadDoc = async (doc) => {
     if (!canDownload) return;
-    const tokens = getStoredTokens();
-    const url = `${API_BASE}/llp/documents/${doc.id}/download`;
-    const res = await fetch(url, {
-      headers: tokens?.access_token
-        ? { Authorization: `Bearer ${tokens.access_token}` }
-        : {},
-    });
-    if (!res.ok) {
-      setToast(t("notifications.error"));
-      return;
+    try {
+      await apiDownload(
+        `/llp/documents/${doc.id}/download`,
+        doc.original_filename || doc.title
+      );
+    } catch (e) {
+      setToast(e.message || t("notifications.error"));
     }
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = doc.original_filename || doc.title;
-    a.click();
-    URL.revokeObjectURL(a.href);
   };
 
   if (!canView) {

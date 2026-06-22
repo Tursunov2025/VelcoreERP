@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:prod": "vite build",
+    "build:velcore": "vite build",
+    "prebuild:velcore": "node -e \"const fs=require('fs');const p='.env.production';const t='.env.production.template';if(fs.existsSync(t))fs.copyFileSync(t,p);if(!fs.readFileSync(p,'utf8').includes('api.velcore.uz')){console.error('Set VITE_API_URL=https://api.velcore.uz in .env.production');process.exit(1)}\"",
     "preview": "vite preview",
     "preview:prod": "vite preview --host 0.0.0.0 --port 5173",
     "mobile:assets": "npx capacitor-assets generate --android --assetPath resources",

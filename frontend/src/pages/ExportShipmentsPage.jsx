@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { API_BASE, api, getStoredTokens } from "../api/client";
+import { api, apiDownload } from "../api/client";
 import BackButton from "../components/ui/BackButton";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -152,20 +152,14 @@ export default function ExportShipmentsPage() {
   };
 
   const downloadDoc = async (doc) => {
-    const tokens = getStoredTokens();
-    const res = await fetch(`${API_BASE}/export-shipments/documents/${doc.id}/download`, {
-      headers: tokens?.access_token ? { Authorization: `Bearer ${tokens.access_token}` } : {},
-    });
-    if (!res.ok) {
-      setToast("Download failed");
-      return;
+    try {
+      await apiDownload(
+        `/export-shipments/documents/${doc.id}/download`,
+        doc.filename || doc.title
+      );
+    } catch (e) {
+      setToast(e.message || "Download failed");
     }
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = doc.filename || doc.title;
-    a.click();
-    URL.revokeObjectURL(a.href);
   };
 
   if (loading && !shipments.length) return <LoadingSpinner />;

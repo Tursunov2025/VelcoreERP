@@ -74,7 +74,12 @@ curl -sf http://127.0.0.1:8000/auth/login-users | head -c 200
 echo ""
 
 # --- 7. Rebuild frontend with correct API URL ---
-cp "${APP}/frontend/.env.production.example" "${APP}/frontend/.env.production"
+cp "${APP}/frontend/.env.production.template" "${APP}/frontend/.env.production"
+grep -q '^VITE_API_URL=https://api.velcore.uz' "${APP}/frontend/.env.production" || {
+  echo "VITE_API_URL=https://api.velcore.uz" > "${APP}/frontend/.env.production"
+  echo "VITE_TRACEABILITY_ENABLED=false" >> "${APP}/frontend/.env.production"
+  echo "VITE_PRINT_AGENT_ENABLED=false" >> "${APP}/frontend/.env.production"
+}
 cd "${APP}/frontend"
 if command -v npm >/dev/null 2>&1; then
   export VITE_API_URL=https://api.velcore.uz

@@ -298,9 +298,16 @@ export default function DashboardPage() {
       </div>
 
       {gpsStats ? (
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-[var(--brand-text)]">🛰️ GPS Fleet</h2>
+            <Link to="/gps/monitoring" className="text-sm font-semibold text-[var(--brand-primary)]">
+              Jonli xarita →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Link
-            to="/transport/live-map"
+            to="/gps/monitoring"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
             <p className="text-xs uppercase text-[var(--brand-muted)]">🚚 Online</p>
@@ -313,7 +320,7 @@ export default function DashboardPage() {
             </p>
           </Link>
           <Link
-            to="/transport/live-map"
+            to="/gps/monitoring"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
             <p className="text-xs uppercase text-[var(--brand-muted)]">🟢 Moving</p>
@@ -322,7 +329,7 @@ export default function DashboardPage() {
             </p>
           </Link>
           <Link
-            to="/transport/live-map"
+            to="/gps/monitoring"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
             <p className="text-xs uppercase text-[var(--brand-muted)]">🅿️ Stopped</p>
@@ -335,7 +342,7 @@ export default function DashboardPage() {
             <p className="mt-1 text-2xl font-black">{gpsStats.average_speed_kmh ?? 0} km/h</p>
           </div>
           <Link
-            to="/transport"
+            to="/gps"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
             <p className="text-xs uppercase text-[var(--brand-muted)]">🕒 ETA Arrivals</p>
@@ -352,6 +359,27 @@ export default function DashboardPage() {
               </div>
             )}
           </Link>
+          </div>
+          {gpsStats.live_vehicles?.length ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {gpsStats.live_vehicles.map((v) => (
+                <Link
+                  key={v.vehicle_id}
+                  to="/gps/monitoring"
+                  className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                    v.online
+                      ? v.moving
+                        ? "border-green-300 bg-green-50 text-green-700"
+                        : "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : "border-gray-200 bg-gray-50 text-gray-500"
+                  }`}
+                >
+                  {v.plate_number || `#${v.vehicle_id}`}
+                  {v.online ? " · online" : " · offline"}
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

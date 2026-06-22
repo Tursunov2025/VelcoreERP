@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from auth.deps import get_current_user
 from database import get_db
-from models import Driver, GpsLocation, TripRoute, Transport, User, Vehicle
+from models import Driver, GpsLocation, Transport, TransportTask, TripRoute, User, Vehicle
 from services.audit import log_action
 from services.gps_fleet import (
     build_dashboard,
@@ -35,6 +35,13 @@ def _can_view(db: Session, user: User) -> bool:
 
 def _can_manage(db: Session, user: User) -> bool:
     return user.role == "admin" or user_has_permission(db, user, "export_manage")
+
+
+def _can_read_fleet(db: Session, user: User) -> bool:
+    """Admin panel + driver mobile — operators can read fleet lists."""
+    if user.role in ("admin", "operator"):
+        return True
+    return _can_view(db, user)
 
 
 class VehicleIn(BaseModel):
@@ -66,6 +73,28 @@ class TripIn(BaseModel):
     origin: str = ""
     destination: str = ""
     status: Literal["Planned", "Active", "In Transit", "Completed", "Cancelled"] = "Planned"
+
+
+class TransportTaskIn(BaseModel):
+    title: str
+    description: str = ""
+    vehicle_id: int | None = None
+    driver_id: int | None = None
+    transport_id: int | None = None
+    origin: str = ""
+    destination: str = ""
+    status: Literal["assigned", "active", "completed", "cancelled"] = "assigned"
+
+
+class TransportTaskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    vehicle_id: int | None = None
+    driver_id: int | None = None
+    transport_id: int | None = None
+    origin: str | None = None
+    destination: str | None = None
+    status: Literal["assigned", "active", "completed", "cancelled"] | None = None
 
 
 def _serialize_vehicle(v: Vehicle, loc: GpsLocation | None = None) -> dict:
@@ -108,12 +137,37 @@ def _serialize_trip(t: TripRoute) -> dict:
     }
 
 
+def _serialize_transport_task(
+    task: TransportTask,
+    loc: GpsLocation | None = None,
+) -> dict:
+    return {
+        "id": task.id,
+        "title": task.title,
+        "description": task.description or "",
+        "vehicle_id": task.vehicle_id,
+        "driver_id": task.driver_id,
+        "transport_id": task.transport_id,
+        "origin": task.origin,
+        "destination": task.destination,
+        "status": task.status,
+        "tracking_active": bool(task.tracking_active),
+        "started_at": task.started_at.isoformat() if task.started_at else None,
+        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+        "created_by": task.created_by,
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+        "vehicle_plate": task.vehicle.plate_number if task.vehicle else None,
+        "driver_name": task.driver.full_name if task.driver else None,
+        "latest_location": serialize_location(loc),
+    }
+
+
 @router.get("/vehicles")
 def list_vehicles(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not _can_view(db, user):
+    if not _can_read_fleet(db, user):
         raise HTTPException(status_code=403, detail="Forbidden")
     latest = latest_locations_by_vehicle(db)
     vehicles = db.query(Vehicle).order_by(Vehicle.plate_number).all()
@@ -149,7 +203,7 @@ def list_drivers(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not _can_view(db, user):
+    if not _can_read_fleet(db, user):
         raise HTTPException(status_code=403, detail="Forbidden")
     drivers = db.query(Driver).order_by(Driver.full_name).all()
     result = []
@@ -286,6 +340,7 @@ def update_location(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """GPS ping from driver mobile — any authenticated user."""
     vehicle = db.query(Vehicle).filter(Vehicle.id == payload.vehicle_id).first()
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
@@ -323,13 +378,23 @@ def update_location(
     return result
 
 
+@router.post("/update")
+def gps_update_alias(
+    payload: LocationUpdateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Alias for POST /gps/location/update (driver mobile)."""
+    return update_location(payload, db, user)
+
+
 @router.get("/location/latest")
 def latest_locations(
     vehicle_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not _can_view(db, user):
+    if not _can_read_fleet(db, user):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     if vehicle_id is not None:
@@ -372,6 +437,16 @@ def latest_locations(
     return {"locations": rows}
 
 
+@router.get("/live")
+def gps_live_alias(
+    vehicle_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Alias for GET /gps/location/latest."""
+    return latest_locations(vehicle_id=vehicle_id, db=db, user=user)
+
+
 @router.get("/location/history")
 def location_history(
     vehicle_id: int = Query(...),
@@ -379,7 +454,7 @@ def location_history(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not _can_view(db, user):
+    if not _can_read_fleet(db, user):
         raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
         db.query(GpsLocation)
@@ -400,6 +475,171 @@ def location_history(
             for r in reversed(rows)
         ],
     }
+
+
+@router.get("/history/{vehicle_id}")
+def gps_history_alias(
+    vehicle_id: int,
+    limit: int = Query(default=100, le=500),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Alias for GET /gps/location/history?vehicle_id=…"""
+    return location_history(vehicle_id=vehicle_id, limit=limit, db=db, user=user)
+
+
+@router.get("/tasks")
+def list_transport_tasks(
+    status: str = Query(default=""),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not _can_read_fleet(db, user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    query = db.query(TransportTask).options(
+        joinedload(TransportTask.vehicle), joinedload(TransportTask.driver)
+    )
+    if status:
+        query = query.filter(TransportTask.status == status)
+    tasks = query.order_by(desc(TransportTask.created_at)).limit(200).all()
+    latest = latest_locations_by_vehicle(db)
+    return {
+        "tasks": [
+            _serialize_transport_task(t, latest.get(t.vehicle_id) if t.vehicle_id else None)
+            for t in tasks
+        ]
+    }
+
+
+@router.post("/tasks")
+def create_transport_task(
+    payload: TransportTaskIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not _can_manage(db, user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title required")
+    if payload.vehicle_id is not None:
+        if not db.query(Vehicle).filter(Vehicle.id == payload.vehicle_id).first():
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+    if payload.driver_id is not None:
+        if not db.query(Driver).filter(Driver.id == payload.driver_id).first():
+            raise HTTPException(status_code=404, detail="Driver not found")
+    task = TransportTask(
+        title=title,
+        description=payload.description.strip(),
+        vehicle_id=payload.vehicle_id,
+        driver_id=payload.driver_id,
+        transport_id=payload.transport_id,
+        origin=payload.origin.strip(),
+        destination=payload.destination.strip(),
+        status=payload.status,
+        created_by=user.username,
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    task = (
+        db.query(TransportTask)
+        .options(joinedload(TransportTask.vehicle), joinedload(TransportTask.driver))
+        .filter(TransportTask.id == task.id)
+        .first()
+    )
+    log_action(db, user.username, "transport_task_create", f"task={task.id}")
+    return _serialize_transport_task(task, None)
+
+
+@router.put("/tasks/{task_id}")
+def update_transport_task(
+    task_id: int,
+    payload: TransportTaskUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not _can_manage(db, user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    task = (
+        db.query(TransportTask)
+        .options(joinedload(TransportTask.vehicle), joinedload(TransportTask.driver))
+        .filter(TransportTask.id == task_id)
+        .first()
+    )
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    data = payload.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        if key in ("origin", "destination", "description") and value is not None:
+            value = value.strip()
+        if key == "title" and value is not None:
+            value = value.strip()
+            if not value:
+                raise HTTPException(status_code=400, detail="title required")
+        setattr(task, key, value)
+    db.commit()
+    db.refresh(task)
+    loc = latest_locations_by_vehicle(db).get(task.vehicle_id) if task.vehicle_id else None
+    return _serialize_transport_task(task, loc)
+
+
+@router.post("/tasks/{task_id}/start")
+def start_transport_task_tracking(
+    task_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    task = db.query(TransportTask).filter(TransportTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not task.vehicle_id:
+        raise HTTPException(status_code=400, detail="Assign a vehicle first")
+    task.tracking_active = True
+    task.status = "active"
+    task.started_at = task.started_at or datetime.utcnow()
+    if task.driver_id:
+        driver = db.query(Driver).filter(Driver.id == task.driver_id).first()
+        if driver:
+            driver.status = "on_trip"
+    db.commit()
+    log_action(db, user.username, "transport_task_start", f"task={task_id}")
+    task = (
+        db.query(TransportTask)
+        .options(joinedload(TransportTask.vehicle), joinedload(TransportTask.driver))
+        .filter(TransportTask.id == task_id)
+        .first()
+    )
+    loc = latest_locations_by_vehicle(db).get(task.vehicle_id)
+    return _serialize_transport_task(task, loc)
+
+
+@router.post("/tasks/{task_id}/stop")
+def stop_transport_task_tracking(
+    task_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    task = db.query(TransportTask).filter(TransportTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task.tracking_active = False
+    task.status = "completed"
+    task.completed_at = datetime.utcnow()
+    if task.driver_id:
+        driver = db.query(Driver).filter(Driver.id == task.driver_id).first()
+        if driver and driver.status == "on_trip":
+            driver.status = "active"
+    db.commit()
+    log_action(db, user.username, "transport_task_stop", f"task={task_id}")
+    task = (
+        db.query(TransportTask)
+        .options(joinedload(TransportTask.vehicle), joinedload(TransportTask.driver))
+        .filter(TransportTask.id == task_id)
+        .first()
+    )
+    loc = latest_locations_by_vehicle(db).get(task.vehicle_id) if task.vehicle_id else None
+    return _serialize_transport_task(task, loc)
 
 
 @router.get("/trips")

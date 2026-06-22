@@ -20,7 +20,7 @@ export default function LiveMapPage() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const data = await api.gpsLatestLocations();
+      const data = await api.gpsLive();
       setLocations(data.locations || []);
       setLastRefresh(new Date());
     } catch (e) {
@@ -39,7 +39,7 @@ export default function LiveMapPage() {
   const selectVehicle = async (vehicleId) => {
     setSelectedVehicle(vehicleId);
     try {
-      const hist = await api.gpsLocationHistory(vehicleId, 80);
+      const hist = await api.gpsHistory(vehicleId, 80);
       setRoute(hist.history || []);
     } catch {
       setRoute([]);
@@ -48,21 +48,21 @@ export default function LiveMapPage() {
 
   return (
     <div className="pb-24">
-      <BackButton fallback="/transport" label="Transport" className="mb-4" />
+      <BackButton fallback="/gps" label="GPS Monitoring" className="mb-4" />
       <PageHeader
-        title="Live Fleet Map"
+        title="GPS Monitoring — Jonli xarita"
         subtitle={
           lastRefresh
-            ? `Auto-refresh every 5s · updated ${lastRefresh.toLocaleTimeString()}`
-            : "Real-time truck locations (OpenStreetMap)"
+            ? `Har 5 soniyada yangilanadi · ${lastRefresh.toLocaleTimeString()}`
+            : "OpenStreetMap / Leaflet"
         }
         actions={
           <Link
-            to="/driver-tracking"
+            to="/driver"
             className="rounded-xl px-4 py-2 text-sm font-bold text-white"
             style={{ backgroundColor: "var(--brand-button)" }}
           >
-            Driver GPS
+            Haydovchi mobil
           </Link>
         }
       />

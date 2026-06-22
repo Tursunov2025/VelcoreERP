@@ -1,4 +1,4 @@
-import { API_BASE } from "../api/client";
+import { getApiBase } from "../api/client";
 import { isTruthy, mergeBranding } from "../constants/brandingDefaults";
 
 const DARK_PALETTE = {
@@ -12,7 +12,7 @@ const DARK_PALETTE = {
 function resolveAssetUrl(url) {
   if (!url) return "";
   if (url.startsWith("http")) return url;
-  const base = API_BASE.replace(/\/$/, "");
+  const base = getApiBase().replace(/\/$/, "");
   return `${base}${url.startsWith("/") ? url : `/${url}`}`;
 }
 

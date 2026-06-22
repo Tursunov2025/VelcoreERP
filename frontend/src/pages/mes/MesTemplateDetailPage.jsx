@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, API_BASE } from "../../api/client";
+import { api, getApiBase } from "../../api/client";
 import BackButton from "../../components/ui/BackButton";
 import MesBomEditor from "../../components/mes/MesBomEditor";
 import MesRouteDesigner from "../../components/mes/MesRouteDesigner";
@@ -16,7 +16,7 @@ import { useMobileReadOnly } from "../../hooks/useMobileReadOnly";
 function resolveImageUrl(url) {
   if (!url) return null;
   if (url.startsWith("http")) return url;
-  return `${API_BASE}${url}`;
+  return `${getApiBase()}${url}`;
 }
 
 function formatQty(value) {

@@ -168,6 +168,22 @@ def build_dashboard(db: Session) -> dict:
         .limit(10)
         .all()
     )
+    vehicles_by_id = {v.id: v for v in db.query(Vehicle).all()}
+    drivers_by_id = {d.id: d for d in db.query(Driver).all()}
+    live_vehicles = []
+    for vid, loc in sorted(latest.items(), key=lambda x: x[0]):
+        v = vehicles_by_id.get(vid)
+        d = drivers_by_id.get(loc.driver_id) if loc.driver_id else None
+        ser = serialize_location(loc) or {}
+        live_vehicles.append(
+            {
+                **ser,
+                "plate_number": v.plate_number if v else None,
+                "model": v.model if v else None,
+                "driver_name": d.full_name if d else None,
+            }
+        )
+
     for trip in trips:
         transport = (
             db.query(Transport).filter(Transport.id == trip.transport_id).first()
@@ -220,6 +236,7 @@ def build_dashboard(db: Session) -> dict:
         "active_routes": active_routes,
         "average_speed_kmh": avg_speed,
         "eta_arrivals": eta_rows,
+        "live_vehicles": live_vehicles,
         "refresh_interval_sec": 5,
     }
 

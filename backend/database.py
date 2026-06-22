@@ -560,6 +560,29 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_trip_routes_transport ON trip_routes (transport_id)",
         "CREATE INDEX IF NOT EXISTS ix_trip_routes_status ON trip_routes (status)",
 
+        # GPS Monitoring — transport tasks
+        """CREATE TABLE IF NOT EXISTS transport_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title VARCHAR NOT NULL,
+            description TEXT DEFAULT '',
+            vehicle_id INTEGER,
+            driver_id INTEGER,
+            transport_id INTEGER,
+            origin VARCHAR DEFAULT '',
+            destination VARCHAR DEFAULT '',
+            status VARCHAR DEFAULT 'assigned',
+            tracking_active INTEGER DEFAULT 0,
+            started_at DATETIME,
+            completed_at DATETIME,
+            created_by VARCHAR DEFAULT '',
+            created_at DATETIME,
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles (id),
+            FOREIGN KEY (driver_id) REFERENCES drivers (id),
+            FOREIGN KEY (transport_id) REFERENCES transports (id)
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_transport_tasks_status ON transport_tasks (status)",
+        "CREATE INDEX IF NOT EXISTS ix_transport_tasks_vehicle ON transport_tasks (vehicle_id)",
+
         # Phase 12.1 — GPS alert dedup state
         """CREATE TABLE IF NOT EXISTS gps_alert_state (
             vehicle_id INTEGER PRIMARY KEY,
