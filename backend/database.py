@@ -1,3 +1,5 @@
+import logging
+
 import os
 
 import shutil
@@ -14,9 +16,13 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 
 
-from config.paths import DATABASE_URL, DB_PATH, ensure_data_directories
+from config.paths import DATABASE_URL, DATABASE_URL_SOURCE, DB_PATH, ensure_data_directories
+
+from config.production import mask_database_url
 
 
+
+logger = logging.getLogger("azmus.database")
 
 ensure_data_directories()
 
@@ -27,28 +33,46 @@ _SQLITE_TIMEOUT = int(os.getenv("SQLITE_TIMEOUT_SECONDS", "30"))
 
 
 connect_args: dict = {}
+engine_kwargs: dict = {"pool_pre_ping": True}
 
 if DATABASE_URL.startswith("sqlite"):
-
     connect_args = {
-
         "check_same_thread": False,
-
         "timeout": _SQLITE_TIMEOUT,
-
     }
-
-
+else:
+    engine_kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "5"))
+    engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW", "10"))
 
 engine = create_engine(
-
     DATABASE_URL,
-
     connect_args=connect_args,
-
-    pool_pre_ping=True,
-
+    **engine_kwargs,
 )
+
+logger.info(
+    "SQLAlchemy engine created: url=%s source=%s",
+    mask_database_url(DATABASE_URL),
+    DATABASE_URL_SOURCE,
+)
+
+
+def verify_engine_connection() -> None:
+    """Verify DB connectivity using the application engine (single source of truth)."""
+    logger.info(
+        "Verifying database connection: %s (source=%s)",
+        mask_database_url(DATABASE_URL),
+        DATABASE_URL_SOURCE,
+    )
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception(
+            "Database connection failed — check DATABASE_URL in %s matches PostgreSQL password",
+            DATABASE_URL_SOURCE,
+        )
+        raise
 
 
 

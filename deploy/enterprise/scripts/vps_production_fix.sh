@@ -28,23 +28,38 @@ if [[ ! -f "$ENV" ]]; then
 fi
 chmod 600 "$ENV"
 
-# Ensure JWT and DATABASE_URL present
 grep -q '^JWT_SECRET_KEY=.\+' "$ENV" || { echo "ERROR: JWT_SECRET_KEY missing in $ENV"; exit 1; }
 grep -q '^DATABASE_URL=.\+' "$ENV" || { echo "ERROR: DATABASE_URL missing in $ENV"; exit 1; }
 grep -q '^CORS_ORIGINS=.*erp.velcore.uz' "$ENV" || sed -i 's|^CORS_ORIGINS=.*|CORS_ORIGINS=https://erp.velcore.uz|' "$ENV"
+grep -q '^ENABLE_API_DOCS=' "$ENV" || echo "ENABLE_API_DOCS=true" >> "$ENV"
 grep -q '^AZMUS_ENV_FILE=' "$ENV" || echo "AZMUS_ENV_FILE=${ENV}" >> "$ENV"
+grep -q '^DATABASE_GUARD=' "$ENV" || echo "DATABASE_GUARD=false" >> "$ENV"
+
+# backend/.env must not override /etc/velcore/.env on VPS
+for stray_env in "${APP}/backend/.env" "${APP}/.env"; do
+  if [[ -f "$stray_env" ]] && grep -q '^DATABASE_URL=' "$stray_env"; then
+    echo "WARNING: Removing DATABASE_URL from $stray_env (use $ENV only)"
+    sed -i '/^DATABASE_URL=/d' "$stray_env"
+  fi
+done
 
 # --- 4. Python deps ---
 "${VENV}/bin/pip" install -U pip wheel
 "${VENV}/bin/pip" install -r "${APP}/backend/requirements.txt"
 
-# --- 5. Ensure admin user ---
+# --- 5. DB connectivity + admin user ---
 set -a
 # shellcheck disable=SC1090
 source "$ENV"
 set +a
 export AZMUS_ENV_FILE="$ENV"
-"${VENV}/bin/python" "${APP}/backend/scripts/ensure_admin_user.py"
+cd "${APP}/backend"
+"${VENV}/bin/python" -c "
+from config.database_guard import verify_database_connectivity
+verify_database_connectivity()
+print('Database connectivity OK')
+"
+"${VENV}/bin/python" scripts/ensure_admin_user.py
 
 # --- 6. systemd velcore.service ---
 cp "${APP}/deploy/enterprise/systemd/velcore.service" /etc/systemd/system/velcore.service
@@ -59,6 +74,7 @@ curl -sf http://127.0.0.1:8000/auth/login-users | head -c 200
 echo ""
 
 # --- 7. Rebuild frontend with correct API URL ---
+cp "${APP}/frontend/.env.production.example" "${APP}/frontend/.env.production"
 cd "${APP}/frontend"
 if command -v npm >/dev/null 2>&1; then
   export VITE_API_URL=https://api.velcore.uz

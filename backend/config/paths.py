@@ -1,48 +1,29 @@
 """
 Production data paths — all business data lives outside the application folder.
 
-Configure via .env (see deploy/.env.production.template):
+Configure via .env (see deploy/enterprise/env.production.example):
   DATA_ROOT, DB_PATH, UPLOAD_PATH, BACKUP_PATH, LOG_PATH, MIGRATION_BACKUP_PATH
+
+DATABASE_URL is resolved once here — all modules import from config.paths.
 """
 
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
+from config.env_loader import get_database_url_source, load_environment
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 _REPO_ROOT = _BACKEND_DIR.parent
 
+load_environment()
 
-def _load_env_files() -> None:
-    explicit = os.getenv("AZMUS_ENV_FILE", "").strip()
-    candidates = []
-    if explicit:
-        candidates.append(Path(explicit))
-    candidates.extend(
-        [
-            Path("/etc/velcore/.env"),
-            Path("/etc/azmus/.env"),
-            _BACKEND_DIR / ".env",
-            _REPO_ROOT / ".env",
-            Path(r"D:\AzmusERP\Application\.env"),
-            Path(r"D:\AzmusERP\.env"),
-            Path(r"D:\AzmusERP\Application\backend\.env"),
-        ]
-    )
-    for path in candidates:
-        if path.is_file():
-            load_dotenv(path, override=False)
-            return
-    load_dotenv(_BACKEND_DIR / ".env", override=False)
-    load_dotenv(_REPO_ROOT / ".env", override=False)
-
-
-_load_env_files()
-
-_DEFAULT_DATA_ROOT = Path(r"D:\AzmusERP\Data")
+if sys.platform != "win32":
+    _DEFAULT_DATA_ROOT = Path("/var/lib/velcore/data")
+else:
+    _DEFAULT_DATA_ROOT = Path(r"D:\AzmusERP\Data")
 
 DATA_ROOT = Path(os.getenv("DATA_ROOT", str(_DEFAULT_DATA_ROOT))).resolve()
 DB_PATH = Path(
@@ -91,8 +72,37 @@ def ensure_data_directories() -> None:
         folder.mkdir(parents=True, exist_ok=True)
 
 
+def sqlite_database_url() -> str:
+    ensure_data_directories()
+    return f"sqlite:///{DB_PATH.as_posix()}"
+
+
+def resolve_sqlite_file_from_url(database_url: str) -> Path:
+    if not database_url.startswith("sqlite"):
+        raise ValueError("Only SQLite URLs are supported")
+    raw = database_url.replace("sqlite:///", "").replace("sqlite://", "")
+    return Path(raw).resolve()
+
+
+def resolve_database_url() -> tuple[str, str]:
+    """Return (DATABASE_URL, source description). Single resolution point."""
+    raw = (os.getenv("DATABASE_URL") or "").strip()
+    if raw:
+        return raw, get_database_url_source()
+    url = sqlite_database_url()
+    return url, f"sqlite default ({DB_PATH})"
+
+
+DATABASE_URL, DATABASE_URL_SOURCE = resolve_database_url()
+
+ensure_data_directories()
+
+
 def warn_if_non_production_db_path() -> None:
     """Log when configured DB is not the canonical Windows production path."""
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
     import logging
 
     canonical = Path(r"D:\AzmusERP\Data\database\azmus.db")
@@ -109,7 +119,7 @@ def warn_if_non_production_db_path() -> None:
                 DB_PATH,
                 canonical,
             )
-        elif DB_PATH.resolve() != canonical.resolve() and canonical.drive:
+        elif os.name == "nt" and DB_PATH.resolve() != canonical.resolve() and canonical.drive:
             log.warning(
                 "DB_PATH %s is not canonical production path %s",
                 DB_PATH,
@@ -119,20 +129,4 @@ def warn_if_non_production_db_path() -> None:
         pass
 
 
-def sqlite_database_url() -> str:
-    ensure_data_directories()
-    return f"sqlite:///{DB_PATH.as_posix()}"
-
-
-def resolve_sqlite_file_from_url(database_url: str) -> Path:
-    if not database_url.startswith("sqlite"):
-        raise ValueError("Only SQLite URLs are supported")
-    raw = database_url.replace("sqlite:///", "").replace("sqlite://", "")
-    return Path(raw).resolve()
-
-
-# Resolved once at import (after .env load).
-DATABASE_URL = os.getenv("DATABASE_URL") or sqlite_database_url()
-
-ensure_data_directories()
 warn_if_non_production_db_path()

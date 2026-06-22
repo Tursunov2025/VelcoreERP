@@ -73,6 +73,11 @@ def _baseline() -> dict[str, int]:
     return out
 
 
+def _is_postgres_url(url: str) -> bool:
+    u = (url or "").lower()
+    return u.startswith("postgresql") or u.startswith("postgres+")
+
+
 def _is_render_persistent_data_root() -> bool:
     """Render persistent disk mount (see render.yaml disk.mountPath)."""
     try:
@@ -83,16 +88,19 @@ def _is_render_persistent_data_root() -> bool:
 
 
 def is_guard_enabled() -> bool:
+    """SQLite file guard only — PostgreSQL uses verify_database_connectivity() instead."""
     explicit = os.getenv("DATABASE_GUARD", "").strip()
     if explicit.lower() == "false":
         return False
-    if explicit and _env_truthy("DATABASE_GUARD", explicit):
-        return True
     if os.getenv("PYTEST_CURRENT_TEST"):
         return False
-    url = os.getenv("DATABASE_URL", "")
+    url = DATABASE_URL
     if "test_" in url.lower() or "/temp/" in url.lower() or "\\temp\\" in url.lower():
         return False
+    if _is_postgres_url(url):
+        return bool(explicit and _env_truthy("DATABASE_GUARD", explicit))
+    if explicit and _env_truthy("DATABASE_GUARD", explicit):
+        return True
     if _env_truthy("PRODUCTION") or os.getenv("ENVIRONMENT", "").lower() in ("production", "prod"):
         return True
     if _is_render_persistent_data_root():
@@ -200,7 +208,31 @@ def _check_baseline_counts(stats: dict[str, Any], *, context: str) -> list[str]:
     return warnings
 
 
+def verify_database_connectivity() -> None:
+    """Fail fast when PostgreSQL (or any server DB) is unreachable."""
+    from database import verify_engine_connection
+
+    verify_engine_connection()
+
+
 def validate_production_database_at_startup() -> dict[str, Any]:
+    try:
+        verify_database_connectivity()
+    except Exception as exc:
+        _log.exception("validate_production_database_at_startup: connectivity check failed")
+        raise DatabaseGuardError(
+            f"Database connectivity check failed: {exc}"
+        ) from exc
+
+    if _is_postgres_url(DATABASE_URL):
+        _log.info("PostgreSQL mode — SQLite file guard skipped")
+        return {
+            "active_database_path": DATABASE_URL.split("@")[-1],
+            "database_exists": True,
+            "guard_enabled": is_guard_enabled(),
+            "engine": "postgresql",
+        }
+
     stats = collect_database_stats()
     if not is_guard_enabled():
         _log.info("Database guard disabled")

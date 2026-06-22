@@ -2,12 +2,14 @@ import os
 from contextlib import asynccontextmanager
 
 from config.logging_setup import configure_logging
-from config.paths import DATA_ROOT, DB_PATH, LOG_PATH, UPLOAD_PATH
+from config.paths import DATA_ROOT, DB_PATH, LOG_PATH, UPLOAD_PATH, DATABASE_URL, DATABASE_URL_SOURCE
 from config.database_guard import (
     DatabaseGuardError,
     get_database_health,
     validate_production_database_at_startup,
 )
+from config.env_loader import audit_env_loading
+from config.production import log_effective_config, mask_database_url, parse_cors_origins, validate_runtime_config
 
 configure_logging()
 
@@ -27,7 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from database import Base, SessionLocal, engine, get_db, run_migrations
+from database import Base, SessionLocal, engine, get_db, run_migrations, verify_engine_connection
 from models import (
     Expense,
     Income,
@@ -198,12 +200,31 @@ async def lifespan(app: FastAPI):
     import logging
 
     startup_log = logging.getLogger("azmus.main")
-    if not is_auth_configured():
-        startup_log.error(
-            "JWT_SECRET_KEY is missing. Configure it in Render → Environment to enable login."
-        )
-    else:
+    audit_env_loading(startup_log)
+    startup_log.info(
+        "Startup DATABASE_URL=%s source=%s",
+        mask_database_url(DATABASE_URL),
+        DATABASE_URL_SOURCE,
+    )
+    log_effective_config(DATABASE_URL, DATABASE_URL_SOURCE)
+
+    is_prod = os.getenv("ENVIRONMENT", "").lower() in ("production", "prod") or os.getenv(
+        "PRODUCTION", ""
+    ).lower() in ("1", "true", "yes")
+    config_errors = validate_runtime_config()
+    if config_errors:
+        for err in config_errors:
+            if is_prod:
+                startup_log.critical("Startup config error: %s", err)
+            else:
+                startup_log.warning("Startup config warning: %s", err)
+        if is_prod:
+            startup_log.exception("Startup aborted due to configuration errors")
+            raise RuntimeError("Invalid production configuration: " + "; ".join(config_errors))
+    elif is_auth_configured():
         startup_log.info("JWT auth configured")
+    else:
+        startup_log.warning("JWT_SECRET_KEY not set — login disabled until configured")
 
     materials_paths = sorted(p for p in _app_paths(app) if p.startswith("/materials"))
     startup_log.info(
@@ -224,17 +245,36 @@ async def lifespan(app: FastAPI):
         ", ".join(trace_paths) if trace_paths else "none",
     )
 
-    # Validate production DB before any schema bootstrap (never auto-create empty DB).
     try:
-        validate_production_database_at_startup()
-    except DatabaseGuardError as exc:
-        startup_log.critical("Database guard blocked startup: %s", exc)
-        raise SystemExit(1) from exc
+        db_stats = validate_production_database_at_startup()
+        startup_log.info("validate_production_database_at_startup() OK: %s", db_stats)
+    except DatabaseGuardError:
+        startup_log.exception("validate_production_database_at_startup() failed")
+        raise
+    except Exception:
+        startup_log.exception("validate_production_database_at_startup() unexpected error")
+        raise
 
-    # Run schema setup here (not at import time) so uvicorn --reload workers
-    # do not fight over SQLite write locks while the previous worker shuts down.
-    Base.metadata.create_all(bind=engine)
-    run_migrations()
+    try:
+        verify_engine_connection()
+        startup_log.info("engine.connect() SELECT 1 succeeded")
+    except Exception:
+        startup_log.exception("PostgreSQL pre-flight connection check failed")
+        raise
+
+    try:
+        Base.metadata.create_all(bind=engine)
+        startup_log.info("Base.metadata.create_all() completed")
+    except Exception:
+        startup_log.exception("Base.metadata.create_all() failed")
+        raise
+
+    try:
+        run_migrations()
+        startup_log.info("run_migrations() completed")
+    except Exception:
+        startup_log.exception("run_migrations() failed")
+        raise
 
     db = SessionLocal()
     try:
@@ -242,14 +282,22 @@ async def lifespan(app: FastAPI):
         from services.settings_cache import refresh_settings_cache
 
         refresh_settings_cache(db)
+        startup_log.info("seed_defaults() completed")
+    except Exception:
+        startup_log.exception("seed_defaults() failed")
+        if is_prod:
+            raise
     finally:
         db.close()
+
     try:
         start_reminder_scheduler()
+        startup_log.info("scheduler startup completed")
     except Exception:
-        import logging
+        startup_log.exception("scheduler startup failed")
+        if is_prod:
+            raise
 
-        logging.getLogger("azmus.main").exception("reminder scheduler failed to start")
     yield
     stop_reminder_scheduler()
     engine.dispose()
@@ -258,22 +306,19 @@ async def lifespan(app: FastAPI):
 _production = os.getenv("ENVIRONMENT", "").lower() in ("production", "prod") or os.getenv(
     "PRODUCTION", ""
 ).lower() in ("1", "true", "yes")
+_enable_api_docs = os.getenv("ENABLE_API_DOCS", "").lower() in ("1", "true", "yes")
+_show_docs = (not _production) or _enable_api_docs
 
 app = FastAPI(
     title="Azmus CRM ERP API",
     version="2.0.0",
     lifespan=lifespan,
-    docs_url=None if _production else "/docs",
-    redoc_url=None if _production else "/redoc",
-    openapi_url=None if _production else "/openapi.json",
+    docs_url="/docs" if _show_docs else None,
+    redoc_url="/redoc" if _show_docs else None,
+    openapi_url="/openapi.json" if _show_docs else None,
 )
 
-_cors_origins_env = os.getenv("CORS_ORIGINS", "*").strip()
-_cors_origins = (
-    ["*"]
-    if _cors_origins_env == "*"
-    else [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
-)
+_cors_origins = parse_cors_origins()
 
 app.add_middleware(
     CORSMiddleware,
@@ -351,6 +396,8 @@ def health_check():
         "version": "2.0.0",
         "auth_configured": is_auth_configured(),
         "data_root": str(DATA_ROOT),
+        "database_url": mask_database_url(DATABASE_URL),
+        "database_url_source": DATABASE_URL_SOURCE,
         "database": str(DB_PATH),
         **db_health,
         "uploads": str(UPLOAD_PATH),
