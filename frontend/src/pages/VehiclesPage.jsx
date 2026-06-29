@@ -83,7 +83,7 @@ export default function VehiclesPage() {
 
   return (
     <div className="pb-24">
-      <BackButton fallback="/gps" label="GPS Monitoring" className="mb-4" />
+      <BackButton fallback="/logistics/gps" label="GPS Monitoring" className="mb-4" />
       <PageHeader
         title="Fleet Vehicles"
         subtitle="GPS-tracked trucks linked to transport shipments"
@@ -220,7 +220,7 @@ export default function VehiclesPage() {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 text-sm">
-        <Link to="/transport/drivers" className="font-semibold text-blue-600 hover:underline">
+        <Link to="/logistics/drivers" className="font-semibold text-blue-600 hover:underline">
           Manage Drivers →
         </Link>
         <Link to="/driver-tracking" className="font-semibold text-blue-600 hover:underline">

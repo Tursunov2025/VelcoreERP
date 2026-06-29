@@ -9,7 +9,14 @@ from config.database_guard import (
     validate_production_database_at_startup,
 )
 from config.env_loader import audit_env_loading
-from config.production import log_effective_config, mask_database_url, parse_cors_origins, validate_runtime_config
+from config.production import (
+    cors_allow_credentials,
+    get_cors_origin_regex,
+    log_effective_config,
+    mask_database_url,
+    parse_cors_origins,
+    validate_runtime_config,
+)
 
 configure_logging()
 
@@ -54,6 +61,7 @@ from routers import (
     forecast_router,
     gps_router,
     export_shipments_router,
+    logistics_router,
     llp_router,
     mes_jobs_router,
     mes_lazer_terminal_router,
@@ -319,11 +327,13 @@ app = FastAPI(
 )
 
 _cors_origins = parse_cors_origins()
+_cors_origin_regex = get_cors_origin_regex()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_credentials=_cors_origins != ["*"],
+    allow_origin_regex=_cors_origin_regex,
+    allow_credentials=cors_allow_credentials(_cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
@@ -354,6 +364,7 @@ app.include_router(chat_router.router)
 app.include_router(tasks_router.router)
 app.include_router(telegram_router.router)
 app.include_router(branding_router.router)
+app.include_router(logistics_router.router)
 app.include_router(llp_router.router)
 app.include_router(mes_router.router)
 app.include_router(mes_jobs_router.router)

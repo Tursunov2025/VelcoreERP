@@ -218,7 +218,9 @@ class ExportShipmentDocument(Base):
     filename = Column(String, default="")
     content_type = Column(String, default="")
     file_size = Column(Integer, default=0)
-    llp_document_id = Column(Integer, ForeignKey("documents.id"), nullable=True, index=True)
+    llp_document_id = Column(
+        Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     generated_by = Column(String, nullable=False)
     generated_at = Column(DateTime, default=utcnow)
 
@@ -1370,3 +1372,74 @@ class GpsAlertState(Base):
     destination_alert_sent = Column(Integer, default=0)
     border_alert_sent = Column(Integer, default=0)
     updated_at = Column(DateTime, nullable=True)
+
+
+# --- Logistics (finished goods warehouse + loading shipments) ---
+
+FINISHED_PRODUCT_STATUSES = ("Available", "Reserved", "Loaded", "Delivered")
+LOADING_SHIPMENT_STATUSES = ("planned", "loading", "in_transit", "delivered", "cancelled")
+
+
+class LogisticsFinishedProduct(Base):
+    __tablename__ = "logistics_finished_products"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_code = Column(String, nullable=False, index=True)
+    product_name = Column(String, nullable=False)
+    order_number = Column(String, default="", index=True)
+    quantity = Column(Float, default=1)
+    warehouse_location = Column(String, default="")
+    status = Column(String, default="Available", index=True)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), index=True, nullable=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), index=True, nullable=True)
+    barcode = Column(String, unique=True, index=True, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    vehicle = relationship("Vehicle")
+    driver = relationship("Driver")
+    shipment_items = relationship("LogisticsLoadingShipmentItem", back_populates="product")
+
+
+class LogisticsLoadingShipment(Base):
+    __tablename__ = "logistics_loading_shipments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_no = Column(String, unique=True, index=True, nullable=False)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), index=True, nullable=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), index=True, nullable=True)
+    transport_id = Column(Integer, ForeignKey("transports.id"), index=True, nullable=True)
+    destination = Column(String, default="")
+    status = Column(String, default="planned", index=True)
+    created_by = Column(String, default="")
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    departed_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True)
+
+    vehicle = relationship("Vehicle")
+    driver = relationship("Driver")
+    transport = relationship("Transport")
+    items = relationship(
+        "LogisticsLoadingShipmentItem",
+        back_populates="shipment",
+        cascade="all, delete-orphan",
+    )
+
+
+class LogisticsLoadingShipmentItem(Base):
+    __tablename__ = "logistics_loading_shipment_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(
+        Integer, ForeignKey("logistics_loading_shipments.id"), index=True, nullable=False
+    )
+    product_id = Column(
+        Integer, ForeignKey("logistics_finished_products.id"), index=True, nullable=False
+    )
+    qty = Column(Float, default=1)
+    loaded_at = Column(DateTime, default=utcnow)
+    loaded_by = Column(String, default="")
+
+    shipment = relationship("LogisticsLoadingShipment", back_populates="items")
+    product = relationship("LogisticsFinishedProduct", back_populates="shipment_items")

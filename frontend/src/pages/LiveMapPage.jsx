@@ -48,7 +48,7 @@ export default function LiveMapPage() {
 
   return (
     <div className="pb-24">
-      <BackButton fallback="/gps" label="GPS Monitoring" className="mb-4" />
+      <BackButton fallback="/logistics/gps" label="GPS Monitoring" className="mb-4" />
       <PageHeader
         title="GPS Monitoring — Jonli xarita"
         subtitle={

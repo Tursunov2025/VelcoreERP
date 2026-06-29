@@ -64,6 +64,7 @@ class LocationUpdateIn(BaseModel):
     longitude: float = Field(..., ge=-180, le=180)
     speed: float = Field(default=0, ge=0)
     battery_level: float | None = Field(default=None, ge=0, le=100)
+    signal_strength: float | None = Field(default=None, description="Cell signal dBm or 0-4 bars")
 
 
 class TripIn(BaseModel):

@@ -21,15 +21,15 @@ const KPI_CARDS = [
   { key: "shipped_orders", label: "Shipped Orders", emoji: "🚚", to: "/shipping" },
   { key: "customers", label: "Customers", emoji: "👥", to: "/crm" },
   { key: "materials", label: "Materials", emoji: "🧱", to: "/materials" },
-  { key: "llp_documents", label: "LLP Documents", emoji: "📄", to: "/llp" },
-  { key: "export_shipments", label: "Export Shipments", emoji: "🌍", to: "/export-shipments" },
+  { key: "llp_documents", label: "LLP Documents", emoji: "📄", to: "/logistics/llp" },
+  { key: "export_shipments", label: "Export Shipments", emoji: "🌍", to: "/logistics/loading-plans" },
 ];
 
 const QUICK_ACTIONS = [
   { label: "New Order", emoji: "➕", to: "/orders" },
   { label: "New Job", emoji: "🛠️", to: "/mes/jobs/new" },
   { label: "Material Receipt", emoji: "📥", to: "/materials/receipts" },
-  { label: "Export Shipment", emoji: "🚚", to: "/export-shipments" },
+  { label: "Export Shipment", emoji: "🚚", to: "/logistics/loading-plans" },
   { label: "Reports", emoji: "📊", to: "/analytics" },
 ];
 
@@ -301,13 +301,13 @@ export default function DashboardPage() {
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-bold text-[var(--brand-text)]">🛰️ GPS Fleet</h2>
-            <Link to="/gps/monitoring" className="text-sm font-semibold text-[var(--brand-primary)]">
+            <Link to="/logistics/live-map" className="text-sm font-semibold text-[var(--brand-primary)]">
               Jonli xarita →
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Link
-            to="/gps/monitoring"
+            to="/logistics/live-map"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
             <p className="text-xs uppercase text-[var(--brand-muted)]">🚚 Online</p>
@@ -320,7 +320,7 @@ export default function DashboardPage() {
             </p>
           </Link>
           <Link
-            to="/gps/monitoring"
+            to="/logistics/live-map"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
             <p className="text-xs uppercase text-[var(--brand-muted)]">🟢 Moving</p>
@@ -329,7 +329,7 @@ export default function DashboardPage() {
             </p>
           </Link>
           <Link
-            to="/gps/monitoring"
+            to="/logistics/live-map"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
             <p className="text-xs uppercase text-[var(--brand-muted)]">🅿️ Stopped</p>
@@ -342,7 +342,7 @@ export default function DashboardPage() {
             <p className="mt-1 text-2xl font-black">{gpsStats.average_speed_kmh ?? 0} km/h</p>
           </div>
           <Link
-            to="/gps"
+            to="/logistics/gps"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
             <p className="text-xs uppercase text-[var(--brand-muted)]">🕒 ETA Arrivals</p>
@@ -365,7 +365,7 @@ export default function DashboardPage() {
               {gpsStats.live_vehicles.map((v) => (
                 <Link
                   key={v.vehicle_id}
-                  to="/gps/monitoring"
+                  to="/logistics/live-map"
                   className={`rounded-full border px-3 py-1 text-xs font-bold ${
                     v.online
                       ? v.moving
@@ -385,7 +385,7 @@ export default function DashboardPage() {
 
       {isWidgetEnabled(widgets, "export_shipments") && exportStats ? (
         <Link
-          to="/export-shipments"
+          to="/logistics/loading-plans"
           className="mb-6 grid gap-4 rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md sm:grid-cols-4"
         >
           <div>

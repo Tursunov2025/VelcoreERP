@@ -50,33 +50,27 @@ export default function GpsMonitoringHubPage() {
 
   const links = [
     {
-      to: "/gps/monitoring",
-      title: "GPS Monitoring",
+      to: "/logistics/live-map",
+      title: "Jonli Xarita",
       desc: "Jonli xarita — barcha mashinalar (5s yangilanish)",
       emoji: "🗺️",
     },
     {
-      to: "/gps/transports",
+      to: "/logistics/transports",
       title: "Transportlar",
-      desc: "Eksport va ichki transport reyslari",
+      desc: "Fleet ro&apos;yxati va davlat raqamlari",
       emoji: "🚛",
     },
     {
-      to: "/gps/vehicles",
-      title: "Avtomobillar",
-      desc: "Fleet ro&apos;yxati va davlat raqamlari",
-      emoji: "🚚",
-    },
-    {
-      to: "/gps/drivers",
+      to: "/logistics/drivers",
       title: "Haydovchilar",
       desc: "Haydovchilar ro&apos;yxati va aloqa",
       emoji: "👤",
     },
     {
-      to: "/gps/tasks",
-      title: "Vazifalar",
-      desc: "Transport vazifalari va GPS kuzatuv",
+      to: "/logistics/loading-plans",
+      title: "Yuklash Rejalari",
+      desc: "Transport vazifalari va yuklash rejasi",
       emoji: "📋",
     },
     {

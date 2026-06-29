@@ -18,6 +18,7 @@ from models import User
 from schemas import (
     LoginRequest,
     LoginUserOption,
+    PhoneLoginRequest,
     RefreshRequest,
     TokenResponse,
     UserPublic,
@@ -78,6 +79,22 @@ def login_users(db: Session = Depends(get_db)):
     )
 
 
+def _normalize_phone_digits(phone: str) -> str:
+    return "".join(c for c in (phone or "") if c.isdigit())
+
+
+def _login_candidates_for_phone(phone: str) -> list[str]:
+    digits = _normalize_phone_digits(phone)
+    if len(digits) < 9:
+        return []
+    candidates = [digits]
+    if len(digits) == 9:
+        candidates.append(f"998{digits}")
+    elif digits.startswith("998") and len(digits) >= 12:
+        candidates.append(digits[3:])
+    return list(dict.fromkeys(candidates))
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = _authenticate_user(db, data.username, data.password)
@@ -88,6 +105,26 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         )
     record_login(db, user)
     return _token_response(user)
+
+
+@router.post("/login-by-phone", response_model=TokenResponse)
+def login_by_phone(data: PhoneLoginRequest, db: Session = Depends(get_db)):
+    """Driver mobile — login with phone number (username = phone digits in ERP)."""
+    candidates = _login_candidates_for_phone(data.phone)
+    if not candidates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telefon raqam noto'g'ri",
+        )
+    for username in candidates:
+        user = _authenticate_user(db, username, data.password)
+        if user:
+            record_login(db, user)
+            return _token_response(user)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Telefon yoki parol xato",
+    )
 
 
 @router.post("/refresh", response_model=TokenResponse)

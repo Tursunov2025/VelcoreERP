@@ -3,13 +3,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
 
 from auth.deps import get_current_user
 from database import get_db
-from models import Document, DocumentFolder, DocumentReadStatus, User
+from models import Document, DocumentFolder, DocumentReadStatus, ExportShipmentDocument, User
 from routers.uploads_router import UPLOAD_DIR, _resolve_content_type, _safe_ext
 from services.audit import log_action
 from services.notifications import notify_event
@@ -86,9 +86,12 @@ def _save_llp_file(content: bytes, original_name: str | None) -> dict:
     ext = _safe_ext(original_name)
     if ext not in ALLOWED_LLP_EXT:
         raise HTTPException(status_code=400, detail="Invalid file type for LLP")
+    LLP_DIR.mkdir(parents=True, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}{ext}"
     filepath = LLP_DIR / stored_name
     filepath.write_bytes(content)
+    if not filepath.is_file():
+        raise HTTPException(status_code=500, detail="Failed to save file on disk")
     return {
         "url": f"/uploads/llp/{stored_name}",
         "filename": stored_name,
@@ -218,10 +221,10 @@ async def upload_document(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     file: UploadFile = File(...),
-    title: str = Query(""),
-    description: str = Query(""),
-    folder_id: Optional[int] = Query(None),
-    is_important: bool = Query(False),
+    title: str = Form(""),
+    description: str = Form(""),
+    folder_id: Optional[int] = Form(default=None),
+    is_important: bool = Form(False),
 ):
     _require(db, user, "llp_upload")
     ext = _safe_ext(file.filename)
@@ -319,6 +322,9 @@ def delete_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     filepath = LLP_DIR / (doc.filename or "")
+    db.query(ExportShipmentDocument).filter(
+        ExportShipmentDocument.llp_document_id == document_id
+    ).update({ExportShipmentDocument.llp_document_id: None}, synchronize_session=False)
     db.delete(doc)
     log_action(db, user.username, "delete", "document", document_id)
     db.commit()

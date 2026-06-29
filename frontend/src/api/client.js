@@ -590,12 +590,11 @@ export const api = {
   llpUploadDocument: async (file, { title, description, folder_id, is_important }) => {
     const form = new FormData();
     form.append("file", file);
-    const q = new URLSearchParams();
-    if (title) q.set("title", title);
-    if (description) q.set("description", description);
-    if (folder_id != null && folder_id !== "") q.set("folder_id", String(folder_id));
-    q.set("is_important", is_important ? "true" : "false");
-    return request(`/llp/documents?${q.toString()}`, { method: "POST", body: form });
+    if (title) form.append("title", title);
+    if (description) form.append("description", description);
+    if (folder_id != null && folder_id !== "") form.append("folder_id", String(folder_id));
+    form.append("is_important", is_important ? "true" : "false");
+    return request("/llp/documents", { method: "POST", body: form });
   },
   llpUpdateDocument: (id, body) =>
     request(`/llp/documents/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -625,6 +624,37 @@ export const api = {
     }),
   generateExportDocuments: (id) =>
     request(`/export-shipments/${id}/generate-documents`, { method: "POST" }),
+
+  // Logistics — finished warehouse + loading shipments
+  logisticsDashboard: () => request("/logistics/dashboard"),
+  logisticsProducts: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v != null) q.set(k, String(v));
+    });
+    const qs = q.toString();
+    return request(`/logistics/products${qs ? `?${qs}` : ""}`);
+  },
+  logisticsCreateProduct: (body) =>
+    request("/logistics/products", { method: "POST", body: JSON.stringify(body) }),
+  logisticsUpdateProduct: (id, body) =>
+    request(`/logistics/products/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  logisticsShipments: (status = "") =>
+    request(status ? `/logistics/shipments?status=${encodeURIComponent(status)}` : "/logistics/shipments"),
+  logisticsShipment: (id) => request(`/logistics/shipments/${id}`),
+  logisticsCreateShipment: (body) =>
+    request("/logistics/shipments", { method: "POST", body: JSON.stringify(body) }),
+  logisticsAddShipmentItem: (shipmentId, body) =>
+    request(`/logistics/shipments/${shipmentId}/items`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  logisticsLoadingScan: (body) =>
+    request("/logistics/loading/scan", { method: "POST", body: JSON.stringify(body) }),
+  logisticsDepartShipment: (id) =>
+    request(`/logistics/shipments/${id}/depart`, { method: "POST" }),
+  logisticsDeliverShipment: (id) =>
+    request(`/logistics/shipments/${id}/deliver`, { method: "POST" }),
 
   // Phase 11B — Multi Currency
   currencies: () => request("/currencies"),

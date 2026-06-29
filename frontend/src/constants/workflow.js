@@ -86,15 +86,9 @@ export const NAV_ITEMS = [
 
   { path: "/tasks", label: "Vazifalar", iconKey: "tasks", permission: "tasks" },
 
-  { path: "/llp", label: "LLP", iconKey: "llp", permission: "llp_view" },
+  { path: "/logistics", label: "Export va Logistika", iconKey: "exportLogistics", permission: "export_view" },
 
   { path: "/crm", label: "CRM", iconKey: "crm", permission: "orders" },
-
-  { path: "/export-shipments", label: "Export Shipments", iconKey: "exportShipments", permission: "export_view" },
-
-  { path: "/gps", label: "GPS Monitoring", iconKey: "gpsMonitoring", permission: "export_view" },
-
-  { path: "/transport", label: "Transport", iconKey: "transport", permission: "export_view" },
 
   { path: "/currencies", label: "Valyutalar", iconKey: "currencies", permission: "finance" },
 
@@ -208,22 +202,20 @@ export const NAV_SECTIONS = [
     id: "exportLogistics",
     iconKey: "exportLogistics",
     emoji: "🚚",
-    path: "/export-shipments",
+    path: "/logistics",
     permission: "export_view",
     children: [
-      { path: "/export-shipments", iconKey: "exportShipments", permission: "export_view" },
-      { path: "/gps", iconKey: "gpsMonitoring", permission: "export_view" },
-      { path: "/gps/monitoring", iconKey: "liveMap", permission: "export_view" },
-      { path: "/gps/transports", iconKey: "transport", permission: "export_view" },
-      { path: "/gps/vehicles", iconKey: "fleetVehicles", permission: "export_view" },
-      { path: "/gps/drivers", iconKey: "fleetDrivers", permission: "export_view" },
-      { path: "/gps/tasks", iconKey: "gpsTasks", permission: "export_view" },
-      { path: "/transport", iconKey: "transport", permission: "export_view" },
-      { path: "/transport/live-map", iconKey: "liveMap", permission: "export_view" },
-      { path: "/transport/vehicles", iconKey: "fleetVehicles", permission: "export_view" },
-      { path: "/transport/drivers", iconKey: "fleetDrivers", permission: "export_view" },
-      { path: "/shipping", iconKey: "shipping", permission: "warehouse" },
-      { path: "/llp", iconKey: "llp", permission: "llp_view" },
+      { path: "/logistics", iconKey: "logisticsDashboard", permission: "export_view" },
+      { path: "/logistics/finished-warehouse", iconKey: "finishedWarehouse", permission: "export_view" },
+      { path: "/logistics/loading-plans", iconKey: "loadingPlans", permission: "export_view" },
+      { path: "/logistics/transports", iconKey: "transport", permission: "export_view" },
+      { path: "/logistics/drivers", iconKey: "fleetDrivers", permission: "export_view" },
+      { path: "/logistics/gps", iconKey: "gpsMonitoring", permission: "export_view" },
+      { path: "/logistics/live-map", iconKey: "liveMap", permission: "export_view" },
+      { path: "/logistics/loading-control", iconKey: "loadingControl", permission: "export_view" },
+      { path: "/logistics/in-transit", iconKey: "inTransit", permission: "export_view" },
+      { path: "/logistics/delivered", iconKey: "deliveredLoads", permission: "export_view" },
+      { path: "/logistics/llp", iconKey: "llp", permission: "llp_view" },
     ],
   },
   {

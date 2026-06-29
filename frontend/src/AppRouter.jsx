@@ -20,16 +20,19 @@ import OrdersControlCenterPage from "./pages/OrdersControlCenterPage";
 import ChatPage from "./pages/ChatPage";
 import TasksPage from "./pages/TasksPage";
 import LlpPage from "./pages/LlpPage";
-import ExportShipmentsPage from "./pages/ExportShipmentsPage";
 import CrmPage from "./pages/CrmPage";
 import CurrenciesPage from "./pages/CurrenciesPage";
-import TransportPage from "./pages/TransportPage";
 import LiveMapPage from "./pages/LiveMapPage";
 import DriverTrackingPage from "./pages/DriverTrackingPage";
 import VehiclesPage from "./pages/VehiclesPage";
 import DriversPage from "./pages/DriversPage";
 import GpsMonitoringHubPage from "./pages/gps/GpsMonitoringHubPage";
-import TransportTasksPage from "./pages/gps/TransportTasksPage";
+import LogisticsDashboardPage from "./pages/logistics/LogisticsDashboardPage";
+import FinishedWarehousePage from "./pages/logistics/FinishedWarehousePage";
+import LoadingPlansPage from "./pages/logistics/LoadingPlansPage";
+import LoadingControlPage from "./pages/logistics/LoadingControlPage";
+import InTransitPage from "./pages/logistics/InTransitPage";
+import DeliveredLoadsPage from "./pages/logistics/DeliveredLoadsPage";
 import DriverMobilePage from "./pages/driver/DriverMobilePage";
 import WarehouseForecastPage from "./pages/WarehouseForecastPage";
 import MesHubPage from "./pages/mes/MesHubPage";
@@ -130,21 +133,36 @@ function AppRoutes() {
             <Route path="shipping" element={<ShippingPage />} />
             <Route path="chat" element={<ChatPage />} />
             <Route path="tasks" element={<TasksPage />} />
-            <Route path="llp" element={<LlpPage />} />
-            <Route path="export-shipments" element={<ExportShipmentsPage />} />
+            <Route path="llp" element={<Navigate to="/logistics/llp" replace />} />
+            <Route path="export-shipments" element={<Navigate to="/logistics/loading-plans" replace />} />
+            <Route path="export-shipments/*" element={<Navigate to="/logistics/loading-plans" replace />} />
             <Route path="crm" element={<CrmPage />} />
             <Route path="currencies" element={<CurrenciesPage />} />
-            <Route path="transport" element={<TransportPage />} />
-            <Route path="transport/live-map" element={<LiveMapPage />} />
-            <Route path="transport/vehicles" element={<VehiclesPage />} />
-            <Route path="transport/drivers" element={<DriversPage />} />
+            <Route path="logistics" element={<LogisticsDashboardPage />} />
+            <Route path="logistics/finished-warehouse" element={<FinishedWarehousePage />} />
+            <Route path="logistics/loading-plans" element={<LoadingPlansPage />} />
+            <Route path="logistics/loading-control" element={<LoadingControlPage />} />
+            <Route path="logistics/transports" element={<VehiclesPage />} />
+            <Route path="logistics/drivers" element={<DriversPage />} />
+            <Route path="logistics/gps" element={<GpsMonitoringHubPage />} />
+            <Route path="logistics/live-map" element={<LiveMapPage />} />
+            <Route path="logistics/in-transit" element={<InTransitPage />} />
+            <Route path="logistics/delivered" element={<DeliveredLoadsPage />} />
+            <Route path="logistics/llp" element={<LlpPage />} />
+            <Route path="transport" element={<Navigate to="/logistics/transports" replace />} />
+            <Route path="transport/live-map" element={<Navigate to="/logistics/live-map" replace />} />
+            <Route path="transport/vehicles" element={<Navigate to="/logistics/transports" replace />} />
+            <Route path="transport/drivers" element={<Navigate to="/logistics/drivers" replace />} />
             <Route path="driver-tracking" element={<DriverTrackingPage />} />
-            <Route path="gps" element={<GpsMonitoringHubPage />} />
-            <Route path="gps/monitoring" element={<LiveMapPage />} />
-            <Route path="gps/transports" element={<TransportPage />} />
-            <Route path="gps/vehicles" element={<VehiclesPage />} />
-            <Route path="gps/drivers" element={<DriversPage />} />
-            <Route path="gps/tasks" element={<TransportTasksPage />} />
+            <Route path="gps" element={<Navigate to="/logistics/gps" replace />} />
+            <Route path="gps/monitoring" element={<Navigate to="/logistics/live-map" replace />} />
+            <Route path="gps/transports" element={<Navigate to="/logistics/transports" replace />} />
+            <Route path="gps/vehicles" element={<Navigate to="/logistics/transports" replace />} />
+            <Route path="gps/drivers" element={<Navigate to="/logistics/drivers" replace />} />
+            <Route path="gps/tasks" element={<Navigate to="/logistics/loading-plans" replace />} />
+            <Route path="fleet-vehicles" element={<Navigate to="/logistics/transports" replace />} />
+            <Route path="fleet-drivers" element={<Navigate to="/logistics/drivers" replace />} />
+            <Route path="transport-tasks" element={<Navigate to="/logistics/loading-plans" replace />} />
             <Route path="materials/forecast" element={<WarehouseForecastPage />} />
             <Route path="mes" element={<MesHubPage />} />
             <Route path="mes/categories" element={<MesCategoriesPage />} />

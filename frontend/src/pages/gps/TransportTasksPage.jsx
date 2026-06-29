@@ -257,7 +257,7 @@ export default function TransportTasksPage() {
         {!loading && tasks.length === 0 ? (
           <p className="py-8 text-center text-sm text-[var(--brand-muted)]">
             Vazifalar yo&apos;q.{" "}
-            <Link to="/gps/vehicles" className="font-bold text-[var(--brand-primary)]">
+            <Link to="/logistics/transports" className="font-bold text-[var(--brand-primary)]">
               Mashina qo&apos;shing
             </Link>
           </p>

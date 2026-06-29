@@ -31,6 +31,7 @@ chmod 600 "$ENV"
 grep -q '^JWT_SECRET_KEY=.\+' "$ENV" || { echo "ERROR: JWT_SECRET_KEY missing in $ENV"; exit 1; }
 grep -q '^DATABASE_URL=.\+' "$ENV" || { echo "ERROR: DATABASE_URL missing in $ENV"; exit 1; }
 grep -q '^CORS_ORIGINS=.*erp.velcore.uz' "$ENV" || sed -i 's|^CORS_ORIGINS=.*|CORS_ORIGINS=https://erp.velcore.uz|' "$ENV"
+grep -q '^CORS_ALLOW_DEV=' "$ENV" || echo "CORS_ALLOW_DEV=true" >> "$ENV"
 grep -q '^ENABLE_API_DOCS=' "$ENV" || echo "ENABLE_API_DOCS=true" >> "$ENV"
 grep -q '^AZMUS_ENV_FILE=' "$ENV" || echo "AZMUS_ENV_FILE=${ENV}" >> "$ENV"
 grep -q '^DATABASE_GUARD=' "$ENV" || echo "DATABASE_GUARD=false" >> "$ENV"

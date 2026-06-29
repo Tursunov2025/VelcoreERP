@@ -8,10 +8,21 @@ Wants=network-online.target postgresql.service
 Type=simple
 WorkingDirectory=/var/www/velcore/backend
 EnvironmentFile=-/etc/velcore/.env
+Environment=PYTHONUNBUFFERED=1
 Environment=AZMUS_ENV_FILE=/etc/velcore/.env
+
+# Ensure log directory exists before uvicorn starts (StandardOutput append needs it).
+ExecStartPre=/bin/mkdir -p /var/lib/velcore/data/logs
+ExecStartPre=/bin/mkdir -p /var/lib/velcore/data/uploads
+ExecStartPre=/bin/mkdir -p /var/lib/velcore/data/backups
+
 ExecStart=/var/www/velcore/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips=127.0.0.1
+
 Restart=always
 RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+TimeoutStartSec=120
 TimeoutStopSec=30
 KillMode=mixed
 

@@ -583,7 +583,63 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_transport_tasks_status ON transport_tasks (status)",
         "CREATE INDEX IF NOT EXISTS ix_transport_tasks_vehicle ON transport_tasks (vehicle_id)",
 
+        # LLP document delete — allow documents.id removal when linked from export shipments
+        "ALTER TABLE export_shipment_documents DROP CONSTRAINT IF EXISTS export_shipment_documents_llp_document_id_fkey",
+        """ALTER TABLE export_shipment_documents
+            ADD CONSTRAINT export_shipment_documents_llp_document_id_fkey
+            FOREIGN KEY (llp_document_id) REFERENCES documents(id) ON DELETE SET NULL""",
+
         # Phase 12.1 — GPS alert dedup state
+        """CREATE TABLE IF NOT EXISTS logistics_finished_products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_code VARCHAR NOT NULL,
+            product_name VARCHAR NOT NULL,
+            order_number VARCHAR DEFAULT '',
+            quantity FLOAT DEFAULT 1,
+            warehouse_location VARCHAR DEFAULT '',
+            status VARCHAR DEFAULT 'Tayyor',
+            barcode VARCHAR UNIQUE,
+            created_at DATETIME,
+            updated_at DATETIME
+        )""",
+        """CREATE TABLE IF NOT EXISTS logistics_loading_shipments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shipment_no VARCHAR NOT NULL UNIQUE,
+            vehicle_id INTEGER,
+            driver_id INTEGER,
+            transport_id INTEGER,
+            destination VARCHAR DEFAULT '',
+            status VARCHAR DEFAULT 'planned',
+            created_by VARCHAR DEFAULT '',
+            created_at DATETIME,
+            updated_at DATETIME,
+            departed_at DATETIME,
+            delivered_at DATETIME,
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles (id),
+            FOREIGN KEY (driver_id) REFERENCES drivers (id),
+            FOREIGN KEY (transport_id) REFERENCES transports (id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS logistics_loading_shipment_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shipment_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
+            qty FLOAT DEFAULT 1,
+            loaded_at DATETIME,
+            loaded_by VARCHAR DEFAULT '',
+            FOREIGN KEY (shipment_id) REFERENCES logistics_loading_shipments (id),
+            FOREIGN KEY (product_id) REFERENCES logistics_finished_products (id)
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_logistics_products_status ON logistics_finished_products (status)",
+        "CREATE INDEX IF NOT EXISTS ix_logistics_products_barcode ON logistics_finished_products (barcode)",
+        "CREATE INDEX IF NOT EXISTS ix_logistics_shipments_status ON logistics_loading_shipments (status)",
+
+        "ALTER TABLE logistics_finished_products ADD COLUMN vehicle_id INTEGER REFERENCES vehicles (id)",
+        "ALTER TABLE logistics_finished_products ADD COLUMN driver_id INTEGER REFERENCES drivers (id)",
+        "UPDATE logistics_finished_products SET status = 'Available' WHERE status = 'Tayyor'",
+        "UPDATE logistics_finished_products SET status = 'Reserved' WHERE status = 'Yuklanmoqda'",
+        "UPDATE logistics_finished_products SET status = 'Loaded' WHERE status = 'Yuklandi'",
+        "UPDATE logistics_finished_products SET status = 'Delivered' WHERE status = 'Yetkazildi'",
+
         """CREATE TABLE IF NOT EXISTS gps_alert_state (
             vehicle_id INTEGER PRIMARY KEY,
             last_city VARCHAR DEFAULT '',

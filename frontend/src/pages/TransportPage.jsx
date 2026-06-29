@@ -136,25 +136,25 @@ export default function TransportPage() {
 
   return (
     <div className="pb-24">
-      <BackButton fallback="/export-shipments" label="Export & Logistics" className="mb-4" />
+      <BackButton fallback="/logistics" label="Export va Logistika" className="mb-4" />
       <PageHeader title="Transport Management" subtitle="Vehicles, drivers and delivery tracking" />
 
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
-          to="/transport/live-map"
+          to="/logistics/live-map"
           className="rounded-xl px-4 py-2.5 text-sm font-bold text-white"
           style={{ backgroundColor: "var(--brand-button)" }}
         >
           📍 Live Map
         </Link>
         <Link
-          to="/transport/vehicles"
+          to="/logistics/transports"
           className="rounded-xl border px-4 py-2.5 text-sm font-bold text-[var(--brand-text)]"
         >
           Fleet Vehicles
         </Link>
         <Link
-          to="/transport/drivers"
+          to="/logistics/drivers"
           className="rounded-xl border px-4 py-2.5 text-sm font-bold text-[var(--brand-text)]"
         >
           Fleet Drivers

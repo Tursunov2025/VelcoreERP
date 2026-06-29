@@ -20,6 +20,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PhoneLoginRequest(BaseModel):
+    phone: str
+    password: str
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 

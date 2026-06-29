@@ -145,7 +145,7 @@ export default function DriverTrackingPage() {
 
   return (
     <div className="pb-28">
-      <BackButton fallback="/transport/live-map" label="Live Map" className="mb-4" />
+      <BackButton fallback="/logistics/live-map" label="Live Map" className="mb-4" />
       <PageHeader
         title="Driver GPS Tracking"
         subtitle={`Live updates every 5s · ${username}${pageActive ? "" : " · paused (tab hidden)"}`}
@@ -190,7 +190,7 @@ export default function DriverTrackingPage() {
             <div className="mt-2 flex flex-wrap gap-2">
               {vehicles.length === 0 ? (
                 <Link
-                  to="/transport/vehicles"
+                  to="/logistics/transports"
                   className="rounded-lg px-3 py-1.5 text-xs font-bold text-white"
                   style={{ backgroundColor: "var(--brand-button)" }}
                 >
@@ -199,7 +199,7 @@ export default function DriverTrackingPage() {
               ) : null}
               {drivers.length === 0 ? (
                 <Link
-                  to="/transport/drivers"
+                  to="/logistics/drivers"
                   className="rounded-lg border px-3 py-1.5 text-xs font-bold"
                 >
                   + Create Driver
