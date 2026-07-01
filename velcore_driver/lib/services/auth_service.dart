@@ -13,24 +13,18 @@ class AuthService {
 
   bool get isLoggedIn => session != null;
 
+  String get driverType => _storage.driverType;
+
   Future<AuthSession> login(String phone, String password) async {
-    final session = await _api.loginByPhone(phone, password);
+    final session = await _api.driverLogin(phone, password);
     await _storage.setDriverPhone(phone);
-    try {
-      final drivers = await _api.fetchDrivers();
-      final match = drivers.where((d) => d.matchesPhone(phone)).toList();
-      if (match.isNotEmpty) {
-        await _storage.setDriverId(match.first.id);
-      }
-    } catch (_) {
-      // Driver list optional at login
-    }
     return session;
   }
 
   Future<void> logout() async {
     await _storage.setSession(null);
     await _storage.setDriverId(null);
+    await _storage.setDriverType('');
     await _storage.setVehicleId(null);
     await _storage.setTrackingActive(false);
   }

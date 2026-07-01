@@ -21,7 +21,7 @@ class TrackingResume {
 
     await BackgroundLocator.initialize();
     await BackgroundLocator.registerLocationUpdate(
-      callback: locationCallback,
+      locationCallback,
       initCallback: locationInitCallback,
       disposeCallback: locationDisposeCallback,
       autoStop: false,

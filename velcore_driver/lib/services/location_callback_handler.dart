@@ -14,7 +14,7 @@ void locationCallback(LocationDto data) {
 }
 
 @pragma('vm:entry-point')
-void locationInitCallback(Map<dynamic, dynamic> params) {}
+void locationInitCallback(Map<String, dynamic> params) {}
 
 @pragma('vm:entry-point')
 void locationDisposeCallback() {}

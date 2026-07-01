@@ -8,7 +8,7 @@ import 'package:background_locator_2/settings/locator_settings.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart' as geo;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -33,7 +33,7 @@ class TrackingService {
   final ApiService _api;
   final OfflineQueueService _queue;
 
-  StreamSubscription<Position>? _foregroundSub;
+  StreamSubscription<geo.Position>? _foregroundSub;
   StreamSubscription<BatteryState>? _batterySub;
   Timer? _foregroundTimer;
   final _battery = Battery();
@@ -60,16 +60,16 @@ class TrackingService {
 
   /// GPS ruxsati — rad etilsa Settings ga yo'naltirish uchun dialog.
   Future<LocationPermissionStatus> checkAndRequestPermissions(BuildContext context) async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
+    if (!await geo.Geolocator.isLocationServiceEnabled()) {
       return LocationPermissionStatus.serviceDisabled;
     }
 
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    var permission = await geo.Geolocator.checkPermission();
+    if (permission == geo.LocationPermission.denied) {
+      permission = await geo.Geolocator.requestPermission();
     }
 
-    if (permission == LocationPermission.deniedForever) {
+    if (permission == geo.LocationPermission.deniedForever) {
       await _showOpenSettingsDialog(
         context,
         title: 'GPS ruxsati bloklangan',
@@ -78,11 +78,11 @@ class TrackingService {
       return LocationPermissionStatus.deniedForever;
     }
 
-    if (permission == LocationPermission.denied) {
+    if (permission == geo.LocationPermission.denied) {
       return LocationPermissionStatus.denied;
     }
 
-    if (Platform.isAndroid && permission == LocationPermission.whileInUse) {
+    if (Platform.isAndroid && permission == geo.LocationPermission.whileInUse) {
       final bg = await Permission.locationAlways.status;
       if (!bg.isGranted) {
         final result = await Permission.locationAlways.request();
@@ -116,7 +116,7 @@ class TrackingService {
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await Geolocator.openAppSettings();
+              await geo.Geolocator.openAppSettings();
             },
             child: const Text('Sozlamalar'),
           ),
@@ -126,7 +126,7 @@ class TrackingService {
   }
 
   Future<void> openLocationSettings() async {
-    await Geolocator.openLocationSettings();
+    await geo.Geolocator.openLocationSettings();
   }
 
   Future<bool> ensurePermissions(BuildContext context) async {
@@ -138,7 +138,7 @@ class TrackingService {
           title: 'GPS o\'chiq',
           message: 'Telefon sozlamalarida joylashuv xizmatini yoqing.',
         );
-        await Geolocator.openLocationSettings();
+        await geo.Geolocator.openLocationSettings();
       }
       return false;
     }
@@ -148,7 +148,7 @@ class TrackingService {
   Future<void> startTracking({
     required int vehicleId,
     int? driverId,
-    void Function(Position position, int sentCount, int battery)? onTick,
+    void Function(geo.Position position, int sentCount, int battery)? onTick,
   }) async {
     await _storage.setVehicleId(vehicleId);
     if (driverId != null) await _storage.setDriverId(driverId);
@@ -171,7 +171,7 @@ class TrackingService {
     await BackgroundLocator.initialize();
     if (!await BackgroundLocator.isServiceRunning()) {
       await BackgroundLocator.registerLocationUpdate(
-        callback: locationCallback,
+        locationCallback,
         initCallback: locationInitCallback,
         disposeCallback: locationDisposeCallback,
         autoStop: false,
@@ -206,9 +206,9 @@ class TrackingService {
     );
 
     _foregroundSub?.cancel();
-    _foregroundSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
+    _foregroundSub = geo.Geolocator.getPositionStream(
+      locationSettings: const geo.LocationSettings(
+        accuracy: geo.LocationAccuracy.bestForNavigation,
         distanceFilter: 5,
       ),
     ).listen((pos) {
@@ -234,10 +234,10 @@ class TrackingService {
     final vehicleId = _storage.vehicleId;
     if (vehicleId == null) return;
 
-    Position? position;
+    geo.Position? position;
     try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation),
+      position = await geo.Geolocator.getCurrentPosition(
+        locationSettings: const geo.LocationSettings(accuracy: geo.LocationAccuracy.bestForNavigation),
       );
     } catch (_) {
       return;

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useLocale } from "../../context/LocaleContext";
 
 const SECTIONS = [
@@ -15,6 +16,20 @@ export default function SuperAdminHubTab({ onNavigate }) {
     <div>
       <h2 className="mb-2 text-xl font-black">{t("controlCenter.superAdminTitle")}</h2>
       <p className="mb-6 text-sm text-[var(--brand-muted)]">{t("controlCenter.superAdminSubtitle")}</p>
+
+      <Link
+        to="/super-admin"
+        className="mb-6 flex items-center gap-4 rounded-2xl border-2 border-[var(--brand-primary)] bg-[var(--brand-secondary)] p-5 transition hover:shadow-md"
+      >
+        <span className="text-4xl">🎛️</span>
+        <div>
+          <h3 className="text-lg font-black">Professional Super Admin CMS</h3>
+          <p className="text-sm text-[var(--brand-muted)]">
+            Menyu, modullar, theme, form/table builder, rollar, audit, rollback
+          </p>
+        </div>
+      </Link>
+
       <div className="grid gap-4 sm:grid-cols-2">
         {SECTIONS.map((s) => (
           <button

@@ -18,18 +18,18 @@ const KPI_CARDS = [
   { key: "orders", label: "Orders", emoji: "📦", to: "/orders" },
   { key: "production_jobs", label: "Production Jobs", emoji: "🏭", to: "/mes/jobs" },
   { key: "finished_products", label: "Finished Products", emoji: "✅", to: "/mes/terminal/warehouse" },
-  { key: "shipped_orders", label: "Shipped Orders", emoji: "🚚", to: "/shipping" },
+  { key: "shipped_orders", label: "Shipped Orders", emoji: "🚚", to: "/logistics/delivered" },
   { key: "customers", label: "Customers", emoji: "👥", to: "/crm" },
   { key: "materials", label: "Materials", emoji: "🧱", to: "/materials" },
   { key: "llp_documents", label: "LLP Documents", emoji: "📄", to: "/logistics/llp" },
-  { key: "export_shipments", label: "Export Shipments", emoji: "🌍", to: "/logistics/loading-plans" },
+  { key: "export_shipments", label: "Yuklash rejalari", emoji: "🌍", to: "/logistics/loading-plans" },
 ];
 
 const QUICK_ACTIONS = [
   { label: "New Order", emoji: "➕", to: "/orders" },
   { label: "New Job", emoji: "🛠️", to: "/mes/jobs/new" },
   { label: "Material Receipt", emoji: "📥", to: "/materials/receipts" },
-  { label: "Export Shipment", emoji: "🚚", to: "/logistics/loading-plans" },
+  { label: "Yuklash rejasi", emoji: "🚚", to: "/logistics/loading-plans" },
   { label: "Reports", emoji: "📊", to: "/analytics" },
 ];
 
@@ -77,7 +77,7 @@ export default function DashboardPage() {
         api.crmTopDebtors(5).catch(() => null),
         api.warehouseForecastAlerts(6).catch(() => null),
         isWidgetEnabled(widgets, "export_shipments")
-          ? api.exportShipmentDashboard().catch(() => null)
+          ? api.logisticsDashboard().catch(() => null)
           : Promise.resolve(null),
         api.gpsDashboard().catch(() => null),
       ]);
@@ -87,7 +87,7 @@ export default function DashboardPage() {
       setCurrencyStats(currencyData);
       setTopDebtors(debtorData);
       setForecastAlerts(forecastData);
-      setExportStats(exportData);
+      setExportStats(exportData?.shipments ?? null);
       setGpsStats(gpsData);
       if (isAdmin && isWidgetEnabled(widgets, "delayed_summary")) {
         const delayed = await api
@@ -389,19 +389,19 @@ export default function DashboardPage() {
           className="mb-6 grid gap-4 rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md sm:grid-cols-4"
         >
           <div>
-            <p className="text-sm text-[var(--brand-muted)]">Export Shipments</p>
+            <p className="text-sm text-[var(--brand-muted)]">Yuklash rejalari</p>
             <p className="mt-2 text-2xl font-black">{exportStats.total ?? 0}</p>
           </div>
           <div>
-            <p className="text-sm text-[var(--brand-muted)]">Ready</p>
-            <p className="mt-2 text-xl font-black text-blue-600">{exportStats.ready ?? 0}</p>
+            <p className="text-sm text-[var(--brand-muted)]">Rejalashtirilgan</p>
+            <p className="mt-2 text-xl font-black text-blue-600">{exportStats.planned ?? 0}</p>
           </div>
           <div>
-            <p className="text-sm text-[var(--brand-muted)]">Sent</p>
-            <p className="mt-2 text-xl font-black text-amber-600">{exportStats.sent ?? 0}</p>
+            <p className="text-sm text-[var(--brand-muted)]">Yo&apos;lda</p>
+            <p className="mt-2 text-xl font-black text-amber-600">{exportStats.in_transit ?? 0}</p>
           </div>
           <div>
-            <p className="text-sm text-[var(--brand-muted)]">Delivered</p>
+            <p className="text-sm text-[var(--brand-muted)]">Yetkazilgan</p>
             <p className="mt-2 text-xl font-black text-green-600">{exportStats.delivered ?? 0}</p>
           </div>
         </Link>

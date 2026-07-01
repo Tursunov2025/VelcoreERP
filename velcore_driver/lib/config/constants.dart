@@ -6,6 +6,7 @@ class AppConstants {
   static const prefsTokens = 'velcore_tokens';
   static const prefsDriverId = 'velcore_driver_id';
   static const prefsDriverPhone = 'velcore_driver_phone';
+  static const prefsDriverType = 'velcore_driver_type';
   static const prefsVehicleId = 'velcore_vehicle_id';
   static const prefsTracking = 'velcore_tracking_active';
   static const prefsOfflineQueue = 'velcore_offline_queue';

@@ -13,9 +13,9 @@ import WarehousePage from "./pages/WarehousePage";
 import OperatorsPage from "./pages/OperatorsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import FinancePage from "./pages/FinancePage";
-import ShippingPage from "./pages/ShippingPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import SettingsPage from "./pages/SettingsPage";
+import SuperAdminPage from "./pages/superadmin/SuperAdminPage";
 import OrdersControlCenterPage from "./pages/OrdersControlCenterPage";
 import ChatPage from "./pages/ChatPage";
 import TasksPage from "./pages/TasksPage";
@@ -130,12 +130,8 @@ function AppRoutes() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="production" element={<ProductionPage />} />
             <Route path="warehouse" element={<WarehousePage />} />
-            <Route path="shipping" element={<ShippingPage />} />
             <Route path="chat" element={<ChatPage />} />
             <Route path="tasks" element={<TasksPage />} />
-            <Route path="llp" element={<Navigate to="/logistics/llp" replace />} />
-            <Route path="export-shipments" element={<Navigate to="/logistics/loading-plans" replace />} />
-            <Route path="export-shipments/*" element={<Navigate to="/logistics/loading-plans" replace />} />
             <Route path="crm" element={<CrmPage />} />
             <Route path="currencies" element={<CurrenciesPage />} />
             <Route path="logistics" element={<LogisticsDashboardPage />} />
@@ -149,20 +145,7 @@ function AppRoutes() {
             <Route path="logistics/in-transit" element={<InTransitPage />} />
             <Route path="logistics/delivered" element={<DeliveredLoadsPage />} />
             <Route path="logistics/llp" element={<LlpPage />} />
-            <Route path="transport" element={<Navigate to="/logistics/transports" replace />} />
-            <Route path="transport/live-map" element={<Navigate to="/logistics/live-map" replace />} />
-            <Route path="transport/vehicles" element={<Navigate to="/logistics/transports" replace />} />
-            <Route path="transport/drivers" element={<Navigate to="/logistics/drivers" replace />} />
             <Route path="driver-tracking" element={<DriverTrackingPage />} />
-            <Route path="gps" element={<Navigate to="/logistics/gps" replace />} />
-            <Route path="gps/monitoring" element={<Navigate to="/logistics/live-map" replace />} />
-            <Route path="gps/transports" element={<Navigate to="/logistics/transports" replace />} />
-            <Route path="gps/vehicles" element={<Navigate to="/logistics/transports" replace />} />
-            <Route path="gps/drivers" element={<Navigate to="/logistics/drivers" replace />} />
-            <Route path="gps/tasks" element={<Navigate to="/logistics/loading-plans" replace />} />
-            <Route path="fleet-vehicles" element={<Navigate to="/logistics/transports" replace />} />
-            <Route path="fleet-drivers" element={<Navigate to="/logistics/drivers" replace />} />
-            <Route path="transport-tasks" element={<Navigate to="/logistics/loading-plans" replace />} />
             <Route path="materials/forecast" element={<WarehouseForecastPage />} />
             <Route path="mes" element={<MesHubPage />} />
             <Route path="mes/categories" element={<MesCategoriesPage />} />
@@ -209,6 +192,7 @@ function AppRoutes() {
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="control-center" element={<OrdersControlCenterPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="super-admin" element={<SuperAdminPage />} />
           </Route>
           <Route path="*" element={<CatchAllRoute />} />
     </Routes>

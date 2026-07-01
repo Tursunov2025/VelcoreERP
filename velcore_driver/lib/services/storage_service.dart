@@ -55,6 +55,16 @@ class StorageService {
     await _prefs.setString(AppConstants.prefsDriverPhone, phone);
   }
 
+  String get driverType => _prefs.getString(AppConstants.prefsDriverType) ?? '';
+
+  Future<void> setDriverType(String type) async {
+    if (type.isEmpty) {
+      await _prefs.remove(AppConstants.prefsDriverType);
+    } else {
+      await _prefs.setString(AppConstants.prefsDriverType, type);
+    }
+  }
+
   int? get vehicleId => _prefs.getInt(AppConstants.prefsVehicleId);
 
   Future<void> setVehicleId(int? id) async {

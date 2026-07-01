@@ -17,6 +17,7 @@ from services.control_center_config import (
 from services.feature_flags import print_agent_enabled, traceability_enabled
 from services.orders_control_center import export_items_csv, list_control_center_items
 from services.settings_store import get_settings_for_admin
+from services.super_admin_service import get_runtime_config, seed_super_admin_defaults
 
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 
@@ -26,16 +27,24 @@ def get_ui_config(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Nav visibility + dashboard widgets for all authenticated users."""
+    """Nav visibility + dashboard widgets + Super Admin CMS runtime config."""
     settings = get_settings_for_admin(db)
+    seed_super_admin_defaults(db)
+    super_cfg = get_runtime_config(db)
+    legacy_widgets = get_dashboard_widgets(settings)
+    legacy_nav = get_nav_visibility(settings)
+    merged_nav = {**legacy_nav, **super_cfg.get("nav_visibility", {})}
+    merged_widgets = super_cfg.get("dashboard_widgets") or legacy_widgets
     return {
-        "nav_visibility": get_nav_visibility(settings),
-        "dashboard_widgets": get_dashboard_widgets(settings),
+        "nav_visibility": merged_nav,
+        "dashboard_widgets": merged_widgets,
         "mobile_app": get_mobile_app_config(settings) if user.role == "admin" or user.department == "Admin" else None,
         "feature_flags": {
             "traceability_enabled": traceability_enabled(),
             "print_agent_enabled": print_agent_enabled(),
+            **{k: v for k, v in (super_cfg.get("feature_flags") or {}).items()},
         },
+        "super_admin": super_cfg,
     }
 
 

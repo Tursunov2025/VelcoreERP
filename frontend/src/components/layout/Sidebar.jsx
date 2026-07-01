@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { filterNavSections, NAV_SECTIONS } from "../../constants/workflow";
+import { filterNavSections, filterNavByVisibility, NAV_SECTIONS } from "../../constants/workflow";
 import { useAuth } from "../../context/AuthContext";
 import { useBranding } from "../../context/BrandingContext";
 import { useLocale } from "../../context/LocaleContext";
+import { useUiConfig } from "../../hooks/useUiConfig";
 import OperatorTelegramLink from "../settings/OperatorTelegramLink";
 import LogoutButton from "./LogoutButton";
 import UiQuickControls from "./UiQuickControls";
@@ -20,10 +21,24 @@ export default function Sidebar({ username, role }) {
   const { isAdmin, permissions } = useAuth();
   const { branding, navEmoji, assetUrl } = useBranding();
   const { t } = useLocale();
+  const { config } = useUiConfig();
   const location = useLocation();
   const [openSection, setOpenSection] = useState(null);
 
-  const sections = filterNavSections(NAV_SECTIONS, permissions, isAdmin);
+  const navVisibility = config?.nav_visibility || {};
+  let sections = filterNavSections(NAV_SECTIONS, permissions, isAdmin);
+  sections = sections
+    .map((section) => {
+      const children = filterNavByVisibility(section.children || [], navVisibility, isAdmin);
+      const sectionVisible = filterNavByVisibility(
+        [{ iconKey: section.iconKey, path: section.path }],
+        navVisibility,
+        isAdmin
+      ).length > 0;
+      if (!sectionVisible && children.length === 0) return null;
+      return { ...section, children: children.length ? children : section.children };
+    })
+    .filter(Boolean);
   const sidebarLogo = branding.logo_sidebar || branding.logo_main;
 
   const labelFor = (iconKey) => {

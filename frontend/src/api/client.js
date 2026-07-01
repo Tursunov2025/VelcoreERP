@@ -511,6 +511,48 @@ export const api = {
   },
 
   getUiConfig: () => request("/control-center/config/ui"),
+
+  superAdminConfig: () => request("/super-admin/config"),
+  superAdminUpdateNav: (id, body) =>
+    request(`/super-admin/navigation/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  superAdminCreateNav: (body) =>
+    request("/super-admin/navigation", { method: "POST", body: JSON.stringify(body) }),
+  superAdminDeleteNav: (id) => request(`/super-admin/navigation/${id}`, { method: "DELETE" }),
+  superAdminReorderNav: (order) =>
+    request("/super-admin/navigation/reorder", { method: "PUT", body: JSON.stringify(order) }),
+  superAdminUpdateModule: (id, body) =>
+    request(`/super-admin/modules/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  superAdminUpsertWidget: (body) =>
+    request("/super-admin/widgets", { method: "POST", body: JSON.stringify(body) }),
+  superAdminDeleteWidget: (key) => request(`/super-admin/widgets/${key}`, { method: "DELETE" }),
+  superAdminCreateTheme: (body) =>
+    request("/super-admin/themes", { method: "POST", body: JSON.stringify(body) }),
+  superAdminUpdateTheme: (id, body) =>
+    request(`/super-admin/themes/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  superAdminActivateTheme: (id) =>
+    request(`/super-admin/themes/${id}/activate`, { method: "POST" }),
+  superAdminGetForms: () => request("/super-admin/forms"),
+  superAdminSaveForms: (forms) =>
+    request("/super-admin/forms", { method: "PUT", body: JSON.stringify(forms) }),
+  superAdminGetTables: () => request("/super-admin/tables"),
+  superAdminSaveTables: (tables) =>
+    request("/super-admin/tables", { method: "PUT", body: JSON.stringify(tables) }),
+  superAdminUpdateRolePermissions: (roleId, body) =>
+    request(`/super-admin/roles/${roleId}/permissions`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  superAdminAuditLogs: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit) q.set("limit", String(params.limit));
+    if (params.entity_type) q.set("entity_type", params.entity_type);
+    const qs = q.toString();
+    return request(`/super-admin/audit-logs${qs ? `?${qs}` : ""}`);
+  },
+  superAdminSnapshot: (label = "") =>
+    request("/super-admin/snapshot", { method: "POST", body: JSON.stringify({ label }) }),
+  superAdminRollback: (versionId) =>
+    request(`/super-admin/rollback/${versionId}`, { method: "POST" }),
   controlCenterOrders: (params = {}) => {
     const q = new URLSearchParams();
     if (params.q) q.set("q", params.q);
@@ -600,30 +642,6 @@ export const api = {
     request(`/llp/documents/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   llpDeleteDocument: (id) => request(`/llp/documents/${id}`, { method: "DELETE" }),
   llpMarkRead: (id) => request(`/llp/documents/${id}/read`, { method: "POST" }),
-
-  exportShipments: (params = {}) => {
-    const q = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => {
-      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
-    });
-    const qs = q.toString();
-    return request(`/export-shipments${qs ? `?${qs}` : ""}`);
-  },
-  exportShipmentDashboard: () => request("/export-shipments/dashboard"),
-  exportShipment: (id) => request(`/export-shipments/${id}`),
-  createExportShipment: (body) =>
-    request("/export-shipments", { method: "POST", body: JSON.stringify(body) }),
-  createExportShipmentFromOrder: (body) =>
-    request("/export-shipments/from-order", { method: "POST", body: JSON.stringify(body) }),
-  updateExportShipment: (id, body) =>
-    request(`/export-shipments/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-  updateExportShipmentStatus: (id, status) =>
-    request(`/export-shipments/${id}/status`, {
-      method: "POST",
-      body: JSON.stringify({ status }),
-    }),
-  generateExportDocuments: (id) =>
-    request(`/export-shipments/${id}/generate-documents`, { method: "POST" }),
 
   // Logistics — finished warehouse + loading shipments
   logisticsDashboard: () => request("/logistics/dashboard"),

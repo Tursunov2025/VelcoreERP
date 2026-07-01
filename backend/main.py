@@ -62,6 +62,8 @@ from routers import (
     gps_router,
     export_shipments_router,
     logistics_router,
+    driver_router,
+    super_admin_router,
     llp_router,
     mes_jobs_router,
     mes_lazer_terminal_router,
@@ -358,6 +360,8 @@ app.include_router(crm_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(forecast_router.router)
 app.include_router(gps_router.router)
+app.include_router(driver_router.router)
+app.include_router(super_admin_router.router)
 app.include_router(uploads_router.router)
 app.include_router(shipping_router.router)
 app.include_router(chat_router.router)

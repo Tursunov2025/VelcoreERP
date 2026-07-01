@@ -4,12 +4,16 @@ class Driver {
     required this.fullName,
     this.phone = '',
     this.status = 'active',
+    this.driverType = 'internal',
   });
 
   final int id;
   final String fullName;
   final String phone;
   final String status;
+  final String driverType;
+
+  bool get isExternal => driverType == 'external';
 
   factory Driver.fromJson(Map<String, dynamic> json) {
     return Driver(
@@ -17,6 +21,7 @@ class Driver {
       fullName: json['full_name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       status: json['status'] as String? ?? 'active',
+      driverType: json['driver_type'] as String? ?? 'internal',
     );
   }
 

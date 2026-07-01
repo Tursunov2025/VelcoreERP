@@ -50,5 +50,6 @@ export function normalizeUiConfig(data) {
       ? data.dashboard_widgets
       : base.dashboard_widgets,
     feature_flags: normalizeFeatureFlags(data.feature_flags),
+    super_admin: data.super_admin || null,
   };
 }

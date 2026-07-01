@@ -1,80 +1,31 @@
-# Velcore Driver — Flutter Android APK
+# Velcore Driver V1 — Flutter Android APK
 
-Haydovchi GPS ilovasi: telefon login, mashina tanlash, background GPS (5s), offline navbat, Google Maps navigatsiya.
+Haydovchi mobil ilova: telefon + parol login, background GPS (5s), chat, foto, Yandex Navigator.
 
-## Talablar
+## V1 funksiyalar
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) 3.22+
-- Android SDK (API 34)
-- JDK 17
+| # | Funksiya |
+|---|----------|
+| 1 | Telefon + parol login (`POST /driver/login`) |
+| 2 | Android background GPS (`background_locator_2`) |
+| 3 | GPS har **5 soniyada** (`POST /gps/update`) |
+| 4 | Ilova yopiq / telefon qayta yonganda ham ishlaydi (`workmanager` + boot resume) |
+| 5 | Chat moduli (`GET/POST /driver/messages`) |
+| 6 | Foto yuborish (`POST /driver/photo`) |
+| 7 | Yandex Navigator integratsiyasi |
+| 8 | 3 ichki + 5 tashqi fura haydovchisi (`driver_type`: internal/external) |
+| 9 | Vazifalar (`GET /driver/tasks`) |
 
-## Birinchi sozlash
+## Haydovchilar (seed)
 
-```powershell
-cd velcore_driver
+| Tur | Telefon (username) | Parol (ERP User yaratish kerak) |
+|-----|-------------------|--------------------------------|
+| Ichki 1–3 | 998901111101 … 103 | admin tomonidan |
+| Tashqi 1–5 | 998902222201 … 205 | admin tomonidan |
 
-# Gradle wrapper va icon fayllar uchun (birinchi marta):
-flutter create --org uz.velcore --project-name velcore_driver .
+ERP da **User** yaratish: `username` = telefon raqami, `department` = `Logistika`, parol o'rnatish.
 
-flutter pub get
-```
-
----
-
-## APK yig'ish — Release (production)
-
-Production telefonlar uchun **Release APK** ishlating.
-
-```powershell
-cd velcore_driver
-flutter pub get
-flutter build apk --release
-```
-
-**Chiqish fayl:**
-
-```text
-build/app/outputs/flutter-apk/app-release.apk
-```
-
-**Nusxa olish (ixtiyoriy):**
-
-```powershell
-Copy-Item build/app/outputs/flutter-apk/app-release.apk `
-  ../deploy/AzmusERP-Production/apk/velcore-driver-1.0.0-release.apk
-```
-
-Release APK xususiyatlari:
-- Optimizatsiya qilingan (kichikroq hajm)
-- Debug banner yo'q
-- Production API: `https://api.velcore.uz`
-
----
-
-## APK yig'ish — Debug (test)
-
-Ichki test va USB orqali `flutter run` uchun **Debug APK**.
-
-```powershell
-cd velcore_driver
-flutter pub get
-flutter build apk --debug
-```
-
-**Chiqish fayl:**
-
-```text
-build/app/outputs/flutter-apk/app-debug.apk
-```
-
-Debug APK xususiyatlari:
-- Tezroq yig'iladi
-- Hot reload / devtools bilan ishlaydi
-- Hajmi kattaroq
-
----
-
-## Skript orqali ikkala APK
+## APK yig'ish — Release
 
 ```powershell
 cd velcore_driver
@@ -82,72 +33,32 @@ cd velcore_driver
 ```
 
 Chiqish:
+- `build/app/outputs/flutter-apk/app-release.apk`
 - `deploy/AzmusERP-Production/apk/velcore-driver-1.0.0-release.apk`
-- `deploy/AzmusERP-Production/apk/velcore-driver-1.0.0-debug.apk`
-
----
-
-## Telefonga o'rnatish
-
-```powershell
-# USB ulangan qurilma
-flutter install --release
-
-# yoki adb
-adb install -r build/app/outputs/flutter-apk/app-release.apk
-```
-
----
 
 ## Backend API
 
-Default: `https://api.velcore.uz`
-
 | Endpoint | Vazifa |
 |----------|--------|
-| `POST /auth/login-by-phone` | Telefon + parol |
-| `GET /gps/vehicles` | Mashinalar |
-| `GET /gps/tasks` | Vazifalar |
-| `POST /gps/update` | GPS (5s) — batareya, tezlik, signal |
-| `POST /gps/tasks/{id}/stop` | Marshrut "Bajarildi" |
+| `POST /driver/login` | Telefon + parol, driver + vehicle profil |
+| `GET /driver/tasks` | Haydovchi vazifalari |
+| `POST /driver/tasks/{id}/start` | Vazifani boshlash |
+| `POST /driver/tasks/{id}/complete` | Vazifani yopish |
+| `GET /driver/messages` | Chat xabarlari |
+| `POST /driver/messages` | Matn yuborish |
+| `POST /driver/photo` | Foto yuklash + chat |
+| `POST /gps/update` | GPS ping (5s) |
 
-**Login:** ERP da `username` = telefon raqami (`998901234567`).
+Default API: `https://api.velcore.uz`
 
----
+## Android ruxsatlar
 
-## Yangi funksiyalar (v1.0)
+1. Joylashuv → **Doim ruxsat berish**
+2. Bildirishnomalar (Android 13+)
+3. Kamera / galereya (foto uchun)
+4. Yandex Navigator o'rnatilgan bo'lishi kerak
 
-| # | Funksiya |
-|---|----------|
-| 1 | **Online/Offline** — yuqori banner (barcha sahifalar) |
-| 2 | **Batareya %** — UI + `battery_level` serverga |
-| 3 | **Oxirgi signal vaqti** — muvaffaqiyatli POST dan keyin |
-| 4 | **Boot resume** — telefon qayta yonganda tracking tiklanadi |
-| 5 | **Android 13+** — `POST_NOTIFICATIONS`, foreground service location |
-| 6 | **GPS ruxsati** — rad etilsa Sozlamalar dialogi |
-| 7 | **Google Maps** — vazifalar sahifasida navigatsiya |
-| 8 | **Bajarildi** — faol vazifani yopish |
-| 9 | **Crash log** — Sozlamalar → Crash loglar |
-| 10 | **Release/Debug** — yuqoridagi yo'riqnoma |
-
----
-
-## Android ruxsatlar (o'rnatgach)
-
-1. **Joylashuv** → **Doim ruxsat berish**
-2. **Bildirishnomalar** — Android 13+ foreground xizmat uchun
-3. Google Maps o'rnatilgan bo'lishi kerak (navigatsiya uchun)
-
----
-
-## Paketlar
-
-- `geolocator`, `background_locator_2`, `workmanager`, `dio`, `shared_preferences`
-- `battery_plus`, `connectivity_plus`, `url_launcher`, `path_provider`, `permission_handler`
-
----
-
-## VPS
+## VPS deploy
 
 ```bash
 cd /var/www/velcore && git pull && sudo systemctl restart velcore.service

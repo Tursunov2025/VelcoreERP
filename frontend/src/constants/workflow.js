@@ -80,8 +80,6 @@ export const NAV_ITEMS = [
 
   { path: "/warehouse", label: "Ombor", iconKey: "warehouse", permission: "warehouse" },
 
-  { path: "/shipping", label: "Yuk chiqarish", iconKey: "shipping", permission: "warehouse" },
-
   { path: "/chat", label: "Chat", iconKey: "chat", permission: "chat" },
 
   { path: "/tasks", label: "Vazifalar", iconKey: "tasks", permission: "tasks" },
@@ -209,7 +207,7 @@ export const NAV_SECTIONS = [
       { path: "/logistics/finished-warehouse", iconKey: "finishedWarehouse", permission: "export_view" },
       { path: "/logistics/loading-plans", iconKey: "loadingPlans", permission: "export_view" },
       { path: "/logistics/transports", iconKey: "transport", permission: "export_view" },
-      { path: "/logistics/drivers", iconKey: "fleetDrivers", permission: "export_view" },
+      { path: "/logistics/drivers", iconKey: "drivers", permission: "export_view" },
       { path: "/logistics/gps", iconKey: "gpsMonitoring", permission: "export_view" },
       { path: "/logistics/live-map", iconKey: "liveMap", permission: "export_view" },
       { path: "/logistics/loading-control", iconKey: "loadingControl", permission: "export_view" },

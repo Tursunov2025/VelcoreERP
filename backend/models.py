@@ -309,6 +309,140 @@ class AuditLog(Base):
     entity_type = Column(String, nullable=False)
     entity_id = Column(Integer, nullable=True)
     details = Column(Text, default="")
+    old_value = Column(Text, default="")
+    new_value = Column(Text, default="")
+    created_at = Column(DateTime, default=utcnow)
+
+
+# --- Super Admin CMS ---
+
+
+class UiSetting(Base):
+    __tablename__ = "ui_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    value = Column(Text, default="")
+    category = Column(String, default="general", index=True)
+    updated_by = Column(String, default="")
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class NavigationItem(Base):
+    __tablename__ = "navigation_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nav_key = Column(String, unique=True, index=True, nullable=False)
+    label = Column(String, nullable=False)
+    icon = Column(String, default="")
+    emoji = Column(String, default="")
+    path = Column(String, default="/")
+    color = Column(String, default="")
+    sort_order = Column(Integer, default=0, index=True)
+    parent_id = Column(Integer, ForeignKey("navigation_items.id"), nullable=True, index=True)
+    visible = Column(Boolean, default=True)
+    hidden = Column(Boolean, default=False)
+    permissions_json = Column(Text, default="[]")
+    module_key = Column(String, default="", index=True)
+    config_json = Column(Text, default="{}")
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    parent = relationship("NavigationItem", remote_side=[id], backref="children")
+
+
+class PermissionDefinition(Base):
+    __tablename__ = "permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    perm_key = Column(String, unique=True, index=True, nullable=False)
+    label = Column(String, nullable=False)
+    module = Column(String, default="", index=True)
+    description = Column(Text, default="")
+    action = Column(String, default="")
+
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    role_key = Column(String, unique=True, index=True, nullable=False)
+    label = Column(String, nullable=False)
+    description = Column(Text, default="")
+    is_system = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
+
+    permissions = relationship("RolePermission", back_populates="role", cascade="all, delete-orphan")
+
+
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    role_id = Column(Integer, ForeignKey("roles.id"), index=True, nullable=False)
+    permission_key = Column(String, index=True, nullable=False)
+    enabled = Column(Boolean, default=True)
+
+    role = relationship("Role", back_populates="permissions")
+
+    __table_args__ = (UniqueConstraint("role_id", "permission_key", name="uq_role_permission"),)
+
+
+class Widget(Base):
+    __tablename__ = "widgets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    widget_key = Column(String, unique=True, index=True, nullable=False)
+    title = Column(String, nullable=False)
+    widget_type = Column(String, default="stat")
+    enabled = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0, index=True)
+    color = Column(String, default="")
+    layout_json = Column(Text, default="{}")
+    config_json = Column(Text, default="{}")
+
+
+class Theme(Base):
+    __tablename__ = "themes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    is_active = Column(Boolean, default=False, index=True)
+    is_dark = Column(Boolean, default=False)
+    config_json = Column(Text, default="{}")
+
+
+class ModuleSetting(Base):
+    __tablename__ = "module_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    module_key = Column(String, unique=True, index=True, nullable=False)
+    enabled = Column(Boolean, default=True)
+    label = Column(String, nullable=False)
+    icon = Column(String, default="")
+    color = Column(String, default="")
+    url = Column(String, default="/")
+    permissions_json = Column(Text, default="[]")
+    sort_order = Column(Integer, default=0)
+
+
+class FeatureFlag(Base):
+    __tablename__ = "feature_flags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    flag_key = Column(String, unique=True, index=True, nullable=False)
+    enabled = Column(Boolean, default=False)
+    description = Column(Text, default="")
+    config_json = Column(Text, default="{}")
+
+
+class UiConfigVersion(Base):
+    __tablename__ = "ui_config_versions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    label = Column(String, default="")
+    snapshot_json = Column(Text, default="{}")
+    created_by = Column(String, default="")
     created_at = Column(DateTime, default=utcnow)
 
 
@@ -1293,9 +1427,13 @@ class Driver(Base):
     full_name = Column(String, nullable=False)
     phone = Column(String, default="")
     telegram_username = Column(String, default="")
+    driver_type = Column(String, default="internal", index=True)  # internal | external
+    user_username = Column(String, default="", index=True)
+    default_vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=True, index=True)
     status = Column(String, default="active", index=True)
     created_at = Column(DateTime, default=utcnow)
 
+    default_vehicle = relationship("Vehicle", foreign_keys=[default_vehicle_id])
     locations = relationship("GpsLocation", back_populates="driver")
     trips = relationship("TripRoute", back_populates="driver")
 

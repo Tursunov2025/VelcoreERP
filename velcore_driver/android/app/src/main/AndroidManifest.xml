@@ -9,7 +9,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
 
     <queries>
         <intent>
@@ -18,9 +20,10 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="google.navigation"/>
+            <data android:scheme="yandexnavi"/>
         </intent>
-        <package android:name="com.google.android.apps.maps"/>
+        <package android:name="ru.yandex.yandexnavi"/>
+        <package android:name="ru.yandex.yandexmaps"/>
     </queries>
 
     <application

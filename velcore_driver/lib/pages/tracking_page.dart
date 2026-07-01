@@ -33,11 +33,11 @@ class _TrackingPageState extends State<TrackingPage> {
   int _sentCount = 0;
   int _pending = 0;
   bool _online = true;
-  int _battery = 0;
+  int _batteryLevel = 0;
   DateTime? _lastSignal;
   String? _error;
   Timer? _uiTimer;
-  final _battery = Battery();
+  final _batteryService = Battery();
 
   @override
   void initState() {
@@ -64,8 +64,8 @@ class _TrackingPageState extends State<TrackingPage> {
 
   Future<void> _loadBattery() async {
     try {
-      final level = await _battery.batteryLevel;
-      if (mounted) setState(() => _battery = level);
+      final level = await _batteryService.batteryLevel;
+      if (mounted) setState(() => _batteryLevel = level);
     } catch (_) {}
   }
 
@@ -129,7 +129,7 @@ class _TrackingPageState extends State<TrackingPage> {
           setState(() {
             _position = pos;
             _sentCount = sent;
-            _battery = battery;
+            _batteryLevel = battery;
             _lastSignal = widget.storage.lastSignalAt ?? DateTime.now();
           });
         },
@@ -196,8 +196,8 @@ class _TrackingPageState extends State<TrackingPage> {
             children: [
               _StatCard(
                 label: 'Batareya',
-                value: '$_battery%',
-                color: _battery > 20 ? Colors.teal : Colors.red,
+                value: '$_batteryLevel%',
+                color: _batteryLevel > 20 ? Colors.teal : Colors.red,
                 icon: Icons.battery_std,
               ),
               const SizedBox(width: 12),

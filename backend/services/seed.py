@@ -5,6 +5,8 @@ from constants import DEPARTMENTS
 from models import Material, MaterialCategory, User
 from services.permissions import set_user_permissions
 from services.chat_seed import seed_chat_rooms
+from services.driver_seed import seed_driver_profiles
+from services.super_admin_service import seed_super_admin_defaults
 from services.materials_warehouse import seed_material_categories
 from services.material_auto_consumption import seed_consumption_rules
 from services.mes_seed import seed_mes_defaults
@@ -109,5 +111,7 @@ def seed_defaults(db):
 
     seed_consumption_rules(db)
     seed_chat_rooms(db)
+    seed_driver_profiles(db)
+    seed_super_admin_defaults(db)
     seed_mes_defaults(db)
     ensure_default_version(db)

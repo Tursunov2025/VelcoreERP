@@ -640,6 +640,10 @@ def run_migrations():
         "UPDATE logistics_finished_products SET status = 'Loaded' WHERE status = 'Yuklandi'",
         "UPDATE logistics_finished_products SET status = 'Delivered' WHERE status = 'Yetkazildi'",
 
+        "ALTER TABLE drivers ADD COLUMN driver_type VARCHAR DEFAULT 'internal'",
+        "ALTER TABLE drivers ADD COLUMN user_username VARCHAR DEFAULT ''",
+        "ALTER TABLE drivers ADD COLUMN default_vehicle_id INTEGER REFERENCES vehicles (id)",
+
         """CREATE TABLE IF NOT EXISTS gps_alert_state (
             vehicle_id INTEGER PRIMARY KEY,
             last_city VARCHAR DEFAULT '',
@@ -649,6 +653,104 @@ def run_migrations():
             border_alert_sent INTEGER DEFAULT 0,
             updated_at DATETIME,
             FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+        )""",
+
+        "ALTER TABLE audit_logs ADD COLUMN old_value TEXT DEFAULT ''",
+        "ALTER TABLE audit_logs ADD COLUMN new_value TEXT DEFAULT ''",
+
+        """CREATE TABLE IF NOT EXISTS ui_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key VARCHAR NOT NULL UNIQUE,
+            value TEXT DEFAULT '',
+            category VARCHAR DEFAULT 'general',
+            updated_by VARCHAR DEFAULT '',
+            updated_at DATETIME
+        )""",
+        """CREATE TABLE IF NOT EXISTS navigation_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nav_key VARCHAR NOT NULL UNIQUE,
+            label VARCHAR NOT NULL,
+            icon VARCHAR DEFAULT '',
+            emoji VARCHAR DEFAULT '',
+            path VARCHAR DEFAULT '/',
+            color VARCHAR DEFAULT '',
+            sort_order INTEGER DEFAULT 0,
+            parent_id INTEGER,
+            visible INTEGER DEFAULT 1,
+            hidden INTEGER DEFAULT 0,
+            permissions_json TEXT DEFAULT '[]',
+            module_key VARCHAR DEFAULT '',
+            config_json TEXT DEFAULT '{}',
+            created_at DATETIME,
+            updated_at DATETIME,
+            FOREIGN KEY (parent_id) REFERENCES navigation_items (id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            perm_key VARCHAR NOT NULL UNIQUE,
+            label VARCHAR NOT NULL,
+            module VARCHAR DEFAULT '',
+            description TEXT DEFAULT '',
+            action VARCHAR DEFAULT ''
+        )""",
+        """CREATE TABLE IF NOT EXISTS roles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            role_key VARCHAR NOT NULL UNIQUE,
+            label VARCHAR NOT NULL,
+            description TEXT DEFAULT '',
+            is_system INTEGER DEFAULT 0,
+            sort_order INTEGER DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS role_permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            role_id INTEGER NOT NULL,
+            permission_key VARCHAR NOT NULL,
+            enabled INTEGER DEFAULT 1,
+            FOREIGN KEY (role_id) REFERENCES roles (id),
+            UNIQUE (role_id, permission_key)
+        )""",
+        """CREATE TABLE IF NOT EXISTS widgets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            widget_key VARCHAR NOT NULL UNIQUE,
+            title VARCHAR NOT NULL,
+            widget_type VARCHAR DEFAULT 'stat',
+            enabled INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            color VARCHAR DEFAULT '',
+            layout_json TEXT DEFAULT '{}',
+            config_json TEXT DEFAULT '{}'
+        )""",
+        """CREATE TABLE IF NOT EXISTS themes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name VARCHAR NOT NULL,
+            is_active INTEGER DEFAULT 0,
+            is_dark INTEGER DEFAULT 0,
+            config_json TEXT DEFAULT '{}'
+        )""",
+        """CREATE TABLE IF NOT EXISTS module_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_key VARCHAR NOT NULL UNIQUE,
+            enabled INTEGER DEFAULT 1,
+            label VARCHAR NOT NULL,
+            icon VARCHAR DEFAULT '',
+            color VARCHAR DEFAULT '',
+            url VARCHAR DEFAULT '/',
+            permissions_json TEXT DEFAULT '[]',
+            sort_order INTEGER DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS feature_flags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            flag_key VARCHAR NOT NULL UNIQUE,
+            enabled INTEGER DEFAULT 0,
+            description TEXT DEFAULT '',
+            config_json TEXT DEFAULT '{}'
+        )""",
+        """CREATE TABLE IF NOT EXISTS ui_config_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label VARCHAR DEFAULT '',
+            snapshot_json TEXT DEFAULT '{}',
+            created_by VARCHAR DEFAULT '',
+            created_at DATETIME
         )""",
 
     ]

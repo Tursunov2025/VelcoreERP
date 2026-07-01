@@ -35,9 +35,21 @@ def log_value_change(
     old_value: Any,
     new_value: Any,
 ):
+    old_str = json.dumps(old_value, ensure_ascii=False, default=str) if not isinstance(old_value, str) else old_value
+    new_str = json.dumps(new_value, ensure_ascii=False, default=str) if not isinstance(new_value, str) else new_value
     details = json.dumps(
         {"field": field, "old": old_value, "new": new_value},
         ensure_ascii=False,
         default=str,
     )
-    log_action(db, username, action, entity_type, entity_id, details)
+    db.add(
+        AuditLog(
+            username=username,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details,
+            old_value=old_str,
+            new_value=new_str,
+        )
+    )

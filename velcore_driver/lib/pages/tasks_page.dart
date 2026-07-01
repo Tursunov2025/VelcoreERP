@@ -31,7 +31,7 @@ class _TasksPageState extends State<TasksPage> {
       _error = null;
     });
     try {
-      final tasks = await widget.api.fetchTasks(status: _filter);
+      final tasks = await widget.api.fetchDriverTasks(status: _filter);
       setState(() {
         _tasks = tasks;
         _loading = false;
@@ -87,14 +87,14 @@ class _TasksPageState extends State<TasksPage> {
     final dest = task.destination.trim().isNotEmpty ? task.destination : task.origin;
     if (dest.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Manzil koordinatasi yoki manzil matni yo\'q')),
+        const SnackBar(content: Text('Manzil matni yo\'q')),
       );
       return;
     }
     final launched = await MapsLauncher.openNavigation(destinationAddress: dest);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Maps ochilmadi')),
+        const SnackBar(content: Text('Yandex Navigator ochilmadi')),
       );
     }
   }
@@ -174,8 +174,8 @@ class _TasksPageState extends State<TasksPage> {
                                   if (t.destination.isNotEmpty || t.origin.isNotEmpty)
                                     OutlinedButton.icon(
                                       onPressed: () => _openMaps(t),
-                                      icon: const Icon(Icons.map, size: 18),
-                                      label: const Text('Google Maps'),
+                                      icon: const Icon(Icons.navigation, size: 18),
+                                      label: const Text('Yandex Navigator'),
                                     ),
                                   if (t.status == 'assigned')
                                     FilledButton.icon(
