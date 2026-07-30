@@ -7,6 +7,10 @@
     "allowMixedContent": false,
     "captureInput": true
   },
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": ["api.velcore.uz", "erp.velcore.uz"]
+  },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 1200,

@@ -85,7 +85,7 @@ cd "${APP}/frontend"
 if command -v npm >/dev/null 2>&1; then
   export VITE_API_URL=https://api.velcore.uz
   npm ci
-  npm run build
+  npm run build:velcore
   rm -f dist/remote-api.json public/remote-api.json 2>/dev/null || true
 fi
 
@@ -98,5 +98,11 @@ curl -sf https://api.velcore.uz/ | head -c 120 || curl -sf http://127.0.0.1:8000
 echo ""
 curl -sf https://api.velcore.uz/auth/login-users | head -c 200
 echo ""
+echo "Checking Capacitor Android CORS preflight..."
+curl -fsS -o /dev/null -X OPTIONS "https://api.velcore.uz/auth/login" \
+  -H "Origin: https://localhost" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: content-type"
+echo "Capacitor CORS preflight: OK"
 echo "Login: admin / 1234 (change after first login)"
 echo "Log: $LOG"

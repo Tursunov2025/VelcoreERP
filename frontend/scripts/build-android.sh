@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "Building Azmus ERP web assets..."
-npm run build
+npm run build:velcore
 
 echo "Syncing Capacitor Android project..."
 npx cap sync android

@@ -753,6 +753,17 @@ def run_migrations():
             created_at DATETIME
         )""",
 
+        """CREATE TABLE IF NOT EXISTS driver_locations (
+            driver_id INTEGER PRIMARY KEY,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            status VARCHAR DEFAULT 'active',
+            last_updated DATETIME,
+            FOREIGN KEY (driver_id) REFERENCES drivers (id)
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_driver_locations_last_updated ON driver_locations (last_updated)",
+        "CREATE INDEX IF NOT EXISTS ix_driver_locations_status ON driver_locations (status)",
+
     ]
 
 

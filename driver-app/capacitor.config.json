@@ -1,10 +1,14 @@
 {
   "appId": "com.azmus.driver",
-  "appName": "Azmus Driver",
+  "appName": "Velcore Driver",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "android": {
-    "allowMixedContent": true
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": ["api.velcore.uz", "erp.velcore.uz"]
   },
   "plugins": {
     "SplashScreen": {

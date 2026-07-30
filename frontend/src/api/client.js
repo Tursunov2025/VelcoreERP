@@ -1,6 +1,13 @@
+import { Capacitor } from "@capacitor/core";
+
 const PRODUCTION_API_URL = "https://api.velcore.uz";
 const DEVELOPMENT_API_URL = "http://127.0.0.1:8000";
 const VELCORE_HOSTS = new Set(["erp.velcore.uz", "api.velcore.uz"]);
+
+/** A Capacitor APK has the WebView origin (https://localhost), not erp.velcore.uz. */
+function isNativeApp() {
+  return typeof window !== "undefined" && Capacitor.isNativePlatform();
+}
 
 /** Runtime override when build was compiled with wrong VITE_API_URL (VPS hostname). */
 export function productionApiUrlFromHost() {
@@ -19,6 +26,9 @@ function readMetaApiUrl() {
 }
 
 function resolveBuiltInApiUrl() {
+  // Never let a stale VITE_API_URL embedded in an APK point at localhost or a VPS IP.
+  if (isNativeApp()) return PRODUCTION_API_URL;
+
   const hostOverride = productionApiUrlFromHost();
   if (hostOverride) return hostOverride;
 
@@ -45,6 +55,11 @@ let apiConfigPromise = null;
 async function ensureApiBase() {
   if (apiConfigPromise) return apiConfigPromise;
   apiConfigPromise = (async () => {
+    if (isNativeApp()) {
+      API_BASE = PRODUCTION_API_URL;
+      return API_BASE;
+    }
+
     const hostOverride = productionApiUrlFromHost();
     if (hostOverride) {
       API_BASE = hostOverride;
@@ -90,7 +105,7 @@ async function ensureApiBase() {
 }
 
 export function getApiBase() {
-  return productionApiUrlFromHost() || API_BASE;
+  return isNativeApp() ? PRODUCTION_API_URL : productionApiUrlFromHost() || API_BASE;
 }
 
 /** Always call before raw fetch() outside request(). */
@@ -187,7 +202,7 @@ async function request(path, options = {}, retry = true) {
   } catch (networkErr) {
     console.error(`[api] ${method} ${url} — network error:`, networkErr);
     throw new Error(
-      `Server bilan bog'lanib bo'lmadi (${getApiBase()}). Backend ishlayotganini tekshiring.`
+      `API tarmoq xatosi: ${networkErr?.message || "noma'lum xato"}. URL: ${url}`
     );
   }
 
@@ -237,13 +252,32 @@ export function uploadUrl(path) {
 export const api = {
   login: async (body) => {
     await ensureApiBase();
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Login failed");
+    const url = `${getApiBase()}/auth/login`;
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (networkErr) {
+      // Never log credentials; URL and the platform error are enough to diagnose APK networking.
+      console.error(`[api] POST ${url} — login network error:`, networkErr);
+      throw new Error(
+        `Login tarmoq xatosi: ${networkErr?.message || "noma'lum xato"}. URL: ${url}`
+      );
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      console.error(`[api] POST ${url} → ${res.status} ${res.statusText}`, data);
+      const detail =
+        data?.error ||
+        data?.detail ||
+        (Array.isArray(data?.detail) ? data.detail[0]?.msg : null) ||
+        res.statusText ||
+        "Login failed";
+      throw new Error(`Login xatosi (HTTP ${res.status}): ${detail}`);
+    }
     return data;
   },
 

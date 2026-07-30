@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "Building Azmus ERP web assets..."
-npm run build
+npm run build:velcore
 
 Write-Host "Syncing Capacitor Android project..."
 npx cap sync android

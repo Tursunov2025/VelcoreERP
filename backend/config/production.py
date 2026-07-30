@@ -14,6 +14,11 @@ _log = logging.getLogger("azmus.production")
 VELCORE_PRODUCTION_ORIGINS: tuple[str, ...] = (
     "https://erp.velcore.uz",
     "http://erp.velcore.uz",
+    # Capacitor Android serves bundled assets from https://localhost.
+    # This is required for its WebView fetch() calls to api.velcore.uz.
+    "https://localhost",
+    # Kept for an iOS Capacitor build of the same frontend.
+    "capacitor://localhost",
 )
 
 # Common local dev / Flutter Web / Vite ports (merged when dev CORS is enabled).

@@ -41,6 +41,8 @@ class CorsConfigTests(unittest.TestCase):
         os.environ["CORS_ALLOW_DEV"] = "true"
         origins = parse_cors_origins()
         self.assertIn("https://erp.velcore.uz", origins)
+        self.assertIn("https://localhost", origins)
+        self.assertIn("capacitor://localhost", origins)
         self.assertIn("http://localhost:54847", origins)
         self.assertIn("http://127.0.0.1:54847", origins)
         self.assertEqual(get_cors_origin_regex(), LOCALHOST_ORIGIN_REGEX)
@@ -52,6 +54,7 @@ class CorsConfigTests(unittest.TestCase):
         os.environ["CORS_ALLOW_DEV"] = "false"
         origins = parse_cors_origins()
         self.assertIn("https://erp.velcore.uz", origins)
+        self.assertIn("https://localhost", origins)
         self.assertNotIn("http://localhost:54847", origins)
         self.assertIsNone(get_cors_origin_regex())
 
@@ -74,6 +77,7 @@ class CorsConfigTests(unittest.TestCase):
         }
         self.assertTrue(required.issubset(set(VELCORE_DEV_ORIGINS)))
         self.assertIn("https://erp.velcore.uz", VELCORE_PRODUCTION_ORIGINS)
+        self.assertIn("https://localhost", VELCORE_PRODUCTION_ORIGINS)
 
 
 if __name__ == "__main__":

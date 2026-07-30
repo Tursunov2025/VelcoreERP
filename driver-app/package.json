@@ -9,6 +9,7 @@
     "mobile:sync": "npx cap sync android",
     "mobile:build": "npm run build && npm run mobile:sync",
     "apk:debug": "powershell -ExecutionPolicy Bypass -File ./scripts/apk-debug.ps1",
+    "apk:release": "powershell -ExecutionPolicy Bypass -File ./scripts/apk-release.ps1",
     "screenshots": "node ./scripts/screenshot.mjs"
   },
   "dependencies": {

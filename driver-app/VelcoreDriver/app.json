@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Velcore Driver",
+    "slug": "velcore-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Velcore ERP haydovchi joylashuvingizni kuzatishi uchun doimiy ruxsat kerak.",
+          "locationAlwaysPermission": "Velcore ERP boshqa ilovada bo'lsangiz ham joylashuvingizni aniqlaydi.",
+          "locationWhenInUsePermission": "Velcore ERP joylashuvingizni aniqlaydi.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "UIBackgroundModes": ["location"],
+        "NSLocationWhenInUseUsageDescription": "Velcore ERP joylashuvingizni aniqlaydi.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Velcore ERP fon rejimida ham joylashuvingizni kuzatadi."
+      },
+      "bundleIdentifier": "com.velcore.driver"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1e3a8a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.velcore.driver",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "WAKE_LOCK"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

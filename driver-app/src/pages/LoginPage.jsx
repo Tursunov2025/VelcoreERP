@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   enqueueLocation,
+  getApiBase,
   getSettings,
   getStoredTokens,
   login,
@@ -18,8 +19,10 @@ export default function LoginPage({ onLoggedIn }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const isProd = import.meta.env.PROD;
+
   useEffect(() => {
-    getSettings().then((s) => setApiUrl(s.apiUrl || ""));
+    getSettings().then((s) => setApiUrl(s.apiUrl || getApiBase()));
     getStoredTokens().then((t) => {
       if (t?.access_token) onLoggedIn(t);
     });
@@ -30,7 +33,7 @@ export default function LoginPage({ onLoggedIn }) {
     setError("");
     setLoading(true);
     try {
-      await saveSettings({ apiUrl: apiUrl.trim() });
+      if (!isProd) await saveSettings({ apiUrl: apiUrl.trim() || getApiBase() });
       const user = await login(username.trim(), password);
       onLoggedIn(user);
     } catch (err) {
@@ -43,20 +46,27 @@ export default function LoginPage({ onLoggedIn }) {
   return (
     <div className="app-shell">
       <div className="logo">
-        <h1>Azmus Driver</h1>
-        <p>GPS fleet tracking for drivers</p>
+        <h1>Velcore Driver</h1>
+        <p>Velcore ERP — haydovchi GPS kuzatuvi</p>
       </div>
       {error ? <div className="error">{error}</div> : null}
       <form onSubmit={submit} className="card">
-        <div className="field">
-          <label>Server URL</label>
-          <input
-            value={apiUrl}
-            onChange={(e) => setApiUrl(e.target.value)}
-            placeholder="http://192.168.1.110:8000"
-            autoComplete="off"
-          />
-        </div>
+        {isProd ? (
+          <div className="field">
+            <label>Server</label>
+            <input value={getApiBase()} readOnly disabled />
+          </div>
+        ) : (
+          <div className="field">
+            <label>Server URL</label>
+            <input
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="https://api.velcore.uz"
+              autoComplete="off"
+            />
+          </div>
+        )}
         <div className="field">
           <label>Username</label>
           <input

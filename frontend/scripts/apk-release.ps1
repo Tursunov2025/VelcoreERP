@@ -4,7 +4,7 @@ $frontendRoot = Join-Path $PSScriptRoot ".."
 Push-Location $frontendRoot
 try {
     Write-Host "Building web assets for production..."
-    npm run build
+    npm run build:velcore
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
     Write-Host "Syncing Capacitor Android project..."

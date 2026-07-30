@@ -1436,6 +1436,23 @@ class Driver(Base):
     default_vehicle = relationship("Vehicle", foreign_keys=[default_vehicle_id])
     locations = relationship("GpsLocation", back_populates="driver")
     trips = relationship("TripRoute", back_populates="driver")
+    current_location = relationship(
+        "DriverLocation", back_populates="driver", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class DriverLocation(Base):
+    """Haydovchining joriy joylashuvi — bitta qator haydovchi uchun (upsert)."""
+
+    __tablename__ = "driver_locations"
+
+    driver_id = Column(Integer, ForeignKey("drivers.id"), primary_key=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    status = Column(String, default="active", index=True)
+    last_updated = Column(DateTime, default=utcnow, index=True)
+
+    driver = relationship("Driver", back_populates="current_location")
 
 
 class GpsLocation(Base):
