@@ -230,6 +230,14 @@ export const NAV_SECTIONS = [
     ],
   },
   {
+    id: "displayCenter",
+    iconKey: "displayCenter",
+    emoji: "📺",
+    path: "/display-center",
+    adminOnly: true,
+    permission: "settings",
+  },
+  {
     id: "settings",
     iconKey: "settings",
     emoji: "⚙️",

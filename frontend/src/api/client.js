@@ -250,6 +250,21 @@ export function uploadUrl(path) {
 }
 
 export const api = {
+  // Display Center — isolated enterprise signage API
+  displayDashboard: () => request("/display-center/dashboard"),
+  displayMeta: () => request("/display-center/meta"),
+  displays: () => request("/display-center/displays"),
+  createDisplay: (body) => request("/display-center/displays", { method: "POST", body: JSON.stringify(body) }),
+  updateDisplay: (id, body) => request(`/display-center/displays/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteDisplay: (id) => request(`/display-center/displays/${id}`, { method: "DELETE" }),
+  displayWidgets: () => request("/display-center/widgets"),
+  createDisplayWidget: (body) => request("/display-center/widgets", { method: "POST", body: JSON.stringify(body) }),
+  displayPlaylists: () => request("/display-center/playlists"),
+  createDisplayPlaylist: (body) => request("/display-center/playlists", { method: "POST", body: JSON.stringify(body) }),
+  displaySchedules: () => request("/display-center/schedules"),
+  createDisplaySchedule: (body) => request("/display-center/schedules", { method: "POST", body: JSON.stringify(body) }),
+  displayMedia: (q = "") => request(`/display-center/media${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  uploadDisplayMedia: (file, folderId = null) => { const form = new FormData(); form.append("file", file); return request(`/display-center/media/upload${folderId ? `?folder_id=${folderId}` : ""}`, { method: "POST", body: form }); },
   login: async (body) => {
     await ensureApiBase();
     const url = `${getApiBase()}/auth/login`;

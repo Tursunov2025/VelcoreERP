@@ -77,6 +77,7 @@ import MobileUpdateGate from "./components/mobile/MobileUpdateGate";
 import PackagePassportPage from "./pages/traceability/PackagePassportPage";
 import PublicPackageTrackPage from "./pages/traceability/PublicPackageTrackPage";
 import PackageScannerPage from "./pages/traceability/PackageScannerPage";
+import DisplayCenterPage from "./pages/DisplayCenterPage";
 
 function LoginRoute() {
   const { isLoggedIn, loading } = useAuth();
@@ -191,6 +192,7 @@ function AppRoutes() {
             <Route path="finance" element={<FinancePage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="control-center" element={<OrdersControlCenterPage />} />
+            <Route path="display-center" element={<DisplayCenterPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="super-admin" element={<SuperAdminPage />} />
           </Route>
