@@ -11,6 +11,7 @@ from database import get_db
 from models import Display, DisplayMediaAsset, DisplayMediaFolder, DisplayPlaylist, DisplayPlaylistItem, DisplaySchedule, DisplayTemplate, DisplayWidget, User
 from repositories.display_center_repository import DisplayCenterRepository
 from services.display_center import BUILT_IN_WIDGET_TYPES, TEMPLATE_KEYS, dashboard, record_heartbeat, runtime_payload, serialize
+from services.display_center_data_provider import factory_dashboard
 
 router = APIRouter(prefix="/display-center", tags=["display-center"])
 MEDIA_ROOT = Path(__file__).resolve().parents[1] / "uploads" / "display-center"
@@ -50,6 +51,8 @@ def remove(model, entity_id, db):
 
 @router.get("/dashboard")
 def get_dashboard(db: Session = Depends(get_db), _: User = Depends(admin)): return dashboard(db)
+@router.get("/factory-dashboard")
+def get_factory_dashboard(db: Session = Depends(get_db)): return factory_dashboard(db)
 @router.get("/display/{display_code}")
 def display_runtime(display_code: str, db: Session = Depends(get_db)):
     display = db.query(Display).filter(Display.code == display_code).first()
