@@ -253,6 +253,9 @@ export const api = {
   // Display Center — isolated enterprise signage API
   displayDashboard: () => request("/display-center/dashboard"),
   displayRuntime: (code) => request(`/display-center/display/${encodeURIComponent(code)}`),
+  displayTemplate: (id) => request(`/display-center/templates/${id}`),
+  createDisplayTemplate: (body) => request("/display-center/templates", { method: "POST", body: JSON.stringify(body) }),
+  updateDisplayTemplate: (id, body) => request(`/display-center/templates/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   displayHeartbeat: (body) => request("/display-center/heartbeat", { method: "POST", body: JSON.stringify(body) }),
   displayMeta: () => request("/display-center/meta"),
   displays: () => request("/display-center/displays"),

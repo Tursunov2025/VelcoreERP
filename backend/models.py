@@ -75,6 +75,18 @@ class DisplayPlaylist(Base):
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
 
+class DisplayTemplate(Base):
+    __tablename__ = "display_center_templates"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(160), nullable=False)
+    category = Column(String(64), default="factory")
+    canvas_json = Column(JSON, default=lambda: {"width": 1920, "height": 1080, "grid": 20})
+    layout_json = Column(JSON, default=lambda: {"widgets": []})
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+
+
 class DisplayPlaylistItem(Base):
     __tablename__ = "display_center_playlist_items"
     id = Column(Integer, primary_key=True)

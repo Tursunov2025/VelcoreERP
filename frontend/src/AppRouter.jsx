@@ -79,6 +79,7 @@ import PublicPackageTrackPage from "./pages/traceability/PublicPackageTrackPage"
 import PackageScannerPage from "./pages/traceability/PackageScannerPage";
 import DisplayCenterPage from "./pages/DisplayCenterPage";
 import DisplayRuntimePage from "./pages/DisplayRuntimePage";
+import DisplayDesignerPage from "./pages/DisplayDesignerPage";
 
 function LoginRoute() {
   const { isLoggedIn, loading } = useAuth();
@@ -195,6 +196,7 @@ function AppRoutes() {
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="control-center" element={<OrdersControlCenterPage />} />
             <Route path="display-center" element={<DisplayCenterPage />} />
+            <Route path="display-center/designer/:templateId" element={<DisplayDesignerPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="super-admin" element={<SuperAdminPage />} />
           </Route>

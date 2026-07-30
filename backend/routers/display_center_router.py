@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from auth.deps import get_current_user
 from database import get_db
-from models import Display, DisplayMediaAsset, DisplayMediaFolder, DisplayPlaylist, DisplayPlaylistItem, DisplaySchedule, DisplayWidget, User
+from models import Display, DisplayMediaAsset, DisplayMediaFolder, DisplayPlaylist, DisplayPlaylistItem, DisplaySchedule, DisplayTemplate, DisplayWidget, User
 from repositories.display_center_repository import DisplayCenterRepository
 from services.display_center import BUILT_IN_WIDGET_TYPES, TEMPLATE_KEYS, dashboard, record_heartbeat, runtime_payload, serialize
 
@@ -25,6 +25,8 @@ class WidgetIn(BaseModel):
     key: str; name: str; widget_type: str; settings_json: dict = Field(default_factory=dict); is_active: bool = True
 class PlaylistIn(BaseModel):
     name: str; description: str = ""; template_key: str = "custom"; is_active: bool = True
+class TemplateIn(BaseModel):
+    name: str; category: str = "factory"; canvas_json: dict = Field(default_factory=lambda: {"width": 1920, "height": 1080, "grid": 20}); layout_json: dict = Field(default_factory=lambda: {"widgets": []}); is_active: bool = True
 class PlaylistItemIn(BaseModel):
     item_type: str; widget_id: int | None = None; media_id: int | None = None; settings_json: dict = Field(default_factory=dict); position: int = 0; duration_seconds: int = Field(15, ge=1); transition: str = "fade"; repeat: bool = True
 class ScheduleIn(BaseModel):
@@ -100,6 +102,17 @@ def create_playlist(body: PlaylistIn, db: Session = Depends(get_db), _: User = D
 def edit_playlist(entity_id: int, body: PlaylistIn, db: Session = Depends(get_db), _: User = Depends(admin)): return update(DisplayPlaylist, entity_id, body, db)
 @router.delete("/playlists/{entity_id}")
 def delete_playlist(entity_id: int, db: Session = Depends(get_db), _: User = Depends(admin)): return remove(DisplayPlaylist, entity_id, db)
+@router.get("/templates")
+def templates(db: Session = Depends(get_db), _: User = Depends(admin)): return [serialize(x) for x in DisplayCenterRepository(db).list(DisplayTemplate, DisplayTemplate.name)]
+@router.post("/templates")
+def create_template(body: TemplateIn, db: Session = Depends(get_db), _: User = Depends(admin)): return crud(DisplayTemplate, body, db)
+@router.get("/templates/{entity_id}")
+def get_template(entity_id: int, db: Session = Depends(get_db), _: User = Depends(admin)):
+    entity = db.get(DisplayTemplate, entity_id)
+    if not entity: raise HTTPException(404, "Template not found")
+    return serialize(entity)
+@router.put("/templates/{entity_id}")
+def save_template(entity_id: int, body: TemplateIn, db: Session = Depends(get_db), _: User = Depends(admin)): return update(DisplayTemplate, entity_id, body, db)
 @router.get("/playlists/{playlist_id}/items")
 def playlist_items(playlist_id: int, db: Session = Depends(get_db), _: User = Depends(admin)): return [serialize(x) for x in db.query(DisplayPlaylistItem).filter_by(playlist_id=playlist_id).order_by(DisplayPlaylistItem.position)]
 @router.post("/playlists/{playlist_id}/items")
