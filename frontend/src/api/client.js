@@ -252,6 +252,8 @@ export function uploadUrl(path) {
 export const api = {
   // Display Center — isolated enterprise signage API
   displayDashboard: () => request("/display-center/dashboard"),
+  displayRuntime: (code) => request(`/display-center/display/${encodeURIComponent(code)}`),
+  displayHeartbeat: (body) => request("/display-center/heartbeat", { method: "POST", body: JSON.stringify(body) }),
   displayMeta: () => request("/display-center/meta"),
   displays: () => request("/display-center/displays"),
   createDisplay: (body) => request("/display-center/displays", { method: "POST", body: JSON.stringify(body) }),

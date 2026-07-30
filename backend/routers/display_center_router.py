@@ -3,14 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from auth.deps import get_current_user
 from database import get_db
 from models import Display, DisplayMediaAsset, DisplayMediaFolder, DisplayPlaylist, DisplayPlaylistItem, DisplaySchedule, DisplayWidget, User
 from repositories.display_center_repository import DisplayCenterRepository
-from services.display_center import BUILT_IN_WIDGET_TYPES, TEMPLATE_KEYS, dashboard, record_heartbeat, serialize
+from services.display_center import BUILT_IN_WIDGET_TYPES, TEMPLATE_KEYS, dashboard, record_heartbeat, runtime_payload, serialize
 
 router = APIRouter(prefix="/display-center", tags=["display-center"])
 MEDIA_ROOT = Path(__file__).resolve().parents[1] / "uploads" / "display-center"
@@ -31,6 +31,8 @@ class ScheduleIn(BaseModel):
     playlist_id: int; display_id: int | None = None; starts_at: datetime | None = None; ends_at: datetime | None = None; weekdays_json: list[int] = Field(default_factory=list); start_time: str = "00:00"; end_time: str = "23:59"; priority: int = 100; is_active: bool = True
 class HeartbeatIn(BaseModel):
     browser: str = ""; cpu_percent: float | None = None; ram_percent: float | None = None; connection: str = ""; resolution: str = ""
+class RuntimeHeartbeatIn(HeartbeatIn):
+    displayCode: str; playlist: str = ""; uptime: int = 0; fullscreen: bool = False
 
 def crud(model, body, db):
     entity = model(**body.model_dump()); return serialize(DisplayCenterRepository(db).save(entity))
@@ -46,6 +48,27 @@ def remove(model, entity_id, db):
 
 @router.get("/dashboard")
 def get_dashboard(db: Session = Depends(get_db), _: User = Depends(admin)): return dashboard(db)
+@router.get("/display/{display_code}")
+def display_runtime(display_code: str, db: Session = Depends(get_db)):
+    display = db.query(Display).filter(Display.code == display_code).first()
+    if not display: raise HTTPException(404, "Display code not found")
+    return runtime_payload(db, display)
+@router.post("/heartbeat")
+def runtime_heartbeat(body: RuntimeHeartbeatIn, db: Session = Depends(get_db)):
+    display = db.query(Display).filter(Display.code == body.displayCode).first()
+    if not display: raise HTTPException(404, "Display code not found")
+    return serialize(record_heartbeat(db, display, body.model_dump()))
+@router.websocket("/ws/{display_code}")
+async def display_ws(websocket: WebSocket, display_code: str):
+    await websocket.accept()
+    try:
+        while True:
+            # Keeps a stable real-time transport for Android TV; deployment can replace this
+            # heartbeat loop with Redis pub/sub without changing the device protocol.
+            await websocket.receive_text()
+            await websocket.send_json({"type": "keepalive", "displayCode": display_code})
+    except WebSocketDisconnect:
+        return
 @router.get("/meta")
 def meta(_: User = Depends(admin)): return {"widget_types": BUILT_IN_WIDGET_TYPES, "template_keys": TEMPLATE_KEYS, "realtime": {"transport": "websocket-ready", "heartbeat_endpoint": "/display-center/displays/{id}/heartbeat"}}
 @router.get("/displays")

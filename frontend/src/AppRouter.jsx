@@ -78,6 +78,7 @@ import PackagePassportPage from "./pages/traceability/PackagePassportPage";
 import PublicPackageTrackPage from "./pages/traceability/PublicPackageTrackPage";
 import PackageScannerPage from "./pages/traceability/PackageScannerPage";
 import DisplayCenterPage from "./pages/DisplayCenterPage";
+import DisplayRuntimePage from "./pages/DisplayRuntimePage";
 
 function LoginRoute() {
   const { isLoggedIn, loading } = useAuth();
@@ -117,6 +118,7 @@ function AppRoutes() {
     <Routes>
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/driver" element={<DriverMobilePage />} />
+          <Route path="/display/:displayCode" element={<DisplayRuntimePage />} />
           {traceabilityEnabled ? (
             <Route path="/track/package/:labelCode" element={<PublicPackageTrackPage />} />
           ) : null}
