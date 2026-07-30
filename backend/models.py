@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -8,6 +8,112 @@ from database import Base
 
 def utcnow():
     return datetime.utcnow()
+
+
+# Display Center is intentionally isolated from the ERP domain models.  JSON
+# payloads keep widgets/templates forward-compatible without schema churn.
+class Display(Base):
+    __tablename__ = "display_center_displays"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(160), nullable=False)
+    code = Column(String(64), nullable=False, unique=True, index=True)
+    location = Column(String(255), default="")
+    description = Column(Text, default="")
+    ip_address = Column(String(64), default="")
+    resolution = Column(String(32), default="1920x1080")
+    orientation = Column(String(16), default="landscape")
+    status = Column(String(24), default="offline", index=True)
+    playlist_id = Column(Integer, ForeignKey("display_center_playlists.id"), nullable=True)
+    last_seen = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class DisplayMediaFolder(Base):
+    __tablename__ = "display_center_media_folders"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(160), nullable=False)
+    parent_id = Column(Integer, ForeignKey("display_center_media_folders.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+
+
+class DisplayMediaAsset(Base):
+    __tablename__ = "display_center_media_assets"
+    id = Column(Integer, primary_key=True)
+    folder_id = Column(Integer, ForeignKey("display_center_media_folders.id"), nullable=True)
+    name = Column(String(255), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    media_type = Column(String(24), nullable=False, index=True)
+    content_type = Column(String(120), default="")
+    path = Column(String(500), nullable=False)
+    thumbnail_path = Column(String(500), default="")
+    size_bytes = Column(Integer, default=0)
+    metadata_json = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+
+
+class DisplayWidget(Base):
+    __tablename__ = "display_center_widgets"
+    id = Column(Integer, primary_key=True)
+    key = Column(String(80), nullable=False, unique=True, index=True)
+    name = Column(String(160), nullable=False)
+    widget_type = Column(String(64), nullable=False, index=True)
+    settings_json = Column(JSON, default=dict)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class DisplayPlaylist(Base):
+    __tablename__ = "display_center_playlists"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(160), nullable=False)
+    description = Column(Text, default="")
+    template_key = Column(String(64), default="custom")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class DisplayPlaylistItem(Base):
+    __tablename__ = "display_center_playlist_items"
+    id = Column(Integer, primary_key=True)
+    playlist_id = Column(Integer, ForeignKey("display_center_playlists.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_type = Column(String(32), nullable=False)
+    widget_id = Column(Integer, ForeignKey("display_center_widgets.id"), nullable=True)
+    media_id = Column(Integer, ForeignKey("display_center_media_assets.id"), nullable=True)
+    settings_json = Column(JSON, default=dict)
+    position = Column(Integer, default=0, nullable=False)
+    duration_seconds = Column(Integer, default=15)
+    transition = Column(String(48), default="fade")
+    repeat = Column(Boolean, default=True)
+
+
+class DisplaySchedule(Base):
+    __tablename__ = "display_center_schedules"
+    id = Column(Integer, primary_key=True)
+    playlist_id = Column(Integer, ForeignKey("display_center_playlists.id", ondelete="CASCADE"), nullable=False)
+    display_id = Column(Integer, ForeignKey("display_center_displays.id", ondelete="CASCADE"), nullable=True)
+    starts_at = Column(DateTime, nullable=True)
+    ends_at = Column(DateTime, nullable=True)
+    weekdays_json = Column(JSON, default=list)
+    start_time = Column(String(8), default="00:00")
+    end_time = Column(String(8), default="23:59")
+    priority = Column(Integer, default=100)
+    is_active = Column(Boolean, default=True)
+
+
+class DisplayHeartbeat(Base):
+    __tablename__ = "display_center_heartbeats"
+    id = Column(Integer, primary_key=True)
+    display_id = Column(Integer, ForeignKey("display_center_displays.id", ondelete="CASCADE"), nullable=False, index=True)
+    browser = Column(String(255), default="")
+    cpu_percent = Column(Float, nullable=True)
+    ram_percent = Column(Float, nullable=True)
+    connection = Column(String(64), default="")
+    resolution = Column(String(32), default="")
+    payload_json = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=utcnow, nullable=False, index=True)
 
 
 class User(Base):
