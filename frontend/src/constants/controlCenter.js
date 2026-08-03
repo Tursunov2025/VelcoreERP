@@ -9,7 +9,7 @@ export const MENU_NAV_KEYS = [
   })),
   { iconKey: "controlCenter", path: "/control-center", labelKey: "nav.controlCenter" },
   { iconKey: "invoices", path: "/invoices", labelKey: "nav.invoices" },
-  { iconKey: "settings", path: "/settings", labelKey: "nav.settings" },
+  { iconKey: "displaySettings", path: "/display-center/settings", labelKey: "nav.displaySettings" },
 ];
 
 export const DASHBOARD_WIDGET_DEFS = [

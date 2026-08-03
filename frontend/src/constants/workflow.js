@@ -236,18 +236,32 @@ export const NAV_SECTIONS = [
     path: "/display-center",
     adminOnly: true,
     permission: "settings",
+    children: [
+      { path: "/display-center", iconKey: "displayDashboard", adminOnly: true, permission: "settings" },
+      { path: "/display-center/displays", iconKey: "displayDisplays", adminOnly: true, permission: "settings" },
+      { path: "/display-center/playlists", iconKey: "displayPlaylists", adminOnly: true, permission: "settings" },
+      { path: "/display-center/widgets", iconKey: "displayWidgets", adminOnly: true, permission: "settings" },
+      { path: "/display-center/media", iconKey: "displayMediaLibrary", adminOnly: true, permission: "settings" },
+      { path: "/display-center/templates", iconKey: "displayTemplates", adminOnly: true, permission: "settings" },
+      { path: "/display-center/designer", iconKey: "displayDesigner", adminOnly: true, permission: "settings" },
+      { path: "/display-center/scheduler", iconKey: "displayScheduler", adminOnly: true, permission: "settings" },
+      { path: "/display-center/monitoring", iconKey: "displayMonitoring", adminOnly: true, permission: "settings" },
+      { path: "/display-center/settings", iconKey: "displaySettings", adminOnly: true, permission: "settings" },
+    ],
   },
   {
     id: "settings",
     iconKey: "settings",
     emoji: "⚙️",
     path: "/settings",
+    hidden: true,
     adminOnly: true,
     permission: "settings",
   },
 ];
 
 function itemAllowed(item, permissions, isAdmin) {
+  if (item.hidden) return false;
   if (item.adminOnly && !isAdmin) return false;
   if (!item.permission) return true;
   if (isAdmin) return true;

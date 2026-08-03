@@ -3,6 +3,17 @@
 const uz_latn = {
   nav: {
     dashboard: "Dashboard",
+    displayCenter: "Display Center",
+    displayDashboard: "Dashboard",
+    displayDisplays: "Displays",
+    displayPlaylists: "Playlists",
+    displayWidgets: "Widgets",
+    displayMediaLibrary: "Media Library",
+    displayTemplates: "Templates",
+    displayDesigner: "Designer",
+    displayScheduler: "Scheduler",
+    displayMonitoring: "Monitoring",
+    displaySettings: "Settings",
     production: "Ishlab chiqarish",
     orders: "Zakazlar",
     warehouse: "Ombor",

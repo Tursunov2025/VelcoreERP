@@ -255,6 +255,7 @@ export const api = {
   displayFactoryDashboard: () => request("/display-center/factory-dashboard"),
   displayRuntime: (code) => request(`/display-center/display/${encodeURIComponent(code)}`),
   displayTemplate: (id) => request(`/display-center/templates/${id}`),
+  displayTemplates: () => request("/display-center/templates"),
   createDisplayTemplate: (body) => request("/display-center/templates", { method: "POST", body: JSON.stringify(body) }),
   updateDisplayTemplate: (id, body) => request(`/display-center/templates/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   displayHeartbeat: (body) => request("/display-center/heartbeat", { method: "POST", body: JSON.stringify(body) }),

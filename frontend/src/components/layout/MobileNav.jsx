@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { CONTROL_CENTER_NAV_ITEM } from "../../constants/controlCenter";
 import {
-  ADMIN_NAV_ITEM,
+  NAV_SECTIONS,
   filterNavByPermissions,
   filterNavByVisibility,
   NAV_ITEMS,
@@ -23,8 +22,10 @@ export default function MobileNav() {
   baseItems = filterNavByVisibility(baseItems, config?.nav_visibility, isAdmin);
   const items = [];
   if (isAdmin) {
-    items.push(...baseItems, CONTROL_CENTER_NAV_ITEM);
-    if (permissions?.settings !== false) items.push(ADMIN_NAV_ITEM);
+    items.push(
+      ...baseItems,
+      NAV_SECTIONS.find((section) => section.id === "displayCenter")
+    );
   } else {
     items.push(...baseItems);
   }

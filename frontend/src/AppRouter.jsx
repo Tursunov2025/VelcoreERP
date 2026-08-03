@@ -14,7 +14,6 @@ import OperatorsPage from "./pages/OperatorsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import FinancePage from "./pages/FinancePage";
 import InvoicesPage from "./pages/InvoicesPage";
-import SettingsPage from "./pages/SettingsPage";
 import SuperAdminPage from "./pages/superadmin/SuperAdminPage";
 import OrdersControlCenterPage from "./pages/OrdersControlCenterPage";
 import ChatPage from "./pages/ChatPage";
@@ -195,9 +194,9 @@ function AppRoutes() {
             <Route path="finance" element={<FinancePage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="control-center" element={<OrdersControlCenterPage />} />
-            <Route path="display-center" element={<DisplayCenterPage />} />
+            <Route path="display-center/*" element={<DisplayCenterPage />} />
             <Route path="display-center/designer/:templateId" element={<DisplayDesignerPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="settings" element={<Navigate to="/display-center/settings" replace />} />
             <Route path="super-admin" element={<SuperAdminPage />} />
           </Route>
           <Route path="*" element={<CatchAllRoute />} />
