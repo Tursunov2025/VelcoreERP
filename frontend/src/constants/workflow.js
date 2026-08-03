@@ -157,6 +157,14 @@ export const NAV_SECTIONS = [
     path: "/",
     permission: null,
   },
+  {
+    id: "platformAdministration",
+    iconKey: "platformAdministration",
+    emoji: "⚙️",
+    path: "/admin",
+    adminOnly: true,
+    permission: "settings",
+  },
   DISPLAY_CENTER_SECTION,
   {
     id: "crm",

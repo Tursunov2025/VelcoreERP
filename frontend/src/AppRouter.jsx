@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { isTraceabilityEnabledForRoutes } from "./constants/featureFlags";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -79,6 +80,8 @@ import PackageScannerPage from "./pages/traceability/PackageScannerPage";
 import DisplayCenterPage from "./pages/DisplayCenterPage";
 import DisplayRuntimePage from "./pages/DisplayRuntimePage";
 import DisplayDesignerPage from "./pages/DisplayDesignerPage";
+
+const PlatformAdministrationPage = lazy(() => import("./pages/PlatformAdministrationPage"));
 
 function LoginRoute() {
   const { isLoggedIn, loading } = useAuth();
@@ -194,6 +197,14 @@ function AppRoutes() {
             <Route path="finance" element={<FinancePage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="control-center" element={<OrdersControlCenterPage />} />
+            <Route
+              path="admin"
+              element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <PlatformAdministrationPage />
+                </Suspense>
+              }
+            />
             <Route path="display-center/*" element={<DisplayCenterPage />} />
             <Route path="display-center/designer/:templateId" element={<DisplayDesignerPage />} />
             <Route path="settings" element={<Navigate to="/display-center/settings" replace />} />

@@ -14,6 +14,7 @@ const uz_latn = {
     displayScheduler: "Scheduler",
     displayMonitoring: "Monitoring",
     displaySettings: "Settings",
+    platformAdministration: "Platform Administration",
     production: "Ishlab chiqarish",
     orders: "Zakazlar",
     warehouse: "Ombor",
