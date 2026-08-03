@@ -128,6 +128,27 @@ export const NAV_ITEMS = [
  * a primary path and optional children rendered as a collapsible group.
  * Section is visible when at least one of its items passes permission filters.
  */
+const DISPLAY_CENTER_SECTION = {
+  id: "displayCenter",
+  iconKey: "displayCenter",
+  emoji: "📺",
+  path: "/display-center",
+  adminOnly: true,
+  permission: "settings",
+  children: [
+    { path: "/display-center", iconKey: "displayDashboard", adminOnly: true, permission: "settings" },
+    { path: "/display-center/displays", iconKey: "displayDisplays", adminOnly: true, permission: "settings" },
+    { path: "/display-center/playlists", iconKey: "displayPlaylists", adminOnly: true, permission: "settings" },
+    { path: "/display-center/widgets", iconKey: "displayWidgets", adminOnly: true, permission: "settings" },
+    { path: "/display-center/media", iconKey: "displayMediaLibrary", adminOnly: true, permission: "settings" },
+    { path: "/display-center/templates", iconKey: "displayTemplates", adminOnly: true, permission: "settings" },
+    { path: "/display-center/designer", iconKey: "displayDesigner", adminOnly: true, permission: "settings" },
+    { path: "/display-center/scheduler", iconKey: "displayScheduler", adminOnly: true, permission: "settings" },
+    { path: "/display-center/monitoring", iconKey: "displayMonitoring", adminOnly: true, permission: "settings" },
+    { path: "/display-center/settings", iconKey: "displaySettings", adminOnly: true, permission: "settings" },
+  ],
+};
+
 export const NAV_SECTIONS = [
   {
     id: "dashboard",
@@ -136,6 +157,7 @@ export const NAV_SECTIONS = [
     path: "/",
     permission: null,
   },
+  DISPLAY_CENTER_SECTION,
   {
     id: "crm",
     iconKey: "crm",
@@ -227,26 +249,6 @@ export const NAV_SECTIONS = [
       { path: "/currencies", iconKey: "currencies", permission: "finance" },
       { path: "/analytics", iconKey: "analytics", permission: "finance" },
       { path: "/invoices", iconKey: "invoices", permission: "finance" },
-    ],
-  },
-  {
-    id: "displayCenter",
-    iconKey: "displayCenter",
-    emoji: "📺",
-    path: "/display-center",
-    adminOnly: true,
-    permission: "settings",
-    children: [
-      { path: "/display-center", iconKey: "displayDashboard", adminOnly: true, permission: "settings" },
-      { path: "/display-center/displays", iconKey: "displayDisplays", adminOnly: true, permission: "settings" },
-      { path: "/display-center/playlists", iconKey: "displayPlaylists", adminOnly: true, permission: "settings" },
-      { path: "/display-center/widgets", iconKey: "displayWidgets", adminOnly: true, permission: "settings" },
-      { path: "/display-center/media", iconKey: "displayMediaLibrary", adminOnly: true, permission: "settings" },
-      { path: "/display-center/templates", iconKey: "displayTemplates", adminOnly: true, permission: "settings" },
-      { path: "/display-center/designer", iconKey: "displayDesigner", adminOnly: true, permission: "settings" },
-      { path: "/display-center/scheduler", iconKey: "displayScheduler", adminOnly: true, permission: "settings" },
-      { path: "/display-center/monitoring", iconKey: "displayMonitoring", adminOnly: true, permission: "settings" },
-      { path: "/display-center/settings", iconKey: "displaySettings", adminOnly: true, permission: "settings" },
     ],
   },
   {
