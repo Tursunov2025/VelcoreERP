@@ -20,6 +20,45 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class OrganizationSettingsUpdate(BaseModel):
+    company_name: str = ""
+    short_name: str = ""
+    registration_number: str = ""
+    tin: str = ""
+    website: str = ""
+    industry: str = ""
+    fiscal_year: str = "January–December"
+    logo_url: str = ""
+    dark_logo_url: str = ""
+    favicon_url: str = ""
+    login_background_url: str = ""
+    watermark_url: str = ""
+    language: str = "uz"
+    timezone: str = "Asia/Tashkent"
+    currency: str = "UZS"
+    date_format: str = "DD.MM.YYYY"
+    number_format: str = "1 234,56"
+    measurement_units: str = "metric"
+    working_days: list[str] = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+    working_hours_start: str = "09:00"
+    working_hours_end: str = "18:00"
+    weekend_configuration: str = "Saturday and Sunday"
+    production_shifts: str = "1"
+    default_warehouse: str = ""
+    default_tax: str = ""
+    phone: str = ""
+    email: str = ""
+    support_email: str = ""
+    telegram: str = ""
+    whatsapp: str = ""
+    address: str = ""
+    google_maps_location: str = ""
+    country: str = "Uzbekistan"
+    region: str = ""
+    city: str = ""
+    postal_code: str = ""
+
+
 class PhoneLoginRequest(BaseModel):
     phone: str
     password: str

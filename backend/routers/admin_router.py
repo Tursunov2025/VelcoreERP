@@ -1,5 +1,6 @@
 import os
 import shutil
+import json
 from datetime import datetime
 from typing import Optional
 
@@ -13,7 +14,7 @@ from auth.security import hash_password
 from constants import DEPARTMENTS, PRODUCTION_STAGES
 from config.paths import BACKUP_PATH, DB_PATH
 from database import DATABASE_URL, get_db
-from models import AuditLog, Order, OrderHistory, OrderImage, User, WarehouseItem
+from models import AuditLog, Order, OrderHistory, OrderImage, SystemSetting, User, WarehouseItem
 from schemas import (
     AdminOrderUpdate,
     AdminUserCreate,
@@ -25,6 +26,7 @@ from schemas import (
     ExecutiveSettingsUpdate,
     MaterialsSettingsUpdate,
     NotificationSettingsUpdate,
+    OrganizationSettingsUpdate,
     PasswordResetRequest,
     PermissionsUpdate,
     ProductionSettingsUpdate,
@@ -34,6 +36,7 @@ from schemas import (
     UserAdminResponse,
     WarehouseSettingsUpdate,
 )
+from routers.uploads_router import ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE, _safe_ext, _save_upload
 from services.activity import get_online_operators_detailed
 from services.audit import log_action
 from services.branding import get_branding, reset_branding, update_branding
@@ -54,6 +57,50 @@ from services.telegram import send_test_message
 from services.task_overdue_reminders import send_overdue_task_reminders
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+ORGANIZATION_SETTINGS_KEY = "platform_administration.organization"
+
+
+def _organization_settings(db: Session) -> dict:
+    row = db.query(SystemSetting).filter(SystemSetting.key == ORGANIZATION_SETTINGS_KEY).first()
+    if not row or not row.value:
+        return OrganizationSettingsUpdate().dict()
+    try:
+        stored = json.loads(row.value)
+    except (TypeError, ValueError):
+        stored = {}
+    defaults = OrganizationSettingsUpdate().dict()
+    return {**defaults, **stored} if isinstance(stored, dict) else defaults
+
+
+@router.get("/organization")
+def get_organization_settings(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    return _organization_settings(db)
+
+
+@router.put("/organization")
+def update_organization_settings(data: OrganizationSettingsUpdate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    payload = data.dict()
+    row = db.query(SystemSetting).filter(SystemSetting.key == ORGANIZATION_SETTINGS_KEY).first()
+    if row:
+        row.value = json.dumps(payload)
+    else:
+        db.add(SystemSetting(key=ORGANIZATION_SETTINGS_KEY, value=json.dumps(payload)))
+    log_action(db, admin.username, "update", "organization_settings", details="Updated platform organization settings")
+    db.commit()
+    return payload
+
+
+@router.post("/organization/assets")
+async def upload_organization_asset(file: UploadFile = File(...), _: User = Depends(require_admin)):
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".ico"}
+    content_type = (file.content_type or "").split(";")[0].lower()
+    if content_type not in ALLOWED_IMAGE_TYPES and _safe_ext(file.filename) not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Invalid organization image type")
+    content = await file.read()
+    if len(content) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+    return _save_upload(content, file.filename, subdir="organization")
 
 
 def _serialize_order(order: Order) -> dict:

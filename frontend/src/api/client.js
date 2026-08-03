@@ -250,6 +250,14 @@ export function uploadUrl(path) {
 }
 
 export const api = {
+  organizationSettings: () => request("/admin/organization"),
+  updateOrganizationSettings: (body) =>
+    request("/admin/organization", { method: "PUT", body: JSON.stringify(body) }),
+  uploadOrganizationAsset: (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request("/admin/organization/assets", { method: "POST", body: form });
+  },
   // Display Center — isolated enterprise signage API
   displayDashboard: () => request("/display-center/dashboard"),
   displayFactoryDashboard: () => request("/display-center/factory-dashboard"),
