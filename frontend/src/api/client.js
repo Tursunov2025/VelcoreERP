@@ -250,6 +250,14 @@ export function uploadUrl(path) {
 }
 
 export const api = {
+  identityUsers: (params = {}) => request(`/admin/identity/users?${new URLSearchParams(params).toString()}`),
+  identityMeta: () => request("/admin/identity/meta"),
+  createIdentityUser: (body) => request("/admin/identity/users", { method: "POST", body: JSON.stringify(body) }),
+  updateIdentityUser: (id, body) => request(`/admin/identity/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  setIdentityUserStatus: (id, active) => request(`/admin/identity/users/${id}/status?active=${active}`, { method: "POST" }),
+  generateIdentityTemporaryPassword: (id) => request(`/admin/identity/users/${id}/temporary-password`, { method: "POST" }),
+  forceIdentityLogout: (id) => request(`/admin/identity/users/${id}/force-logout`, { method: "POST" }),
+  identityUserActivity: (id) => request(`/admin/identity/users/${id}/activity`),
   organizationSettings: () => request("/admin/organization"),
   updateOrganizationSettings: (body) =>
     request("/admin/organization", { method: "PUT", body: JSON.stringify(body) }),

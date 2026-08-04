@@ -163,6 +163,48 @@ class UserPermission(Base):
     user = relationship("User", back_populates="permissions")
 
 
+class UserIdentityProfile(Base):
+    __tablename__ = "user_identity_profiles"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    full_name = Column(String(160), default="")
+    employee_id = Column(String(80), default="", index=True)
+    position = Column(String(120), default="")
+    phone = Column(String(64), default="")
+    email = Column(String(160), default="")
+    telegram = Column(String(100), default="")
+    avatar_url = Column(String(500), default="")
+    last_login_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class UserIdentityActivity(Base):
+    __tablename__ = "user_identity_activity"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    action = Column(String(64), nullable=False, index=True)
+    details = Column(Text, default="")
+    actor_username = Column(String(100), default="")
+    created_at = Column(DateTime, default=utcnow, nullable=False, index=True)
+
+
+class UserIdentitySession(Base):
+    __tablename__ = "user_identity_sessions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    device = Column(String(160), default="")
+    browser = Column(String(160), default="")
+    ip_address = Column(String(64), default="")
+    location = Column(String(160), default="")
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_seen_at = Column(DateTime, default=utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+
+
 class Order(Base):
     __tablename__ = "orders"
 

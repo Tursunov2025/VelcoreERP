@@ -208,6 +208,28 @@ def run_migrations():
 
     migrations = [
 
+        """CREATE TABLE IF NOT EXISTS user_identity_profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL UNIQUE,
+            full_name VARCHAR(160) DEFAULT '', employee_id VARCHAR(80) DEFAULT '', position VARCHAR(120) DEFAULT '',
+            phone VARCHAR(64) DEFAULT '', email VARCHAR(160) DEFAULT '', telegram VARCHAR(100) DEFAULT '',
+            avatar_url VARCHAR(500) DEFAULT '', last_login_at DATETIME, created_at DATETIME, updated_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )""",
+        """CREATE TABLE IF NOT EXISTS user_identity_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, action VARCHAR(64) NOT NULL,
+            details TEXT DEFAULT '', actor_username VARCHAR(100) DEFAULT '', created_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )""",
+        """CREATE TABLE IF NOT EXISTS user_identity_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, device VARCHAR(160) DEFAULT '',
+            browser VARCHAR(160) DEFAULT '', ip_address VARCHAR(64) DEFAULT '', location VARCHAR(160) DEFAULT '',
+            is_active INTEGER DEFAULT 1, last_seen_at DATETIME, created_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_user_identity_profiles_employee_id ON user_identity_profiles (employee_id)",
+        "CREATE INDEX IF NOT EXISTS ix_user_identity_activity_user_id ON user_identity_activity (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_user_identity_sessions_user_id ON user_identity_sessions (user_id)",
+
         "ALTER TABLE orders ADD COLUMN operator_id INTEGER",
 
         "ALTER TABLE orders ADD COLUMN image_url VARCHAR",

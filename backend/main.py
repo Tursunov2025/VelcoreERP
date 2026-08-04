@@ -96,6 +96,7 @@ from routers.auth_router import login as jwt_login
 from routers.materials_router import router as materials_router
 from routers.uploads_router import UPLOAD_DIR as _UPLOAD_DIR
 from routers.display_center_router import router as display_center_router
+from routers.enterprise_users_router import router as enterprise_users_router
 from schemas import LoginRequest
 from services.scheduler import start_reminder_scheduler, stop_reminder_scheduler
 from services.seed import seed_defaults
@@ -393,6 +394,7 @@ app.include_router(traceability_router.public_router)
 app.include_router(printing_router.router)
 app.include_router(printing_router.admin_router)
 app.include_router(admin_router.router)
+app.include_router(enterprise_users_router)
 app.include_router(display_center_router)
 
 _verify_materials_routes(app)
