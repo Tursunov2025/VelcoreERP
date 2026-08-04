@@ -174,7 +174,7 @@ export default function DashboardPage() {
                 className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
                 style={{
                 borderRadius: "var(--erp-radius)",
-                boxShadow: `0 0 ${shadow}px rgba(0,0,0,.18)`,
+                boxShadow: "0 0 8px rgba(0,0,0,.18)",
                 fontSize: "var(--erp-font-size)"
               }}
               >
