@@ -12,11 +12,18 @@ export default function AppShell({ children }) {
   return (
     <div
       className="brand-page-enter flex min-h-screen"
-      style={{ backgroundColor: "var(--brand-background)" }}
+      style={{
+      backgroundColor: "var(--erp-background)"
+      }}
     >
       <Sidebar username={username} role={department || role} />
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-[var(--brand-card)]/90 px-4 py-3 backdrop-blur md:hidden">
+        <header
+  className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 px-4 py-3 backdrop-blur md:hidden"
+  style={{
+      backgroundColor: "var(--erp-sidebar)"
+      }}
+>
           <div>
             <p className="text-xs text-[var(--brand-muted)]">{branding.app_name}</p>
             <p className="font-bold text-[var(--brand-text)]">{username}</p>
@@ -26,7 +33,15 @@ export default function AppShell({ children }) {
             <LogoutButton compact className="brand-btn bg-red-500 px-3 py-2 text-xs text-white" />
           </div>
         </header>
-        <main className="flex-1 p-4 text-[var(--brand-text)] md:p-8">{children}</main>
+        <main
+    className="flex-1 p-4 md:p-8"
+    style={{
+        color: "var(--brand-text)",
+        backgroundColor: "var(--erp-background)"
+    }}
+>
+    {children}
+</main>
       </div>
       <MobileNav />
     </div>

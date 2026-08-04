@@ -48,9 +48,11 @@ export default function Sidebar({ username, role }) {
 
   return (
     <aside
-      className="hidden w-[270px] shrink-0 flex-col p-5 text-white shadow-2xl md:flex md:rounded-r-[32px]"
-      style={{ backgroundColor: "var(--brand-sidebar)" }}
-    >
+    className="hidden w-[270px] shrink-0 flex-col p-5 text-white shadow-2xl md:flex md:rounded-r-[32px]"
+    style={{
+        backgroundColor: "var(--erp-sidebar)"
+    }}
+>
       {sidebarLogo ? (
         <img
           src={assetUrl(sidebarLogo)}

@@ -126,7 +126,12 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div>
+    <div
+        style={{
+            backgroundColor: "var(--erp-background)",
+            minHeight: "100vh"
+        }}
+    >
       <PageHeader title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
 
       {isAdmin && isWidgetEnabled(widgets, "delayed_summary") && delayedCount > 0 ? (
@@ -145,7 +150,12 @@ export default function DashboardPage() {
             key={action.label}
             to={action.to}
             className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
-            style={{ backgroundColor: "var(--brand-button)" }}
+            style={{
+            backgroundColor: "var(--brand-button)",
+            height: "var(--erp-button-height)",
+            borderRadius: "var(--erp-radius)",
+            fontSize: "var(--erp-font-size)"
+            }}
           >
             <span>{action.emoji}</span>
             {action.label}
@@ -162,6 +172,11 @@ export default function DashboardPage() {
                 key={card.key}
                 to={card.to}
                 className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
+                style={{
+                borderRadius: "var(--erp-radius)",
+                boxShadow: `0 0 ${shadow}px rgba(0,0,0,.18)`,
+                fontSize: "var(--erp-font-size)"
+              }}
               >
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brand-muted)]">
