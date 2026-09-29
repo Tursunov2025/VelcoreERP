@@ -5,6 +5,7 @@ import BackButton from "../../components/ui/BackButton";
 import ErrorAlert from "../../components/ui/ErrorAlert";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Toast from "../../components/ui/Toast";
+import StageCorrectionPanel from "../../components/mes/StageCorrectionPanel";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
 
@@ -28,11 +29,17 @@ function formatQty(value) {
 
 const QTY_FIELDS = ["accepted_quantity", "rejected_quantity", "rework_quantity"];
 
+function localizedQcError(error, t) {
+  if (error?.code === "qc_exceeds_completed") return t("mes.qcExceedsCompleted");
+  return t("mes.qcSaveFailed");
+}
+
 export default function QcTerminalJobPage() {
   const { id } = useParams();
   const { hasPermission, isAdmin } = useAuth();
   const { t } = useLocale();
   const canUse = isAdmin || hasPermission("mes_terminal_qc");
+  const canCorrect = isAdmin || hasPermission("mes_jobs_manage");
 
   const [job, setJob] = useState(null);
   const [reasons, setReasons] = useState([]);
@@ -78,6 +85,9 @@ export default function QcTerminalJobPage() {
   const canAccept = stepState === "pending_accept";
   const canStart = stepState === "accepted";
   const canEnterQty = stepState === "in_progress";
+  const recoverableRework = isCompleted &&
+    (job?.qc_parts || []).reduce((sum, line) => sum + (Number(line.rework_quantity) || 0), 0) >
+    (job?.rework_records || []).reduce((sum, record) => sum + (Number(record.quantity) || 0), 0);
   const canComplete =
     stepState === "in_progress" &&
     Number(job?.overall_progress_pct || 0) >= 100 &&
@@ -92,6 +102,11 @@ export default function QcTerminalJobPage() {
       );
     });
   }, [job, quantities]);
+  const hasImpossibleQuantity = useMemo(() => (job?.qc_parts || []).some((line) => {
+    const draft = quantities[line.id] || {};
+    const total = QTY_FIELDS.reduce((sum, field) => sum + Math.max(0, Number(draft[field] ?? line[field]) || 0), 0);
+    return total > Number(line.completed_before_qc || 0) + 0.0001;
+  }), [job, quantities]);
 
   const openRework = (job?.rework_records || []).filter(
     (r) => r.status === "pending" || r.status === "in_progress"
@@ -108,7 +123,7 @@ export default function QcTerminalJobPage() {
       setJob(updated);
       setToast(t(`mes.qcAction_${action}`));
     } catch (e) {
-      setToast(e.message);
+      setToast(localizedQcError(e, t));
     } finally {
       setBusy(false);
     }
@@ -143,7 +158,7 @@ export default function QcTerminalJobPage() {
       setQuantities(next);
       setToast(updated.auto_completed ? t("mes.qcAutoCompleted") : t("mes.qcQtySaved"));
     } catch (e) {
-      setToast(e.message);
+      setToast(localizedQcError(e, t));
     } finally {
       setBusy(false);
     }
@@ -171,7 +186,7 @@ export default function QcTerminalJobPage() {
       setReworkForm({ bom_line_id: "", quantity: "", rejection_reason_id: "", notes: "" });
       setToast(t("mes.qcReworkCreated"));
     } catch (e) {
-      setToast(e.message);
+      setToast(localizedQcError(e, t));
     } finally {
       setBusy(false);
     }
@@ -186,7 +201,7 @@ export default function QcTerminalJobPage() {
       await load();
       setToast(t(`mes.qcReworkAction_${action}`));
     } catch (e) {
-      setToast(e.message);
+      setToast(localizedQcError(e, t));
     } finally {
       setBusy(false);
     }
@@ -241,7 +256,12 @@ export default function QcTerminalJobPage() {
           <p className="py-8 text-center text-[var(--brand-muted)]">{t("mes.noSnapshotYet")}</p>
         ) : (
           <div className="space-y-4">
-            {(job.qc_parts || []).map((line) => (
+            {(job.qc_parts || []).map((line) => {
+              const draft = quantities[line.id] || {};
+              const draftTotal = QTY_FIELDS.reduce((sum, field) => sum + Math.max(0, Number(draft[field] ?? line[field]) || 0), 0);
+              const completed = Number(line.completed_before_qc || 0);
+              const impossible = draftTotal > completed + 0.0001;
+              return (
               <div key={line.id} className="rounded-xl border p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -256,8 +276,30 @@ export default function QcTerminalJobPage() {
                 <p className="mt-2 text-xs text-[var(--brand-muted)]">
                   {t("mes.allocatedQty")}: {formatQty(line.allocated_quantity)} {line.unit}
                 </p>
+                <div className="mt-2 rounded-xl border border-[var(--brand-border)] px-3 py-2 text-xs">
+                  <span className="text-[var(--brand-muted)]">{t("mes.qcPreviousStage")}: </span>
+                  <strong>{line.required_previous_stage || "—"}</strong>
+                  <span className="ml-3 text-[var(--brand-muted)]">{t("mes.qcStageReported")}: </span>
+                  <strong>{formatQty(line.previous_stage_reported_quantity)}</strong>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-black/5 p-3 text-center text-xs dark:bg-white/5">
+                  <div><span className="block text-[var(--brand-muted)]">{t("mes.qcCompletedBefore")}</span><strong>{formatQty(line.completed_before_qc)}</strong></div>
+                  <div><span className="block text-[var(--brand-muted)]">{t("mes.qcAlreadyDispositioned")}</span><strong>{formatQty(line.already_dispositioned)}</strong></div>
+                  <div><span className="block text-[var(--brand-muted)]">{t("mes.qcAvailable")}</span><strong>{formatQty(line.available_for_qc)}</strong></div>
+                </div>
+                <p className={`mt-2 text-xs ${impossible ? "font-semibold text-red-600" : "text-[var(--brand-muted)]"}`}>
+                  {t("mes.qcInvariantExplanation")}
+                </p>
+                {completed <= 0 && line.qc_blocking_reason && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                  {t(`mes.qcBlock_${line.qc_blocking_reason}`)}
+                  {isAdmin && line.qc_diagnostic_code ? ` (${line.qc_diagnostic_code})` : ""}
+                </p>}
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  {QTY_FIELDS.map((field) => (
+                  {QTY_FIELDS.map((field) => {
+                    const otherTotal = QTY_FIELDS.filter((item) => item !== field)
+                      .reduce((sum, item) => sum + Math.max(0, Number(draft[item] ?? line[item]) || 0), 0);
+                    const fieldMax = Math.max(0, completed - otherTotal);
+                    return (
                     <label key={field}>
                       <span className="mb-1 block text-xs text-[var(--brand-muted)]">
                         {t(
@@ -273,25 +315,29 @@ export default function QcTerminalJobPage() {
                       <input
                         type="number"
                         min="0"
-                        max={line.allocated_quantity}
+                        max={fieldMax}
                         step="any"
-                        disabled={!canEnterQty || isCompleted || busy}
+                        disabled={field === "rework_quantity" || !canEnterQty || isCompleted || busy}
                         value={quantities[line.id]?.[field] ?? formatQty(line[field])}
-                        onChange={(e) => setQty(line.id, field, e.target.value)}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") setQty(line.id, field, raw);
+                          else setQty(line.id, field, String(Math.min(Math.max(0, Number(raw) || 0), fieldMax)));
+                        }}
                         className="w-full min-h-[48px] rounded-xl border px-3 text-lg font-bold"
                       />
                     </label>
-                  ))}
+                  )})}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
 
         {canEnterQty && dirtyLines.length > 0 ? (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || hasImpossibleQuantity}
             onClick={saveQuantities}
             className="mt-4 w-full min-h-[52px] rounded-2xl text-base font-bold text-white disabled:opacity-60"
             style={{ backgroundColor: "var(--brand-button)" }}
@@ -301,7 +347,7 @@ export default function QcTerminalJobPage() {
         ) : null}
       </div>
 
-      {canEnterQty ? (
+      {canEnterQty || recoverableRework ? (
         <div className="mt-4 rounded-2xl border bg-[var(--brand-card)] p-4 sm:p-6">
           <h3 className="mb-4 text-lg font-bold">{t("mes.qcCreateRework")}</h3>
           <div className="grid gap-3">
@@ -467,6 +513,7 @@ export default function QcTerminalJobPage() {
         </p>
       )}
 
+      <StageCorrectionPanel job={job} onChanged={load} canManage={canCorrect}/>
       {error ? <ErrorAlert message={error} className="mt-4" /> : null}
       <Toast message={toast} onClose={() => setToast("")} />
     </div>

@@ -9,7 +9,7 @@ import { useLocale } from "../context/LocaleContext";
 
 export default function WarehousePage() {
   const { isAdmin, isOmbor } = useAuth();
-  const { t } = useLocale();
+  const { t, formatDateTime, formatNumber } = useLocale();
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ export default function WarehousePage() {
   if (!isAdmin && !isOmbor) {
     return (
       <p className="text-center text-red-500 py-12">
-        Faqat Ombor operatori yoki admin ko&apos;ra oladi
+        {t("warehouse.accessDenied")}
       </p>
     );
   }
@@ -54,7 +54,7 @@ export default function WarehousePage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Qidirish: mijoz, manzil, ID..."
+          placeholder={t("warehouse.searchPlaceholder")}
           className="w-full rounded-2xl border px-5 py-4 outline-none focus:ring-2 focus:ring-black md:max-w-md"
         />
       </form>
@@ -64,25 +64,25 @@ export default function WarehousePage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <Card key={item.id} className="transition hover:shadow-xl">
-            <p className="text-xs text-gray-400">Zakaz #{item.order_id}</p>
+            <p className="text-xs text-gray-400">{t("warehouse.orderNumber", { id: item.order_id })}</p>
             <h3 className="text-lg font-bold">{item.client}</h3>
             <p className="text-sm text-gray-500">{item.phone}</p>
             <p className="mt-2 font-black text-green-600">
-              {Number(item.amount).toLocaleString()} so&apos;m
+              {formatNumber(item.amount)} {t("units.uzs")}
             </p>
             {item.destination && (
               <p className="mt-2 text-sm">📍 {item.destination}</p>
             )}
             <p className="mt-2 text-xs text-gray-400">
-              Omborga: {item.stored_at ? new Date(item.stored_at).toLocaleString() : "—"}
+              {t("warehouse.storedAt")}: {item.stored_at ? formatDateTime(item.stored_at) : "—"}
             </p>
-            <p className="text-xs">Miqdor: {item.quantity}</p>
+            <p className="text-xs">{t("warehouse.quantity")}: {formatNumber(item.quantity)}</p>
           </Card>
         ))}
       </div>
 
       {items.length === 0 && !loading && (
-        <p className="py-12 text-center text-gray-500">Omborda mahsulot yo&apos;q</p>
+        <p className="py-12 text-center text-gray-500">{t("warehouse.empty")}</p>
       )}
     </div>
   );

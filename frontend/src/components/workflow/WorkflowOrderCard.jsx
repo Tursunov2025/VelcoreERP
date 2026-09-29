@@ -2,9 +2,12 @@ import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { uploadUrl } from "../../api/client";
 import OrderTimeline from "./OrderTimeline";
+import { useLocale } from "../../context/LocaleContext";
+import { localizedCanonical } from "../../i18n/displayLabels";
 
 export default function WorkflowOrderCard({ order, onComplete, onVerify, onRefresh }) {
   const { username, department, isAdmin } = useAuth();
+  const { t, formatNumber, formatDate } = useLocale();
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +46,7 @@ export default function WorkflowOrderCard({ order, onComplete, onVerify, onRefre
           <p className="text-sm text-gray-500">{order.phone}</p>
         </div>
         <span className="rounded-xl bg-black px-3 py-1 text-xs font-bold text-white">
-          {order.status}
+          {localizedCanonical(t, "productionStages", order.status)}
         </span>
       </div>
 
@@ -55,7 +58,7 @@ export default function WorkflowOrderCard({ order, onComplete, onVerify, onRefre
       )}
 
       <p className="mb-3 font-black text-green-600">
-        {Number(order.amount).toLocaleString()} so&apos;m
+        {formatNumber(order.amount)} {t("units.uzs")}
       </p>
 
       {images.length > 0 && (
@@ -80,7 +83,7 @@ export default function WorkflowOrderCard({ order, onComplete, onVerify, onRefre
           <input
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Izoh (ixtiyoriy)"
+            placeholder={t("orders.optionalComment")}
             className="w-full rounded-xl border px-3 py-2 text-sm"
           />
           <button
@@ -92,15 +95,15 @@ export default function WorkflowOrderCard({ order, onComplete, onVerify, onRefre
             {loading
               ? "..."
               : order.status === "Tekshiruv"
-                ? "Tekshirildi"
-                : "Tugatdim"}
+                ? t("orders.verified")
+                : t("orders.completedAction")}
           </button>
         </div>
       )}
 
       <p className="mt-2 text-[10px] text-gray-400">
         {order.estimated_finish_at
-          ? `Tugash: ${new Date(order.estimated_finish_at).toLocaleDateString()}`
+          ? t("orders.finishDate", { date: formatDate(order.estimated_finish_at) })
           : ""}
       </p>
     </article>

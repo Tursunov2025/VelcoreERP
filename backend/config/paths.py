@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 
-from config.env_loader import get_database_url_source, load_environment
+from config.env_loader import PROCESS_ENV_KEYS, get_database_url_source, load_environment
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 _REPO_ROOT = _BACKEND_DIR.parent
@@ -25,36 +25,42 @@ if sys.platform != "win32":
 else:
     _DEFAULT_DATA_ROOT = Path(r"D:\AzmusERP\Data")
 
-DATA_ROOT = Path(os.getenv("DATA_ROOT", str(_DEFAULT_DATA_ROOT))).resolve()
-DB_PATH = Path(
-    os.getenv(
-        "DB_PATH",
-        str(DATA_ROOT / "database" / "azmus.db"),
-    )
-).resolve()
+_RAW_DATABASE_URL = (os.getenv("DATABASE_URL") or "").strip()
+_PROCESS_SQLITE_URL = "DATABASE_URL" in PROCESS_ENV_KEYS and _RAW_DATABASE_URL.startswith("sqlite")
+_URL_DB_PATH = (
+    Path(_RAW_DATABASE_URL.replace("sqlite:///", "").replace("sqlite://", "")).resolve()
+    if _PROCESS_SQLITE_URL
+    else None
+)
+
+if _PROCESS_SQLITE_URL and "DATA_ROOT" not in PROCESS_ENV_KEYS:
+    DATA_ROOT = (_URL_DB_PATH.parent.parent if _URL_DB_PATH.parent.name.lower() == "database" else _URL_DB_PATH.parent).resolve()
+else:
+    DATA_ROOT = Path(os.getenv("DATA_ROOT", str(_DEFAULT_DATA_ROOT))).resolve()
+
+if _PROCESS_SQLITE_URL and "DB_PATH" not in PROCESS_ENV_KEYS:
+    DB_PATH = _URL_DB_PATH
+else:
+    DB_PATH = Path(os.getenv("DB_PATH", str(DATA_ROOT / "database" / "azmus.db"))).resolve()
 UPLOAD_PATH = Path(
-    os.getenv(
-        "UPLOAD_PATH",
-        str(DATA_ROOT / "uploads"),
-    )
+    str(DATA_ROOT / "uploads")
+    if _PROCESS_SQLITE_URL and "UPLOAD_PATH" not in PROCESS_ENV_KEYS
+    else os.getenv("UPLOAD_PATH", str(DATA_ROOT / "uploads"))
 ).resolve()
 BACKUP_PATH = Path(
-    os.getenv(
-        "BACKUP_PATH",
-        str(DATA_ROOT / "backups"),
-    )
+    str(DATA_ROOT / "backups")
+    if _PROCESS_SQLITE_URL and "BACKUP_PATH" not in PROCESS_ENV_KEYS
+    else os.getenv("BACKUP_PATH", str(DATA_ROOT / "backups"))
 ).resolve()
 LOG_PATH = Path(
-    os.getenv(
-        "LOG_PATH",
-        str(DATA_ROOT / "logs"),
-    )
+    str(DATA_ROOT / "logs")
+    if _PROCESS_SQLITE_URL and "LOG_PATH" not in PROCESS_ENV_KEYS
+    else os.getenv("LOG_PATH", str(DATA_ROOT / "logs"))
 ).resolve()
 MIGRATION_BACKUP_PATH = Path(
-    os.getenv(
-        "MIGRATION_BACKUP_PATH",
-        str(DATA_ROOT / "migrations"),
-    )
+    str(DATA_ROOT / "migrations")
+    if _PROCESS_SQLITE_URL and "MIGRATION_BACKUP_PATH" not in PROCESS_ENV_KEYS
+    else os.getenv("MIGRATION_BACKUP_PATH", str(DATA_ROOT / "migrations"))
 ).resolve()
 
 

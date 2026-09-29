@@ -2,8 +2,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
-export default function AdminRoute({ children }) {
-  const { isAdmin, loading, isLoggedIn } = useAuth();
+export default function AdminRoute({ children, permission }) {
+  const { isAdmin, hasPermission, loading, isLoggedIn } = useAuth();
 
   if (loading) {
     return (
@@ -14,7 +14,7 @@ export default function AdminRoute({ children }) {
   }
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isAdmin && !(permission && hasPermission(permission))) return <Navigate to="/" replace />;
 
   return children;
 }

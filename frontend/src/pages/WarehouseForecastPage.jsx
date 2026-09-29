@@ -4,20 +4,17 @@ import BackButton from "../components/ui/BackButton";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
+import { useLocale } from "../context/LocaleContext";
 
 const TREND_BADGE = {
-  up: { label: "▲ Rising", className: "bg-red-100 text-red-700" },
-  down: { label: "▼ Falling", className: "bg-green-100 text-green-700" },
-  stable: { label: "→ Stable", className: "bg-blue-100 text-blue-700" },
-  none: { label: "— No usage", className: "bg-gray-100 text-gray-600" },
+  up: "bg-red-100 text-red-700",
+  down: "bg-green-100 text-green-700",
+  stable: "bg-blue-100 text-blue-700",
+  none: "bg-gray-100 text-gray-600",
 };
 
-function qty(value) {
-  const n = Number(value || 0);
-  return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2);
-}
-
 export default function WarehouseForecastPage() {
+  const { t, formatNumber } = useLocale();
   const [items, setItems] = useState([]);
   const [meta, setMeta] = useState({ window_days: 30, low_stock_threshold_days: 14 });
   const [category, setCategory] = useState("");
@@ -53,23 +50,23 @@ export default function WarehouseForecastPage() {
 
   return (
     <div className="pb-24">
-      <BackButton fallback="/materials" label="Materials" className="mb-4" />
+      <BackButton fallback="/materials" label={t("nav.materials")} className="mb-4" />
       <PageHeader
-        title="Warehouse Forecast"
-        subtitle={`Consumption over last ${meta.window_days} days · low stock under ${meta.low_stock_threshold_days} days`}
+        title={t("warehouseForecast.title")}
+        subtitle={t("warehouseForecast.subtitle", { window: meta.window_days, threshold: meta.low_stock_threshold_days })}
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-3xl border bg-[var(--brand-card)] p-4">
-          <p className="text-xs uppercase text-[var(--brand-muted)]">Materials tracked</p>
+          <p className="text-xs uppercase text-[var(--brand-muted)]">{t("warehouseForecast.tracked")}</p>
           <p className="mt-1 text-2xl font-black">{items.length}</p>
         </div>
         <div className="rounded-3xl border bg-[var(--brand-card)] p-4">
-          <p className="text-xs uppercase text-[var(--brand-muted)]">Low stock</p>
+          <p className="text-xs uppercase text-[var(--brand-muted)]">{t("warehouseForecast.lowStock")}</p>
           <p className="mt-1 text-2xl font-black text-red-500">{lowCount}</p>
         </div>
         <div className="rounded-3xl border bg-[var(--brand-card)] p-4">
-          <p className="text-xs uppercase text-[var(--brand-muted)]">Healthy</p>
+          <p className="text-xs uppercase text-[var(--brand-muted)]">{t("warehouseForecast.healthy")}</p>
           <p className="mt-1 text-2xl font-black text-green-600">{items.length - lowCount}</p>
         </div>
       </div>
@@ -78,7 +75,7 @@ export default function WarehouseForecastPage() {
         <input
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          placeholder="Filter by category (paint, profile, component...)"
+          placeholder={t("warehouseForecast.categoryFilter")}
           className="flex-1 rounded-xl border bg-[var(--brand-card)] px-4 py-3 text-[var(--brand-text)]"
         />
         <label className="flex items-center gap-2 text-sm font-semibold text-[var(--brand-text)]">
@@ -88,7 +85,7 @@ export default function WarehouseForecastPage() {
             onChange={(e) => setLowOnly(e.target.checked)}
             className="h-4 w-4"
           />
-          Low stock only
+          {t("warehouseForecast.lowOnly")}
         </label>
       </div>
 
@@ -97,7 +94,7 @@ export default function WarehouseForecastPage() {
 
       <div className="space-y-2">
         {items.map((item) => {
-          const trend = TREND_BADGE[item.trend] || TREND_BADGE.none;
+          const trend = item.trend in TREND_BADGE ? item.trend : "none";
           return (
             <div
               key={item.material_id}
@@ -113,30 +110,30 @@ export default function WarehouseForecastPage() {
                   </p>
                   <p className="text-xs text-[var(--brand-muted)]">
                     {item.code ? `${item.code} · ` : ""}
-                    {item.category || "No category"}
+                    {item.category || t("warehouseForecast.noCategory")}
                   </p>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${trend.className}`}>
-                  {trend.label}
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${TREND_BADGE[trend]}`}>
+                  {t(`warehouseForecast.trend_${trend}`)}
                 </span>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                 <div>
-                  <p className="text-xs text-[var(--brand-muted)]">In stock</p>
+                  <p className="text-xs text-[var(--brand-muted)]">{t("warehouseForecast.inStock")}</p>
                   <p className="font-bold">
-                    {qty(item.quantity)} {item.unit}
+                    {formatNumber(item.quantity, { maximumFractionDigits: 2 })} {item.unit}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--brand-muted)]">Used / {meta.window_days}d</p>
-                  <p className="font-bold">{qty(item.consumed_30d)}</p>
+                  <p className="text-xs text-[var(--brand-muted)]">{t("warehouseForecast.usedDays", { days: meta.window_days })}</p>
+                  <p className="font-bold">{formatNumber(item.consumed_30d, { maximumFractionDigits: 2 })}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--brand-muted)]">Daily avg</p>
-                  <p className="font-bold">{qty(item.avg_daily_consumption)}</p>
+                  <p className="text-xs text-[var(--brand-muted)]">{t("warehouseForecast.dailyAverage")}</p>
+                  <p className="font-bold">{formatNumber(item.avg_daily_consumption, { maximumFractionDigits: 2 })}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--brand-muted)]">Days remaining</p>
+                  <p className="text-xs text-[var(--brand-muted)]">{t("warehouseForecast.daysRemaining")}</p>
                   <p
                     className={`font-black ${
                       item.days_remaining != null && item.days_remaining <= meta.low_stock_threshold_days
@@ -144,7 +141,7 @@ export default function WarehouseForecastPage() {
                         : "text-green-600"
                     }`}
                   >
-                    {item.days_remaining != null ? `${item.days_remaining} d` : "∞"}
+                    {item.days_remaining != null ? t("warehouseForecast.daysValue", { days: formatNumber(item.days_remaining) }) : "∞"}
                   </p>
                 </div>
               </div>
@@ -152,7 +149,7 @@ export default function WarehouseForecastPage() {
           );
         })}
         {!loading && items.length === 0 ? (
-          <p className="py-12 text-center text-sm text-[var(--brand-muted)]">No materials found</p>
+          <p className="py-12 text-center text-sm text-[var(--brand-muted)]">{t("warehouseForecast.empty")}</p>
         ) : null}
       </div>
     </div>

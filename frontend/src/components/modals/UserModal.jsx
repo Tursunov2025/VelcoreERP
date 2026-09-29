@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { DEPARTMENTS } from "../../constants/workflow";
 import Modal from "./Modal";
+import { useLocale } from "../../context/LocaleContext";
+import { localizedCanonical } from "../../i18n/displayLabels";
 
 export default function UserModal({ onClose, onSave }) {
+  const { t } = useLocale();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("operator");
@@ -12,7 +15,7 @@ export default function UserModal({ onClose, onSave }) {
 
   const handleSave = async () => {
     if (!username.trim() || !password.trim()) {
-      setError("Login va parol majburiy");
+      setError(t("users.loginPasswordRequired"));
       return;
     }
 
@@ -21,7 +24,7 @@ export default function UserModal({ onClose, onSave }) {
       await onSave({ username: username.trim(), password: password.trim(), role, department });
       onClose();
     } catch (err) {
-      setError(err.message || "Xatolik");
+      setError(err.message || t("errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -29,19 +32,19 @@ export default function UserModal({ onClose, onSave }) {
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="mb-6 text-2xl font-black">Yangi user</h2>
+      <h2 className="mb-6 text-2xl font-black">{t("users.createUser")}</h2>
       <div className="space-y-4">
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="Login"
+          placeholder={t("users.username")}
           className="w-full rounded-2xl border px-5 py-4"
         />
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Parol"
+          placeholder={t("users.password")}
           className="w-full rounded-2xl border px-5 py-4"
         />
         <select
@@ -49,8 +52,8 @@ export default function UserModal({ onClose, onSave }) {
           onChange={(e) => setRole(e.target.value)}
           className="w-full rounded-2xl border px-5 py-4"
         >
-          <option value="operator">Operator</option>
-          <option value="admin">Admin</option>
+          <option value="operator">{t("roleNames.operator")}</option>
+          <option value="admin">{t("roleNames.admin")}</option>
         </select>
         <select
           value={department}
@@ -59,7 +62,7 @@ export default function UserModal({ onClose, onSave }) {
         >
           {DEPARTMENTS.map((d) => (
             <option key={d} value={d}>
-              {d}
+              {localizedCanonical(t, "productionStages", d)}
             </option>
           ))}
         </select>
@@ -70,7 +73,7 @@ export default function UserModal({ onClose, onSave }) {
           disabled={saving}
           className="w-full rounded-2xl bg-black py-4 font-bold text-white"
         >
-          Saqlash
+          {saving ? t("common.saving") : t("common.save")}
         </button>
       </div>
     </Modal>

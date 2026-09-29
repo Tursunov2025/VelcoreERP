@@ -46,6 +46,8 @@ BASELINE_DEFAULTS: dict[str, int] = {
     "users": 9,
 }
 
+EXPECTED_STARTUP_TABLES = frozenset({"users", "orders", "tasks", "mes_production_jobs"})
+
 
 class DatabaseGuardError(RuntimeError):
     """Startup or import blocked to protect production data."""
@@ -92,6 +94,8 @@ def is_guard_enabled() -> bool:
     explicit = os.getenv("DATABASE_GUARD", "").strip()
     if explicit.lower() == "false":
         return False
+    if explicit and _env_truthy("DATABASE_GUARD", explicit):
+        return True
     if os.getenv("PYTEST_CURRENT_TEST"):
         return False
     url = DATABASE_URL
@@ -99,8 +103,6 @@ def is_guard_enabled() -> bool:
         return False
     if _is_postgres_url(url):
         return bool(explicit and _env_truthy("DATABASE_GUARD", explicit))
-    if explicit and _env_truthy("DATABASE_GUARD", explicit):
-        return True
     if _env_truthy("PRODUCTION") or os.getenv("ENVIRONMENT", "").lower() in ("production", "prod"):
         return True
     if _is_render_persistent_data_root():
@@ -174,6 +176,20 @@ def collect_database_stats(db_path: Path | None = None) -> dict[str, Any]:
     return stats
 
 
+def _missing_expected_tables(db_path: Path) -> list[str]:
+    if not db_path.is_file():
+        return sorted(EXPECTED_STARTUP_TABLES)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        existing = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+    finally:
+        conn.close()
+    return sorted(EXPECTED_STARTUP_TABLES - existing)
+
+
 def _assert_url_matches_path() -> None:
     try:
         url_path = resolve_sqlite_file_from_url(DATABASE_URL)
@@ -216,6 +232,13 @@ def verify_database_connectivity() -> None:
 
 
 def validate_production_database_at_startup() -> dict[str, Any]:
+    # SQLite creates a missing database as a side effect of connecting.  When the
+    # production guard is active, reject the path before opening the engine.
+    if not _is_postgres_url(DATABASE_URL) and is_guard_enabled() and not DB_PATH.is_file():
+        raise DatabaseGuardError(
+            f"Production database not found at {DB_PATH}. "
+            "Startup aborted — will NOT create a new empty database."
+        )
     try:
         verify_database_connectivity()
     except Exception as exc:
@@ -234,6 +257,12 @@ def validate_production_database_at_startup() -> dict[str, Any]:
         }
 
     stats = collect_database_stats()
+    if DB_PATH.is_file():
+        missing_tables = _missing_expected_tables(DB_PATH)
+        if missing_tables:
+            raise DatabaseGuardError(
+                f"Database at {DB_PATH} is missing required tables: {', '.join(missing_tables)}"
+            )
     if not is_guard_enabled():
         _log.info("Database guard disabled")
         return stats

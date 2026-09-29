@@ -30,6 +30,7 @@ def test_forbidden_paths() -> None:
 
 def test_guard_blocks_missing_db(monkeypatch, tmp_path: Path) -> None:
     missing = tmp_path / "missing.db"
+    missing.unlink(missing_ok=True)
     monkeypatch.setenv("DATABASE_GUARD", "true")
     monkeypatch.setenv("SKIP_DEMO_SEED", "true")
     monkeypatch.setenv("DB_PATH", str(missing))
@@ -47,6 +48,7 @@ def test_guard_blocks_missing_db(monkeypatch, tmp_path: Path) -> None:
         raise AssertionError("expected DatabaseGuardError")
     except guard.DatabaseGuardError as exc:
         assert "not found" in str(exc).lower()
+    assert not missing.exists(), "guard must not create the rejected SQLite database"
 
 
 def test_guard_allows_existing_db(monkeypatch, tmp_path: Path) -> None:

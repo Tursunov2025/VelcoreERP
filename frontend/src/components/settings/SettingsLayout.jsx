@@ -1,4 +1,7 @@
 import { useFeatureFlags } from "../../hooks/useFeatureFlags";
+import { useLocale } from "../../context/LocaleContext";
+
+const TAB_KEYS = { company:"company", production:"production", telegram:"telegram", warehouse:"warehouse", materials:"materials", costing:"costing", appearance:"appearance", backupSettings:"backupSettings", superAdmin:"controlCenter", menuVisibility:"menu", dashboardWidgets:"dashboard", productionStages:"stages", systemLogs:"logs", mobileApp:"mobile", labelPrinters:"printers", users:"users", permissions:"permissions", notifications:"notifications", orders:"orders", shipments:"shipments", search:"search", online:"online", chat:"chat", audit:"audit", migration:"migration", backup:"backup" };
 
 const CENTRAL_TABS = [
   { id: "company", label: "Kompaniya", icon: "🏢" },
@@ -38,6 +41,7 @@ const OPERATIONS_TABS = [
 const TABS = [...CENTRAL_TABS, ...OPERATIONS_TABS];
 
 export default function SettingsLayout({ activeTab, onTabChange, children }) {
+  const { t } = useLocale();
   const { printAgentEnabled } = useFeatureFlags();
   const superAdminTabs = SUPER_ADMIN_TABS.filter(
     (tab) => !tab.requiresPrintAgent || printAgentEnabled
@@ -47,7 +51,7 @@ export default function SettingsLayout({ activeTab, onTabChange, children }) {
     <div className="flex flex-col gap-6 lg:flex-row">
       <aside className="shrink-0 lg:w-56">
         <p className="mb-2 hidden text-xs font-bold uppercase tracking-wide text-[var(--brand-muted)] lg:block">
-          Markaziy sozlamalar
+          {t("settingsNav.central")}
         </p>
         <nav className="mb-4 flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
           {CENTRAL_TABS.map((tab) => (
@@ -62,12 +66,12 @@ export default function SettingsLayout({ activeTab, onTabChange, children }) {
               }`}
             >
               <span>{tab.icon}</span>
-              {tab.label}
+              {t(`settingsNav.${TAB_KEYS[tab.id]}`)}
             </button>
           ))}
         </nav>
         <p className="mb-2 hidden text-xs font-bold uppercase tracking-wide text-[var(--brand-muted)] lg:block">
-          Super Admin
+          {t("settingsNav.superAdmin")}
         </p>
         <nav className="mb-4 flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
           {superAdminTabs.map((tab) => (
@@ -82,12 +86,12 @@ export default function SettingsLayout({ activeTab, onTabChange, children }) {
               }`}
             >
               <span>{tab.icon}</span>
-              {tab.label}
+              {t(`settingsNav.${TAB_KEYS[tab.id]}`)}
             </button>
           ))}
         </nav>
         <p className="mb-2 hidden text-xs font-bold uppercase tracking-wide text-[var(--brand-muted)] lg:block">
-          Boshqaruv
+          {t("settingsNav.management")}
         </p>
         <nav className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
           {OPERATIONS_TABS.map((tab) => (
@@ -102,7 +106,7 @@ export default function SettingsLayout({ activeTab, onTabChange, children }) {
               }`}
             >
               <span>{tab.icon}</span>
-              {tab.label}
+              {t(`settingsNav.${TAB_KEYS[tab.id]}`)}
             </button>
           ))}
         </nav>

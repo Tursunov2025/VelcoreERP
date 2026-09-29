@@ -52,7 +52,7 @@ export default function ProductionPage() {
             onClick={load}
             className="rounded-2xl bg-black px-5 py-2 text-sm text-white"
           >
-            Yangilash
+            {t("production.refresh")}
           </button>
         }
       />

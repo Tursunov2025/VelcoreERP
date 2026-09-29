@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from models import MesJobBomLine, MesJobRouteStep, MesProductionJob, MesProductionStage
 from services.audit import log_value_change
 from services.mes_jobs import load_job
+from services.project_execution import consume_project_stock, record_absolute_operation
 from services.mes_terminal_common import (
     QUEUE_JOB_STATUSES,
     get_active_step,
@@ -17,6 +18,7 @@ from services.mes_terminal_common import (
     serialize_route_step,
     sort_queue,
     terminal_step_state,
+    project_terminal_metadata,
 )
 
 WELDING_DEPARTMENT = "Svarka"
@@ -127,6 +129,7 @@ def serialize_terminal_job(
         "id": job.id,
         "job_number": job.job_number,
         "customer_name": job.customer_name or "",
+        **project_terminal_metadata(job),
         "order_reference": job.order_reference or "",
         "template_id": job.template_id,
         "template_code": job.template.code if job.template else None,
@@ -228,6 +231,20 @@ def start_welding_job(
     if step.started_at:
         raise ValueError("Work already started")
     now = datetime.utcnow()
+    if job.project_id:
+        for line in job.bom_lines:
+            issued = float(line.stock_reserved_quantity or 0)
+            if issued <= 0:
+                continue
+            operation = record_absolute_operation(
+                db, job, operation_type="stock_issued", absolute_quantity=issued,
+                username=username, terminal="SVARKA", job_line=line,
+                source_record_type="project_stock_allocation",
+            )
+            if operation is not None:
+                consumed = consume_project_stock(db, job, line.part_id, operation.quantity, username)
+                if consumed + 0.0001 < operation.quantity:
+                    raise ValueError("Insufficient project-reserved stock for issue")
     log_value_change(
         db, username, "start", "mes_job_route_step", step.id, "started_at", None, now.isoformat()
     )
@@ -342,6 +359,11 @@ def update_welding_quantities(
                 db, username, "quantity", "mes_job_bom_line", line.id, field, old, qty
             )
             setattr(line, field, qty)
+            operation = {"completed_quantity": "svarka_completed", "accepted_quantity": "svarka_accepted", "rejected_quantity": "svarka_rejected"}[field]
+            record_absolute_operation(db, job, operation_type=operation, absolute_quantity=qty,
+                                      username=username, terminal="svarshik", job_line=line, route_step=step,
+                                      accepted=qty if field == "accepted_quantity" else 0,
+                                      rejected=qty if field == "rejected_quantity" else 0)
             changed = True
 
         completed = float(line.completed_quantity or 0)

@@ -1,7 +1,8 @@
 """Phase 12 — GPS Fleet Tracking API."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,13 +12,14 @@ from sqlalchemy.orm import Session, joinedload
 
 from auth.deps import get_current_user
 from database import get_db
-from models import Driver, GpsLocation, Transport, TransportTask, TripRoute, User, Vehicle
+from models import Driver, GpsAlertState, GpsLocation, MesGpsCommandQueue, MesGpsDevice, Transport, TransportTask, TripRoute, User, Vehicle
 from services.audit import log_action
 from services.gps_fleet import (
     build_dashboard,
     latest_locations_by_vehicle,
     save_location,
     serialize_location,
+    haversine_meters,
 )
 from services.gps_alerts import mark_vehicle_online
 from services.permissions import user_has_permission
@@ -82,9 +84,18 @@ class TransportTaskIn(BaseModel):
     vehicle_id: int | None = None
     driver_id: int | None = None
     transport_id: int | None = None
+    driver_user_id: int | None = None
+    mes_vehicle_id: int | None = None
     origin: str = ""
     destination: str = ""
-    status: Literal["assigned", "active", "completed", "cancelled"] = "assigned"
+    customer_name: str = ""
+    customer_phone: str = ""
+    cargo_description: str = ""
+    origin_latitude: float | None = None
+    origin_longitude: float | None = None
+    destination_latitude: float | None = None
+    destination_longitude: float | None = None
+    status: Literal["assigned", "picked_up", "delivered", "completed", "cancelled"] = "assigned"
 
 
 class TransportTaskUpdate(BaseModel):
@@ -93,9 +104,18 @@ class TransportTaskUpdate(BaseModel):
     vehicle_id: int | None = None
     driver_id: int | None = None
     transport_id: int | None = None
+    driver_user_id: int | None = None
+    mes_vehicle_id: int | None = None
     origin: str | None = None
     destination: str | None = None
-    status: Literal["assigned", "active", "completed", "cancelled"] | None = None
+    customer_name: str | None = None
+    customer_phone: str | None = None
+    cargo_description: str | None = None
+    origin_latitude: float | None = None
+    origin_longitude: float | None = None
+    destination_latitude: float | None = None
+    destination_longitude: float | None = None
+    status: Literal["assigned", "picked_up", "delivered", "completed", "cancelled"] | None = None
 
 
 def _serialize_vehicle(v: Vehicle, loc: GpsLocation | None = None) -> dict:
@@ -149,12 +169,25 @@ def _serialize_transport_task(
         "vehicle_id": task.vehicle_id,
         "driver_id": task.driver_id,
         "transport_id": task.transport_id,
+        "driver_user_id": task.driver_user_id,
+        "mes_vehicle_id": task.mes_vehicle_id,
         "origin": task.origin,
         "destination": task.destination,
+        "customer_name": task.customer_name or "",
+        "customer_phone": task.customer_phone or "",
+        "cargo_description": task.cargo_description or "",
+        "origin_latitude": task.origin_latitude,
+        "origin_longitude": task.origin_longitude,
+        "destination_latitude": task.destination_latitude,
+        "destination_longitude": task.destination_longitude,
         "status": task.status,
         "tracking_active": bool(task.tracking_active),
         "started_at": task.started_at.isoformat() if task.started_at else None,
+        "picked_up_at": task.picked_up_at.isoformat() if task.picked_up_at else None,
+        "delivered_at": task.delivered_at.isoformat() if task.delivered_at else None,
         "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+        "completion_photo_url": task.completion_photo_url or "",
+        "completion_note": task.completion_note or "",
         "created_by": task.created_by,
         "created_at": task.created_at.isoformat() if task.created_at else None,
         "vehicle_plate": task.vehicle.plate_number if task.vehicle else None,
@@ -535,8 +568,17 @@ def create_transport_task(
         vehicle_id=payload.vehicle_id,
         driver_id=payload.driver_id,
         transport_id=payload.transport_id,
+        driver_user_id=payload.driver_user_id,
+        mes_vehicle_id=payload.mes_vehicle_id,
         origin=payload.origin.strip(),
         destination=payload.destination.strip(),
+        customer_name=payload.customer_name.strip(),
+        customer_phone=payload.customer_phone.strip(),
+        cargo_description=payload.cargo_description.strip(),
+        origin_latitude=payload.origin_latitude,
+        origin_longitude=payload.origin_longitude,
+        destination_latitude=payload.destination_latitude,
+        destination_longitude=payload.destination_longitude,
         status=payload.status,
         created_by=user.username,
     )
@@ -713,3 +755,177 @@ def gps_dashboard(
     if not _can_view(db, user):
         raise HTTPException(status_code=403, detail="Forbidden")
     return build_dashboard(db)
+
+
+@router.get("/distance/daily")
+def gps_daily_distance(
+    vehicle_id: int = Query(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Distance travelled today in Asia/Tashkent, calculated from GPS history."""
+    if not _can_read_fleet(db, user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    tz = ZoneInfo("Asia/Tashkent")
+    now_local = datetime.now(tz)
+    start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_local = start_local.replace(day=start_local.day)  # keep explicit local boundary
+    start_utc = start_local.astimezone(timezone.utc).replace(tzinfo=None)
+    end_utc = now_local.astimezone(timezone.utc).replace(tzinfo=None)
+
+    rows = (
+        db.query(GpsLocation)
+        .filter(
+            GpsLocation.vehicle_id == vehicle_id,
+            GpsLocation.recorded_at >= start_utc,
+            GpsLocation.recorded_at <= end_utc,
+        )
+        .order_by(GpsLocation.recorded_at.asc(), GpsLocation.id.asc())
+        .all()
+    )
+
+    meters = 0.0
+    for prev, cur in zip(rows, rows[1:]):
+        meters += haversine_meters(
+            prev.latitude,
+            prev.longitude,
+            cur.latitude,
+            cur.longitude,
+        )
+
+    return {
+        "vehicle_id": vehicle_id,
+        "date": now_local.date().isoformat(),
+        "distance_km": round(meters / 1000.0, 2),
+        "points": len(rows),
+        "timezone": "Asia/Tashkent",
+    }
+
+
+class GpsSafetySettingsUpdate(BaseModel):
+    speed_limit_kmh: float | None = None
+    geofence_radius_m: float | None = None
+    geofence_enabled: bool | None = None
+    geofence_latitude: float | None = None
+    geofence_longitude: float | None = None
+
+
+@router.put("/safety/settings/{vehicle_id}")
+def update_gps_safety_settings(
+    vehicle_id: int,
+    payload: GpsSafetySettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    state = db.query(GpsAlertState).filter(
+        GpsAlertState.vehicle_id == vehicle_id
+    ).first()
+
+    if not state:
+        state = GpsAlertState(vehicle_id=vehicle_id)
+        db.add(state)
+
+    if payload.speed_limit_kmh is not None:
+        state.speed_limit_kmh = float(payload.speed_limit_kmh)
+
+    if payload.geofence_radius_m is not None:
+        state.geofence_radius_m = float(payload.geofence_radius_m)
+
+    if payload.geofence_enabled is not None:
+        state.geofence_enabled = 1 if payload.geofence_enabled else 0
+
+    if payload.geofence_latitude is not None:
+        state.geofence_latitude = float(payload.geofence_latitude)
+
+    if payload.geofence_longitude is not None:
+        state.geofence_longitude = float(payload.geofence_longitude)
+
+    db.commit()
+    db.refresh(state)
+
+    return {
+        "vehicle_id": vehicle_id,
+        "speed_limit_kmh": state.speed_limit_kmh,
+        "geofence_radius_m": state.geofence_radius_m,
+        "geofence_enabled": bool(state.geofence_enabled),
+        "geofence_latitude": state.geofence_latitude,
+        "geofence_longitude": state.geofence_longitude,
+    }
+
+
+class GpsImmobilizerRequest(BaseModel):
+    action: str
+
+
+@router.post("/immobilizer/{vehicle_id}")
+def request_gps_immobilizer(
+    vehicle_id: int,
+    payload: GpsImmobilizerRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    action = str(payload.action or "").upper().strip()
+    if action not in {"BLOCK", "UNBLOCK"}:
+        raise HTTPException(status_code=400, detail="action must be BLOCK or UNBLOCK")
+
+    device = (
+        db.query(MesGpsDevice)
+        .filter(
+            MesGpsDevice.vehicle_id == vehicle_id,
+            MesGpsDevice.status == "active",
+        )
+        .first()
+    )
+    if not device:
+        raise HTTPException(status_code=404, detail="active GPS device not found")
+
+    current_speed = float(device.last_speed_kmh or 0)
+
+    status = "pending"
+    requires_stop = False
+
+    if action == "BLOCK":
+        requires_stop = True
+        if current_speed > 0:
+            status = "armed"
+
+    existing = (
+        db.query(MesGpsCommandQueue)
+        .filter(
+            MesGpsCommandQueue.vehicle_id == vehicle_id,
+            MesGpsCommandQueue.action == action,
+            MesGpsCommandQueue.status.in_(["pending", "armed"]),
+        )
+        .order_by(MesGpsCommandQueue.id.desc())
+        .first()
+    )
+    if existing:
+        return {
+            "id": existing.id,
+            "vehicle_id": vehicle_id,
+            "action": existing.action,
+            "status": existing.status,
+            "speed_at_request_kmh": existing.speed_at_request_kmh,
+        }
+
+    row = MesGpsCommandQueue(
+        vehicle_id=vehicle_id,
+        device_id=device.id,
+        action=action,
+        status=status,
+        requested_by=current_user.username,
+        speed_at_request_kmh=current_speed,
+        requires_stop=requires_stop,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    return {
+        "id": row.id,
+        "vehicle_id": vehicle_id,
+        "action": row.action,
+        "status": row.status,
+        "speed_at_request_kmh": row.speed_at_request_kmh,
+    }

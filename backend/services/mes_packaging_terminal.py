@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from models import MesJobPackage, MesJobRouteStep, MesProductionJob, MesProductionStage
 from services.audit import log_value_change
 from services.mes_jobs import load_job
+from services.project_execution import ExecutionError, record_absolute_operation, reconcile_project_line, synchronize_project
 from services.feature_flags import traceability_enabled
 from services.package_traceability import (
     ensure_labels_for_job_packages,
@@ -22,6 +23,7 @@ from services.mes_terminal_common import (
     serialize_route_step,
     sort_queue,
     terminal_step_state,
+    project_terminal_metadata,
 )
 
 PACKAGING_DEPARTMENT = "Upakovka"
@@ -103,6 +105,8 @@ def serialize_package(pkg: MesJobPackage) -> dict:
         "gross_weight_kg": float(pkg.gross_weight_kg or 0),
         "status": pkg.status,
         "created_at": pkg.created_at,
+        "passport_serials": [row.serial_number for row in sorted(getattr(pkg, "product_passports", []), key=lambda item: item.unit_index)],
+        "passport_count": len(getattr(pkg, "product_passports", [])),
         **label_fields_for_package(pkg),
     }
 
@@ -120,6 +124,7 @@ def serialize_terminal_job(
         "id": job.id,
         "job_number": job.job_number,
         "customer_name": job.customer_name or "",
+        **project_terminal_metadata(job),
         "order_reference": job.order_reference or "",
         "template_id": job.template_id,
         "template_code": job.template.code if job.template else None,
@@ -259,6 +264,7 @@ def sync_package_records(
     package_count: int,
     net_weight_kg: float,
     gross_weight_kg: float,
+    total_quantity: float | None = None,
 ) -> None:
     if package_count < 0:
         raise ValueError("Package count cannot be negative")
@@ -266,6 +272,7 @@ def sync_package_records(
     existing = sorted(active_packages(job), key=lambda p: p.package_number)
     per_net = round(net_weight_kg / package_count, 3) if package_count > 0 else 0.0
     per_gross = round(gross_weight_kg / package_count, 3) if package_count > 0 else 0.0
+    per_quantity = float(total_quantity if total_quantity is not None else package_count) / package_count if package_count > 0 else 0.0
     now = datetime.utcnow()
 
     for i in range(1, package_count + 1):
@@ -292,6 +299,10 @@ def sync_package_records(
                 package_type=package_type,
                 net_weight_kg=per_net,
                 gross_weight_kg=per_gross,
+                quantity=per_quantity,
+                project_id=job.project_id,
+                project_line_id=job.project_line_id,
+                project_release_snapshot_id=job.project_release_snapshot_id,
                 status="pending",
                 created_at=now,
             )
@@ -310,6 +321,7 @@ def sync_package_records(
             existing.append(pkg)
 
         pkg = existing[i - 1]
+        pkg.quantity = per_quantity
         if (pkg.package_type or "") != package_type:
             log_value_change(
                 db,
@@ -376,6 +388,7 @@ def update_packaging_data(
     net_weight_kg: float | None = None,
     gross_weight_kg: float | None = None,
     notes: str | None = None,
+    packaged_quantity: float | None = None,
 ) -> None:
     step = _require_packaging_step(job, packaging_ids)
     if not step.started_at:
@@ -411,6 +424,19 @@ def update_packaging_data(
 
     count = int(job.package_count or 0)
     if count > 0:
+        total_quantity = packaged_quantity
+        if job.project_id:
+            if total_quantity is None:
+                total_quantity = sum(float(pkg.quantity or 0) for pkg in active_packages(job)) or float(job.quantity or 0)
+            facts = reconcile_project_line(db, job.project_line)
+            eligible = max(0.0, min(
+                facts["required_quantity"],
+                facts["produced_quantity"],
+                facts["qc_approved_quantity"] - facts["rework_pending_quantity"],
+            ))
+            if float(total_quantity) > eligible + 0.0001:
+                code = "packaging_blocked_by_rework" if facts["rework_pending_quantity"] > 0 else "packaging_exceeds_qc_approved"
+                raise ExecutionError(code, "Packaged quantity exceeds produced, QC-approved and rework-free quantity")
         sync_package_records(
             db,
             job,
@@ -419,7 +445,11 @@ def update_packaging_data(
             package_count=count,
             net_weight_kg=float(job.packaging_net_weight_kg or 0),
             gross_weight_kg=float(job.packaging_gross_weight_kg or 0),
+            total_quantity=total_quantity,
         )
+        if job.project_id:
+            record_absolute_operation(db, job, operation_type="packaged", absolute_quantity=float(total_quantity), username=username, terminal="packaging", route_step=step, source_record_type="mes_job_package")
+            synchronize_project(db, job.project_id)
     job.updated_at = now
 
 

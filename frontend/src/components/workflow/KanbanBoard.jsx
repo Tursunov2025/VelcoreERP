@@ -1,6 +1,8 @@
 import { WORKFLOW_STAGES, STATUS_COLORS } from "../../constants/workflow";
 import WorkflowOrderCard from "./WorkflowOrderCard";
 import { CardSkeleton } from "../ui/Skeleton";
+import { useLocale } from "../../context/LocaleContext";
+import { localizedCanonical } from "../../i18n/displayLabels";
 
 export default function KanbanBoard({
   board,
@@ -9,6 +11,7 @@ export default function KanbanBoard({
   onVerify,
   onRefresh,
 }) {
+  const { t } = useLocale();
   if (loading) {
     return (
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -29,7 +32,7 @@ export default function KanbanBoard({
           <div
             className={`mb-3 flex items-center justify-between rounded-2xl px-4 py-2 text-white ${STATUS_COLORS[stage]}`}
           >
-            <span className="font-bold">{stage}</span>
+            <span className="font-bold">{localizedCanonical(t, "productionStages", stage)}</span>
             <span className="rounded-full bg-white/30 px-2 py-0.5 text-sm">
               {(board?.[stage] || []).length}
             </span>
@@ -45,7 +48,7 @@ export default function KanbanBoard({
               />
             ))}
             {(board?.[stage] || []).length === 0 && (
-              <p className="py-8 text-center text-sm text-gray-400">Bo&apos;sh</p>
+              <p className="py-8 text-center text-sm text-gray-400">{t("common.noData")}</p>
             )}
           </div>
         </div>

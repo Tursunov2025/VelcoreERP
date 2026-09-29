@@ -77,7 +77,7 @@ export default function MesTemplateFormPage() {
   }, [load]);
 
   const buildBody = () => ({
-    code: form.code.trim(),
+    ...(form.code.trim() ? { code: form.code.trim() } : {}),
     name: form.name.trim(),
     category_id: form.category_id ? Number(form.category_id) : null,
     description: form.description,
@@ -91,7 +91,8 @@ export default function MesTemplateFormPage() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.code.trim() || !form.name.trim()) return;
+    if (!form.name.trim()) return;
+    if (isEdit && !form.code.trim()) return;
     setSaving(true);
     try {
       let templateId = id;
@@ -140,11 +141,17 @@ export default function MesTemplateFormPage() {
           <label className="block">
             <span className="text-sm font-semibold">{t("mes.templateCode")}</span>
             <input
-              required
               value={form.code}
+              readOnly={!isEdit}
               onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+              placeholder={isEdit ? "" : "Avtomatik beriladi"}
               className="mt-1 w-full rounded-xl border px-4 py-2 font-mono uppercase"
             />
+            {!isEdit && (
+              <span className="mt-1 block text-xs text-[var(--brand-muted)]">
+                Kod saqlash vaqtida avtomatik beriladi
+              </span>
+            )}
           </label>
           <label className="block">
             <span className="text-sm font-semibold">{t("mes.templateName")}</span>

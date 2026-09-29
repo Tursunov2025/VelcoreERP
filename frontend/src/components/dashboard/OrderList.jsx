@@ -1,4 +1,5 @@
 import OrderCard from "./OrderCard";
+import { useLocale } from "../../context/LocaleContext";
 
 function matchesSearch(order, search) {
   const query = search.toLowerCase().trim();
@@ -19,12 +20,13 @@ export default function OrderList({
   onStatusChange,
   onDelete,
 }) {
+  const { t } = useLocale();
   const filteredOrders = orders.filter((order) => matchesSearch(order, search));
 
   if (filteredOrders.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-gray-300 py-12 text-center text-gray-500">
-        Zakazlar topilmadi
+        {t("dashboardTable.noOrders")}
       </p>
     );
   }

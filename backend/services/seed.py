@@ -23,12 +23,12 @@ def seed_defaults(db):
         admin = User(
             username="admin",
             password_hash=hash_password("1234"),
-            role="admin",
+            role="super_admin",
             department="Admin",
         )
         db.add(admin)
     else:
-        admin.role = "admin"
+        admin.role = "super_admin"
         admin.department = "Admin"
         if not admin.password_hash:
             admin.password_hash = hash_password(admin.password or "1234")

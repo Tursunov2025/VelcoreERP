@@ -1,13 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import { DEFAULT_LOCALE, translate } from "../i18n/translations";
+import { DEFAULT_LOCALE, normalizeLocale, translate } from "../i18n/translations";
 import { readUiPrefs, writeUiPrefs } from "../utils/uiPrefs";
 import { useAuth } from "./AuthContext";
 
 const LocaleContext = createContext(null);
 
 function resolveLanguage(brandingLang, userLang, localLang) {
-  return userLang || localLang || brandingLang || DEFAULT_LOCALE;
+  return normalizeLocale(userLang || localLang || brandingLang || DEFAULT_LOCALE);
 }
 
 function resolveTheme(brandingTheme, userTheme, localTheme) {
@@ -46,17 +46,41 @@ export function LocaleProvider({ children, brandingDefaults = {} }) {
     api
       .getUiPreferences()
       .then((prefs) => {
-        if (prefs.ui_language) setLanguageState(prefs.ui_language);
-        if (prefs.ui_theme) setThemeState(prefs.ui_theme);
-        if (prefs.ui_clock_format) setClockFormatState(prefs.ui_clock_format);
+        const effectiveLanguage = resolveLanguage(
+          brandingDefaults.language,
+          prefs.ui_language,
+          null
+        );
+        const effectiveTheme = resolveTheme(
+          brandingDefaults.theme_mode,
+          prefs.ui_theme,
+          null
+        );
+        const effectiveClockFormat = resolveClockFormat(
+          brandingDefaults.clock_format,
+          prefs.ui_clock_format,
+          null
+        );
+        setLanguageState(effectiveLanguage);
+        setThemeState(effectiveTheme);
+        setClockFormatState(effectiveClockFormat);
         writeUiPrefs({
-          language: prefs.ui_language || language,
-          theme: prefs.ui_theme || theme,
-          clock_format: prefs.ui_clock_format || clockFormat,
+          language: prefs.ui_language || effectiveLanguage,
+          theme: prefs.ui_theme ?? null,
+          clock_format: prefs.ui_clock_format || effectiveClockFormat,
         });
       })
       .catch(() => {});
-  }, [isLoggedIn]);
+  }, [
+    brandingDefaults.clock_format,
+    brandingDefaults.language,
+    brandingDefaults.theme_mode,
+    isLoggedIn,
+  ]);
+
+  useEffect(() => {
+    document.documentElement.lang = language === "ru" ? "ru" : "uz";
+  }, [language]);
 
   const persist = useCallback(
     async (next) => {
@@ -78,8 +102,9 @@ export function LocaleProvider({ children, brandingDefaults = {} }) {
 
   const setLanguage = useCallback(
     (lang) => {
-      setLanguageState(lang);
-      persist({ language: lang, theme, clock_format: clockFormat });
+      const normalized = normalizeLocale(lang);
+      setLanguageState(normalized);
+      persist({ language: normalized, theme, clock_format: clockFormat });
     },
     [theme, clockFormat, persist]
   );
@@ -91,6 +116,19 @@ export function LocaleProvider({ children, brandingDefaults = {} }) {
     },
     [language, clockFormat, persist]
   );
+
+  const useOrganizationTheme = useCallback(async () => {
+    const inherited = brandingDefaults.theme_mode || "light";
+    setThemeState(inherited);
+    writeUiPrefs({ language, theme: null, clock_format: clockFormat });
+    if (isLoggedIn) {
+      try {
+        await api.updateUiPreferences({ inherit_theme: true });
+      } catch {
+        /* the local inheritance choice remains effective for this browser */
+      }
+    }
+  }, [brandingDefaults.theme_mode, clockFormat, isLoggedIn, language]);
 
   const setClockFormat = useCallback(
     (fmt) => {
@@ -110,7 +148,13 @@ export function LocaleProvider({ children, brandingDefaults = {} }) {
     writeUiPrefs({ language: lang, theme: th, clock_format: fmt });
   }, []);
 
-  const t = useCallback((key) => translate(language, key), [language]);
+  const t = useCallback((key, params) => translate(language, key, params), [language]);
+  const localeTag = language === "ru" ? "ru-RU" : "uz-UZ";
+  const formatNumber = useCallback((value, options) => new Intl.NumberFormat(localeTag, options).format(value), [localeTag]);
+  const formatDate = useCallback((value, options) => new Intl.DateTimeFormat(localeTag, options).format(new Date(value)), [localeTag]);
+  const formatDateTime = useCallback((value, options) => new Intl.DateTimeFormat(localeTag, { dateStyle: "medium", timeStyle: "short", ...options }).format(new Date(value)), [localeTag]);
+  const formatCurrency = useCallback((value, currency = "UZS", options = {}) => new Intl.NumberFormat(localeTag, { style: "currency", currency, ...options }).format(value), [localeTag]);
+  const formatPercent = useCallback((value, options) => new Intl.NumberFormat(localeTag, { style: "percent", ...options }).format(value), [localeTag]);
 
   const value = useMemo(
     () => ({
@@ -120,9 +164,16 @@ export function LocaleProvider({ children, brandingDefaults = {} }) {
       clockTimezone: brandingDefaults.clock_timezone || "Asia/Tashkent",
       setLanguage,
       setTheme,
+      useOrganizationTheme,
       setClockFormat,
       applySystemDefaults,
       t,
+      localeTag,
+      formatNumber,
+      formatDate,
+      formatDateTime,
+      formatCurrency,
+      formatPercent,
     }),
     [
       language,
@@ -131,9 +182,16 @@ export function LocaleProvider({ children, brandingDefaults = {} }) {
       brandingDefaults.clock_timezone,
       setLanguage,
       setTheme,
+      useOrganizationTheme,
       setClockFormat,
       applySystemDefaults,
       t,
+      localeTag,
+      formatNumber,
+      formatDate,
+      formatDateTime,
+      formatCurrency,
+      formatPercent,
     ]
   );
 

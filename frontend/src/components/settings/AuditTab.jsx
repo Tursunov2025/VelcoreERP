@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function AuditTab() {
+  const { t, formatDateTime } = useLocale();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,18 +14,18 @@ export default function AuditTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p>Yuklanmoqda...</p>;
+  if (loading) return <p>{t("common.loading")}</p>;
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-black">Audit jurnali</h2>
+      <h2 className="mb-4 text-xl font-black">{t("platformAdministration.auditLog")}</h2>
       <div className="max-h-[60vh] space-y-2 overflow-y-auto">
         {logs.map((log) => (
           <div key={log.id} className="rounded-xl border bg-white p-3 text-sm">
             <div className="flex flex-wrap justify-between gap-2">
               <span className="font-bold">{log.username}</span>
               <span className="text-xs text-gray-400">
-                {log.created_at ? new Date(log.created_at).toLocaleString() : ""}
+                {log.created_at ? formatDateTime(log.created_at) : ""}
               </span>
             </div>
             <p className="mt-1">

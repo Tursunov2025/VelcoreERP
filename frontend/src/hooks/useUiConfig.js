@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, getStoredTokens } from "../api/client";
 import { buildDefaultUiConfig, normalizeUiConfig } from "../constants/featureFlags";
 
 const FETCH_TIMEOUT_MS = 12_000;
@@ -19,8 +19,14 @@ function fetchUiConfigWithTimeout() {
 export function useUiConfig() {
   const [config, setConfig] = useState(cached);
   const [loading, setLoading] = useState(false);
+  const hasAccessToken = Boolean(getStoredTokens()?.access_token);
 
   const reload = useCallback(async () => {
+    if (!getStoredTokens()?.access_token) {
+      cached = buildDefaultUiConfig();
+      setConfig(cached);
+      return cached;
+    }
     setLoading(true);
     try {
       const data = await fetchUiConfigWithTimeout();
@@ -37,6 +43,10 @@ export function useUiConfig() {
   }, []);
 
   useEffect(() => {
+    if (!hasAccessToken) {
+      setConfig(buildDefaultUiConfig());
+      return;
+    }
     if (cachePromise) {
       cachePromise
         .then((data) => setConfig(data))
@@ -58,7 +68,7 @@ export function useUiConfig() {
       });
 
     cachePromise.then((data) => setConfig(data)).catch(() => setConfig(buildDefaultUiConfig()));
-  }, []);
+  }, [hasAccessToken]);
 
   return {
     config,

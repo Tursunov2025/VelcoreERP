@@ -7,6 +7,7 @@ import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Toast from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
+import ProductPassportActions from "../../components/traceability/ProductPassportActions";
 
 function ProgressBar({ value, large = false }) {
   const pct = Math.min(100, Math.max(0, Number(value) || 0));
@@ -69,7 +70,10 @@ export default function PackagingTerminalJobPage() {
     load();
   }, [load]);
 
-  const stepState = job?.packaging_step?.state || job?.step_state || "pending_accept";
+  const rawStepState = job?.packaging_step?.state || job?.step_state;
+  const stepState = ["pending_accept", "accepted", "in_progress", "completed"].includes(rawStepState)
+    ? rawStepState
+    : (job?.status === "completed" ? "completed" : "pending_accept");
   const isCompleted = stepState === "completed";
   const canAccept = stepState === "pending_accept";
   const canStart = stepState === "accepted";
@@ -279,6 +283,7 @@ export default function PackagingTerminalJobPage() {
                   {t("mes.netWeightKg")}: {formatQty(pkg.net_weight_kg)} · {t("mes.grossWeightKg")}:{" "}
                   {formatQty(pkg.gross_weight_kg)}
                 </p>
+                <ProductPassportActions packageId={pkg.id} serials={pkg.passport_serials || []} compact onMessage={setToast} />
               </div>
             ))}
           </div>

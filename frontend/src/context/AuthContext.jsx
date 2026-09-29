@@ -31,14 +31,64 @@ const DEFAULT_PERMISSIONS = {
   mes_terminal_packaging: false,
   mes_terminal_warehouse: false,
   mes_terminal_dispatch: false,
+  logistics_loading_correct: false,
+  logistics_trip_transfer: false,
   materials_view: false,
   materials_edit: false,
+  platform_admin_view: false,
+  platform_admin_manage: false,
+  platform_admin_roles: false,
+  platform_admin_audit: false,
+  platform_admin_backup: false,
+  platform_admin_security: false,
 };
 
 async function loadPermissions() {
   try {
-    const data = await api.getMyPermissions();
-    return data.permissions || DEFAULT_PERMISSIONS;
+    const [permissionResult, brigadeResult] = await Promise.allSettled([
+      api.getMyPermissions(),
+      api.mesMyBrigadeTerminalAccess(),
+    ]);
+
+    const backendPermissions =
+      permissionResult.status === "fulfilled"
+        ? (permissionResult.value?.permissions || {})
+        : {};
+
+    const brigadePermissions =
+      brigadeResult.status === "fulfilled"
+        ? (brigadeResult.value?.permissions || [])
+        : [];
+
+    const mergedPermissions = {
+      ...DEFAULT_PERMISSIONS,
+      ...backendPermissions,
+    };
+
+    // Legacy mes_terminal_* grants must not give ordinary users
+    // terminal access. Terminal access for non-admin users comes only
+    // from the brigade -> terminal assignment returned by my-access.
+    const storedTokens = getStoredTokens();
+    const terminalAdmin =
+      storedTokens?.role === "admin" ||
+      storedTokens?.role === "super_admin" ||
+      storedTokens?.department === "Admin";
+
+    if (!terminalAdmin) {
+      for (const key of Object.keys(mergedPermissions)) {
+        if (key.startsWith("mes_terminal_")) {
+          mergedPermissions[key] = false;
+        }
+      }
+    }
+
+    for (const permission of brigadePermissions) {
+      if (typeof permission === "string" && permission) {
+        mergedPermissions[permission] = true;
+      }
+    }
+
+    return mergedPermissions;
   } catch {
     return DEFAULT_PERMISSIONS;
   }

@@ -9,6 +9,8 @@ from auth.deps import get_current_user
 from database import get_db
 from models import (
     MesBomLine,
+    MesYigishLine,
+    Material,
     MesProductCategory,
     MesProductDrawing,
     MesProductPart,
@@ -34,6 +36,15 @@ from services.mes_bom import (
     serialize_bom,
     serialize_bom_line,
     validate_required_quantity,
+)
+from services.mes_yigish import (
+    active_yigish_lines,
+    find_yigish_line,
+    get_active_yigish_material,
+    get_active_yigish_part,
+    next_yigish_sort_order,
+    serialize_yigish,
+    serialize_yigish_line,
 )
 from services.mes_routes import (
     active_route_steps,
@@ -88,7 +99,7 @@ class PartUpdate(BaseModel):
 
 
 class TemplateCreate(BaseModel):
-    code: str
+    code: Optional[str] = None
     name: str
     category_id: Optional[int] = None
     description: str = ""
@@ -147,6 +158,29 @@ class BomReorderItem(BaseModel):
 
 class BomReorder(BaseModel):
     lines: list[BomReorderItem]
+
+
+class YigishLineCreate(BaseModel):
+    part_id: Optional[int] = None
+    material_id: Optional[int] = None
+    required_quantity: float = Field(..., gt=0)
+    notes: str = ""
+    sort_order: Optional[int] = None
+
+
+class YigishLineUpdate(BaseModel):
+    required_quantity: Optional[float] = Field(None, gt=0)
+    notes: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class YigishReorderItem(BaseModel):
+    id: int
+    sort_order: int
+
+
+class YigishReorder(BaseModel):
+    lines: list[YigishReorderItem]
 
 
 class StageCreate(BaseModel):
@@ -214,6 +248,22 @@ class DrawingUpdate(BaseModel):
 
 def _normalize_template_code(value: str) -> str:
     return (value or "").strip().upper()
+
+
+def _next_template_code(db: Session) -> str:
+    rows = (
+        db.query(MesProductTemplate.code)
+        .filter(MesProductTemplate.code.isnot(None))
+        .all()
+    )
+
+    max_code = 0
+    for (raw_code,) in rows:
+        code = str(raw_code or "").strip()
+        if code.isdigit():
+            max_code = max(max_code, int(code))
+
+    return f"{max_code + 1:05d}"
 
 
 def _get_active_template(db: Session, template_id: int) -> MesProductTemplate:
@@ -702,7 +752,7 @@ def create_template(
     user: User = Depends(get_current_user),
 ):
     _require(db, user, "mes_edit")
-    code = _normalize_template_code(data.code)
+    code = _normalize_template_code(data.code) if data.code else _next_template_code(db)
     name = (data.name or "").strip()
     if not code:
         raise HTTPException(status_code=400, detail="Template code required")
@@ -861,6 +911,261 @@ async def upload_template_image(
     log_action(db, user.username, "upload", "mes_template_image", template_id, template.code)
     db.commit()
     return serialize_template(_get_active_template(db, template_id))
+
+
+# ---------------------------------------------------------------------------
+# YIGISH TEMPLATE DETAILS
+# ---------------------------------------------------------------------------
+
+@router.get("/templates/{template_id}/yigish")
+def get_template_yigish(
+    template_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _require(db, user, "mes_view")
+    template = _get_active_template(db, template_id)
+    return serialize_yigish(template)
+
+
+@router.post("/templates/{template_id}/yigish")
+def add_template_yigish_line(
+    template_id: int,
+    data: YigishLineCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _require(db, user, "mes_edit")
+    _get_active_template(db, template_id)
+
+    try:
+        validate_required_quantity(data.required_quantity)
+
+        if bool(data.part_id) == bool(data.material_id):
+            raise ValueError("Select exactly one part or material")
+
+        part = get_active_yigish_part(db, data.part_id) if data.part_id else None
+        material = (
+            get_active_yigish_material(db, data.material_id)
+            if data.material_id
+            else None
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    existing_query = db.query(MesYigishLine).filter(
+        MesYigishLine.template_id == template_id,
+    )
+
+    if material:
+        existing_query = existing_query.filter(
+            MesYigishLine.material_id == material.id,
+        )
+    else:
+        existing_query = existing_query.filter(
+            MesYigishLine.part_id == part.id,
+        )
+
+    existing = existing_query.first()
+
+    if existing:
+        if existing.is_active and existing.deleted_at is None:
+            item_name = material.name if material else part.name
+            raise HTTPException(
+                status_code=400,
+                detail=f"{item_name} already in Yig‘ish details",
+            )
+
+        existing.is_active = True
+        existing.deleted_at = None
+        existing.required_quantity = float(data.required_quantity)
+        existing.unit = material.unit if material else part.unit
+        existing.notes = data.notes or ""
+        existing.sort_order = (
+            int(data.sort_order)
+            if data.sort_order is not None
+            else next_yigish_sort_order(db, template_id)
+        )
+        existing.material_id = material.id if material else None
+        existing.part_id = part.id if part else None
+        line = existing
+    else:
+        line = MesYigishLine(
+            template_id=template_id,
+            part_id=part.id if part else None,
+            material_id=material.id if material else None,
+            required_quantity=float(data.required_quantity),
+            unit=material.unit if material else part.unit,
+            notes=data.notes or "",
+            sort_order=(
+                int(data.sort_order)
+                if data.sort_order is not None
+                else next_yigish_sort_order(db, template_id)
+            ),
+        )
+        db.add(line)
+
+    db.flush()
+
+    log_action(
+        db,
+        user.username,
+        "create",
+        "mes_yigish_line",
+        line.id,
+        (
+            f"template {template_id}; "
+            f"{'material ' + (material.code or material.name) if material else 'part ' + part.part_number}"
+        ),
+    )
+
+    db.commit()
+    db.refresh(line)
+
+    line = find_yigish_line(db, template_id, line.id) or line
+    if line.part is None and part is not None:
+        line.part = part
+    if line.material is None and material is not None:
+        line.material = material
+
+    return serialize_yigish_line(line)
+
+
+@router.put("/templates/{template_id}/yigish/reorder")
+def reorder_template_yigish(
+    template_id: int,
+    data: YigishReorder,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _require(db, user, "mes_edit")
+    _get_active_template(db, template_id)
+
+    if not data.lines:
+        raise HTTPException(status_code=400, detail="No lines to reorder")
+
+    line_ids = [item.id for item in data.lines]
+
+    if len(line_ids) != len(set(line_ids)):
+        raise HTTPException(status_code=400, detail="Duplicate Yig‘ish line ids")
+
+    rows = (
+        db.query(MesYigishLine)
+        .filter(
+            MesYigishLine.template_id == template_id,
+            MesYigishLine.id.in_(line_ids),
+            MesYigishLine.is_active.is_(True),
+            MesYigishLine.deleted_at.is_(None),
+        )
+        .all()
+    )
+
+    if len(rows) != len(line_ids):
+        raise HTTPException(status_code=400, detail="Invalid Yig‘ish line ids")
+
+    order_map = {
+        item.id: item.sort_order
+        for item in data.lines
+    }
+
+    for row in rows:
+        row.sort_order = order_map[row.id]
+
+    log_action(
+        db,
+        user.username,
+        "reorder",
+        "mes_yigish",
+        template_id,
+    )
+
+    db.commit()
+
+    template = _get_active_template(db, template_id)
+    return serialize_yigish(template)
+
+
+@router.put("/templates/{template_id}/yigish/{line_id}")
+def update_template_yigish_line(
+    template_id: int,
+    line_id: int,
+    data: YigishLineUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _require(db, user, "mes_edit")
+    _get_active_template(db, template_id)
+
+    line = find_yigish_line(db, template_id, line_id)
+
+    if not line:
+        raise HTTPException(
+            status_code=404,
+            detail="Yig‘ish line not found",
+        )
+
+    if data.required_quantity is not None:
+        try:
+            validate_required_quantity(data.required_quantity)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        line.required_quantity = float(data.required_quantity)
+
+    if data.notes is not None:
+        line.notes = data.notes
+
+    if data.sort_order is not None:
+        line.sort_order = int(data.sort_order)
+
+    log_action(
+        db,
+        user.username,
+        "update",
+        "mes_yigish_line",
+        line_id,
+        str(template_id),
+    )
+
+    db.commit()
+    db.refresh(line)
+
+    return serialize_yigish_line(line)
+
+
+@router.delete("/templates/{template_id}/yigish/{line_id}")
+def delete_template_yigish_line(
+    template_id: int,
+    line_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _require(db, user, "mes_edit")
+    _get_active_template(db, template_id)
+
+    line = find_yigish_line(db, template_id, line_id)
+
+    if not line:
+        raise HTTPException(
+            status_code=404,
+            detail="Yig‘ish line not found",
+        )
+
+    line.is_active = False
+    line.deleted_at = datetime.utcnow()
+
+    log_action(
+        db,
+        user.username,
+        "delete",
+        "mes_yigish_line",
+        line_id,
+        str(template_id),
+    )
+
+    db.commit()
+
+    return {"message": "Yig‘ish line removed"}
 
 
 MAX_BOM_DRAWING_SIZE = 10 * 1024 * 1024

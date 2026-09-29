@@ -2,11 +2,27 @@
 
 import os
 import sys
+import atexit
+import tempfile
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
 os.environ.setdefault("JWT_SECRET_KEY", "test-p8-secret")
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_p8_mobile.db")
+_fd, _db_name = tempfile.mkstemp(prefix="azmus-p8-mobile-", suffix=".db")
+os.close(_fd)
+Path(_db_name).unlink(missing_ok=True)
+os.environ["DATABASE_URL"] = f"sqlite:///{Path(_db_name).as_posix()}"
+os.environ["DATABASE_URL_SOURCE"] = "test_p8_mobile_update disposable database"
+
+def _cleanup_test_database() -> None:
+    db_engine = globals().get("engine")
+    if db_engine is not None:
+        db_engine.dispose()
+    Path(_db_name).unlink(missing_ok=True)
+
+
+atexit.register(_cleanup_test_database)
 
 from fastapi.testclient import TestClient
 from database import Base, SessionLocal, engine

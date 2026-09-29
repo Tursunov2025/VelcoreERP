@@ -3,6 +3,8 @@ import logging
 import os
 
 import shutil
+import sqlite3
+from datetime import datetime
 
 import time
 
@@ -16,7 +18,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 
 
-from config.paths import DATABASE_URL, DATABASE_URL_SOURCE, DB_PATH, ensure_data_directories
+from config.paths import BACKUP_PATH, DATABASE_URL, DATABASE_URL_SOURCE, DB_PATH, ensure_data_directories
 
 from config.production import mask_database_url
 
@@ -73,6 +75,24 @@ def verify_engine_connection() -> None:
             DATABASE_URL_SOURCE,
         )
         raise
+
+
+def backup_sqlite_before_schema_changes() -> Path | None:
+    """Create a transactionally consistent backup before startup DDL/migrations."""
+    if not DATABASE_URL.startswith("sqlite") or not DB_PATH.is_file():
+        return None
+    destination_dir = BACKUP_PATH / "startup"
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = destination_dir / f"azmus_pre_startup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}.db"
+    source = sqlite3.connect(f"file:{DB_PATH.as_posix()}?mode=ro", uri=True)
+    target = sqlite3.connect(destination)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+        source.close()
+    logger.info("Pre-startup SQLite backup created: %s", destination)
+    return destination
 
 
 
@@ -200,6 +220,28 @@ def get_db():
 
 def run_migrations():
 
+    from migrations.production_projects import upgrade as upgrade_production_projects
+    from migrations.material_master import upgrade as upgrade_material_master
+    from migrations.finance_professional import upgrade as upgrade_finance_professional
+    from migrations.transport_task_origin_coordinates import upgrade as upgrade_transport_task_origin_coordinates
+    from migrations.gps_vehicle_stops import upgrade as upgrade_gps_vehicle_stops
+    from migrations.yigish_lines import upgrade_yigish_lines
+    from migrations.job_yigish_lines import upgrade_job_yigish_lines
+    from migrations.yigish_materials import upgrade_yigish_materials
+    from migrations.production_brigades import upgrade_production_brigades
+    from migrations.production_brigade_assignments import upgrade as upgrade_production_brigade_assignments
+
+    upgrade_production_projects(engine)
+    upgrade_material_master(engine)
+    upgrade_finance_professional(engine)
+    upgrade_transport_task_origin_coordinates(engine)
+    upgrade_gps_vehicle_stops(engine)
+    upgrade_yigish_lines(engine)
+    upgrade_job_yigish_lines(engine)
+    upgrade_yigish_materials(engine)
+    upgrade_production_brigades(engine)
+    upgrade_production_brigade_assignments(engine)
+
     if not DATABASE_URL.startswith("sqlite"):
 
         return
@@ -207,6 +249,46 @@ def run_migrations():
 
 
     migrations = [
+
+        # Canonical Logistics master-data extensions.  These are additive so
+        # existing installations keep their MesVehicle/MesTrip data intact.
+        "ALTER TABLE mes_vehicles ADD COLUMN internal_code VARCHAR(64) DEFAULT ''",
+        "ALTER TABLE mes_vehicles ADD COLUMN model VARCHAR(120) DEFAULT ''",
+        "ALTER TABLE mes_vehicles ADD COLUMN notes TEXT DEFAULT ''",
+        """CREATE TABLE IF NOT EXISTS mes_gps_devices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_identifier VARCHAR(180) NOT NULL UNIQUE,
+            vehicle_id INTEGER NOT NULL,
+            driver_user_id INTEGER,
+            status VARCHAR(16) NOT NULL DEFAULT 'active',
+            protocol VARCHAR(32) NOT NULL DEFAULT 'custom_http',
+            notes TEXT NOT NULL DEFAULT '',
+            version INTEGER NOT NULL DEFAULT 1,
+            created_by VARCHAR(100) NOT NULL,
+            updated_by VARCHAR(100) NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            FOREIGN KEY (vehicle_id) REFERENCES mes_vehicles (id),
+            FOREIGN KEY (driver_user_id) REFERENCES users (id),
+            CHECK (status IN ('active', 'inactive')),
+            CHECK (version > 0)
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_mes_gps_devices_vehicle_id ON mes_gps_devices (vehicle_id)",
+        "CREATE INDEX IF NOT EXISTS ix_mes_gps_devices_driver_user_id ON mes_gps_devices (driver_user_id)",
+        "ALTER TABLE mes_gps_devices ADD COLUMN protocol VARCHAR(32) NOT NULL DEFAULT 'custom_http'",
+        "CREATE INDEX IF NOT EXISTS ix_mes_gps_devices_protocol ON mes_gps_devices (protocol)",
+        "ALTER TABLE mes_trip_tracking_sessions ADD COLUMN device_id INTEGER REFERENCES mes_gps_devices(id)",
+        "CREATE INDEX IF NOT EXISTS ix_mes_trip_tracking_sessions_device_id ON mes_trip_tracking_sessions (device_id)",
+
+        """CREATE TABLE IF NOT EXISTS warehouse_stock (id INTEGER PRIMARY KEY AUTOINCREMENT, detail_id INTEGER NOT NULL, detail_code VARCHAR(100) NOT NULL, detail_name VARCHAR(255) NOT NULL, dimensions VARCHAR(255) DEFAULT '', material VARCHAR(255) DEFAULT '', thickness VARCHAR(64) DEFAULT '', quantity REAL NOT NULL DEFAULT 0, reserved_quantity REAL NOT NULL DEFAULT 0, unit VARCHAR(32) DEFAULT 'dona', source_order_id INTEGER, source_cutting_id INTEGER, status VARCHAR(16) DEFAULT 'READY', created_at DATETIME, updated_at DATETIME)""",
+        """CREATE TABLE IF NOT EXISTS warehouse_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, stock_id INTEGER NOT NULL, detail_id INTEGER NOT NULL, quantity REAL NOT NULL, operation VARCHAR(16) NOT NULL, reason VARCHAR(255) DEFAULT '', order_id INTEGER, operator VARCHAR(100) DEFAULT '', created_at DATETIME)""",
+        "ALTER TABLE warehouse_transactions ADD COLUMN quantity_before REAL DEFAULT 0",
+        "ALTER TABLE warehouse_transactions ADD COLUMN quantity_after REAL DEFAULT 0",
+        "ALTER TABLE mes_job_bom_lines ADD COLUMN stock_reserved_quantity REAL DEFAULT 0",
+        "ALTER TABLE mes_job_bom_lines ADD COLUMN production_required_quantity REAL DEFAULT 0",
+        "ALTER TABLE mes_job_bom_lines ADD COLUMN surplus_stocked_quantity REAL DEFAULT 0",
+        "CREATE INDEX IF NOT EXISTS ix_warehouse_stock_detail_id ON warehouse_stock (detail_id)",
+        "CREATE INDEX IF NOT EXISTS ix_warehouse_transactions_stock_id ON warehouse_transactions (stock_id)",
 
         """CREATE TABLE IF NOT EXISTS user_identity_profiles (
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL UNIQUE,
@@ -229,6 +311,13 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_user_identity_profiles_employee_id ON user_identity_profiles (employee_id)",
         "CREATE INDEX IF NOT EXISTS ix_user_identity_activity_user_id ON user_identity_activity (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_user_identity_sessions_user_id ON user_identity_sessions (user_id)",
+
+        # Display Center lifecycle completion (additive, existing rows retain
+        # their direct display playlist fallback).
+        "ALTER TABLE display_center_displays ADD COLUMN is_active BOOLEAN DEFAULT 1",
+        "ALTER TABLE display_center_playlists ADD COLUMN template_id INTEGER REFERENCES display_center_templates(id)",
+        "ALTER TABLE display_center_schedules ADD COLUMN created_at DATETIME",
+        "ALTER TABLE display_center_schedules ADD COLUMN updated_at DATETIME",
 
         "ALTER TABLE orders ADD COLUMN operator_id INTEGER",
 
@@ -605,12 +694,6 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_transport_tasks_status ON transport_tasks (status)",
         "CREATE INDEX IF NOT EXISTS ix_transport_tasks_vehicle ON transport_tasks (vehicle_id)",
 
-        # LLP document delete — allow documents.id removal when linked from export shipments
-        "ALTER TABLE export_shipment_documents DROP CONSTRAINT IF EXISTS export_shipment_documents_llp_document_id_fkey",
-        """ALTER TABLE export_shipment_documents
-            ADD CONSTRAINT export_shipment_documents_llp_document_id_fkey
-            FOREIGN KEY (llp_document_id) REFERENCES documents(id) ON DELETE SET NULL""",
-
         # Phase 12.1 — GPS alert dedup state
         """CREATE TABLE IF NOT EXISTS logistics_finished_products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -665,6 +748,49 @@ def run_migrations():
         "ALTER TABLE drivers ADD COLUMN driver_type VARCHAR DEFAULT 'internal'",
         "ALTER TABLE drivers ADD COLUMN user_username VARCHAR DEFAULT ''",
         "ALTER TABLE drivers ADD COLUMN default_vehicle_id INTEGER REFERENCES vehicles (id)",
+
+        # Phase 12.2 — Professional Driver Task workflow
+        "ALTER TABLE drivers ADD COLUMN login_code VARCHAR DEFAULT ''",
+        "ALTER TABLE drivers ADD COLUMN password_hash VARCHAR DEFAULT ''",
+
+        "ALTER TABLE transport_tasks ADD COLUMN driver_user_id INTEGER REFERENCES users (id)",
+        "ALTER TABLE transport_tasks ADD COLUMN mes_vehicle_id INTEGER REFERENCES mes_vehicles (id)",
+        "ALTER TABLE transport_tasks ADD COLUMN customer_name VARCHAR DEFAULT ''",
+        "ALTER TABLE transport_tasks ADD COLUMN customer_phone VARCHAR DEFAULT ''",
+        "ALTER TABLE transport_tasks ADD COLUMN cargo_description TEXT DEFAULT ''",
+        "ALTER TABLE transport_tasks ADD COLUMN destination_latitude FLOAT",
+        "ALTER TABLE transport_tasks ADD COLUMN destination_longitude FLOAT",
+        "ALTER TABLE transport_tasks ADD COLUMN picked_up_at DATETIME",
+        "ALTER TABLE transport_tasks ADD COLUMN delivered_at DATETIME",
+        "ALTER TABLE transport_tasks ADD COLUMN completion_photo_url VARCHAR DEFAULT ''",
+        "ALTER TABLE transport_tasks ADD COLUMN completion_note TEXT DEFAULT ''",
+
+        "ALTER TABLE transport_tasks ADD COLUMN pickup_latitude FLOAT",
+        "ALTER TABLE transport_tasks ADD COLUMN pickup_longitude FLOAT",
+        "ALTER TABLE transport_tasks ADD COLUMN pickup_address VARCHAR DEFAULT ''",
+        "ALTER TABLE transport_tasks ADD COLUMN delivery_latitude FLOAT",
+        "ALTER TABLE transport_tasks ADD COLUMN delivery_longitude FLOAT",
+        "ALTER TABLE transport_tasks ADD COLUMN delivery_address VARCHAR DEFAULT ''",
+
+        """CREATE TABLE IF NOT EXISTS transport_task_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            event_type VARCHAR NOT NULL,
+            actor_user_id INTEGER,
+            actor_username VARCHAR DEFAULT '',
+            latitude FLOAT,
+            longitude FLOAT,
+            address VARCHAR DEFAULT '',
+            photo_url VARCHAR DEFAULT '',
+            note TEXT DEFAULT '',
+            created_at DATETIME,
+            FOREIGN KEY (task_id) REFERENCES transport_tasks (id),
+            FOREIGN KEY (actor_user_id) REFERENCES users (id)
+        )""",
+
+        "CREATE INDEX IF NOT EXISTS ix_transport_task_events_task ON transport_task_events (task_id)",
+        "CREATE INDEX IF NOT EXISTS ix_transport_task_events_type ON transport_task_events (event_type)",
+        "CREATE INDEX IF NOT EXISTS ix_transport_task_events_created ON transport_task_events (created_at)",
 
         """CREATE TABLE IF NOT EXISTS gps_alert_state (
             vehicle_id INTEGER PRIMARY KEY,
@@ -800,9 +926,13 @@ def run_migrations():
 
                 conn.commit()
 
-            except Exception:
-
-                pass
+            except Exception as exc:
+                message = str(exc).lower()
+                if "duplicate column name" in message or "already exists" in message:
+                    logger.debug("Migration already applied: %s", sql.splitlines()[0][:120])
+                    continue
+                logger.exception("SQLite migration failed: %s", sql.splitlines()[0][:120])
+                raise
 
 
 

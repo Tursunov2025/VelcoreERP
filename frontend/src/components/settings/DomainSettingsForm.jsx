@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Toast from "../ui/Toast";
+import { useLocale } from "../../context/LocaleContext";
 
 /**
  * Reusable mobile-first settings form for admin domain tabs.
@@ -11,6 +12,7 @@ export default function DomainSettingsForm({
   loadSettings,
   saveSettings,
 }) {
+  const { t } = useLocale();
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -36,7 +38,7 @@ export default function DomainSettingsForm({
     setToast("");
     try {
       await saveSettings(settings);
-      setToast("Sozlamalar saqlandi");
+      setToast(t("legacySettings.saved"));
       await load();
     } catch (e) {
       setToast(e.message);
@@ -45,16 +47,16 @@ export default function DomainSettingsForm({
     }
   };
 
-  if (loading) return <p className="py-8 text-center text-[var(--brand-muted)]">Yuklanmoqda...</p>;
+  if (loading) return <p className="py-8 text-center text-[var(--brand-muted)]">{t("common.loading")}</p>;
 
   return (
     <div className="pb-8">
-      <h2 className="mb-2 text-xl font-black">{title}</h2>
-      {subtitle ? <p className="mb-4 text-sm text-[var(--brand-muted)]">{subtitle}</p> : null}
+      <h2 className="mb-2 text-xl font-black">{t(title)}</h2>
+      {subtitle ? <p className="mb-4 text-sm text-[var(--brand-muted)]">{t(subtitle)}</p> : null}
       <div className="space-y-4 rounded-2xl border bg-[var(--brand-card)] p-4 sm:p-6">
         {fields.map(({ key, label, type = "text", placeholder, hint }) => (
           <div key={key}>
-            <label className="mb-1 block text-sm font-semibold">{label}</label>
+            <label className="mb-1 block text-sm font-semibold">{t(label || `legacySettings.domainFields.${key}`)}</label>
             {hint ? <p className="mb-1 text-xs text-[var(--brand-muted)]">{hint}</p> : null}
             {type === "textarea" ? (
               <textarea
@@ -84,7 +86,7 @@ export default function DomainSettingsForm({
           className="min-h-[48px] w-full rounded-xl font-bold text-white disabled:opacity-60"
           style={{ backgroundColor: "var(--brand-button)" }}
         >
-          Saqlash
+          {t("common.save")}
         </button>
       </div>
       <Toast message={toast} onClose={() => setToast("")} />

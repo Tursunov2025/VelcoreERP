@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from auth.deps import get_current_user
 from database import get_db
-from models import User
+from models import MesProductionStage, User
 from services.mes_jobs import load_job
 from services.mes_svarshik_terminal import (
     accept_welding_job,
@@ -19,7 +19,12 @@ from services.mes_svarshik_terminal import (
     welding_dashboard,
     welding_stage_ids,
 )
-from services.permissions import user_has_permission
+from services.permissions import require_project_job_permission, user_has_permission
+from services.production_brigades import (
+    brigade_assigned_to_stage,
+    resolve_brigade_for_brigadier,
+    user_has_brigade_terminal_access,
+)
 
 router = APIRouter(prefix="/mes/terminal/svarshik", tags=["mes-terminal-svarshik"])
 
@@ -38,7 +43,27 @@ class QuantitiesUpdate(BaseModel):
 def _require_svarshik_terminal(db: Session, user: User) -> None:
     if user_has_permission(db, user, "mes_terminal_svarshik"):
         return
-    raise HTTPException(status_code=403, detail="Permission required: mes_terminal_svarshik")
+
+    stage = (
+        db.query(MesProductionStage)
+        .filter(
+            MesProductionStage.name == "Svarshik",
+            MesProductionStage.is_active.is_(True),
+        )
+        .first()
+    )
+
+    if stage and user_has_brigade_terminal_access(
+        db,
+        user_id=user.id,
+        stage_id=stage.id,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Bu terminalga kirish uchun terminal ruxsati yoki unga biriktirilgan faol brigada kerak",
+    )
 
 
 def _welding_stages_or_503(db: Session):
@@ -104,7 +129,31 @@ def svarshik_accept_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
+        stage = next((stage for stage_id in ids if (stage := db.get(MesProductionStage, stage_id))), None)
+        if not stage:
+            raise ValueError("Svarshik production stage not found")
+
+        brigade = resolve_brigade_for_brigadier(
+            db,
+            stage_id=stage.id,
+            user_id=user.id,
+        )
+
+        step = next(
+            (row for row in job.route_steps if row.stage_id in ids),
+            None,
+        )
+        if not step:
+            raise ValueError("Job has no Svarshik route step")
+
+        if step.brigade_id and step.brigade_id != brigade.id:
+            raise ValueError("Job ushbu brigadaga boshqa brigada tomonidan qabul qilingan")
+
+        step.brigade_id = brigade.id
+        step.accepted_by_user_id = user.id
+
         accept_welding_job(db, job, ids, user.username)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -123,6 +172,7 @@ def svarshik_start_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         start_welding_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -142,6 +192,7 @@ def svarshik_complete_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         complete_welding_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -162,6 +213,7 @@ def svarshik_update_quantities(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     if not data.lines:
         raise HTTPException(status_code=400, detail="No quantity lines provided")
     try:

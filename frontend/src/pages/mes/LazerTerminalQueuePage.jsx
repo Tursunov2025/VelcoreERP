@@ -69,6 +69,13 @@ export default function LazerTerminalQueuePage() {
         title={t("mes.lazerTerminal")}
         subtitle={t("mes.lazerQueueSubtitle")}
         actions={
+          <div className="flex gap-2">
+          <Link
+            to="/mes/terminal/lazer/stock"
+            className="min-h-[44px] rounded-2xl border px-5 py-2 text-sm font-semibold"
+          >
+            {t("mes.detailWarehouse")}
+          </Link>
           <button
             type="button"
             onClick={load}
@@ -77,6 +84,7 @@ export default function LazerTerminalQueuePage() {
           >
             {t("common.refresh")}
           </button>
+          </div>
         }
       />
 

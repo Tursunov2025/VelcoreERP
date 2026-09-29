@@ -48,9 +48,9 @@ export default function Sidebar({ username, role }) {
 
   return (
     <aside
-    className="hidden w-[270px] shrink-0 flex-col p-5 text-white shadow-2xl md:flex md:rounded-r-[32px]"
+    className="hidden w-[270px] shrink-0 flex-col p-5 text-[var(--brand-sidebar-text)] shadow-2xl md:flex md:rounded-r-[32px]"
     style={{
-        backgroundColor: "var(--erp-sidebar)"
+        backgroundColor: "var(--brand-sidebar)"
     }}
 >
       {sidebarLogo ? (
@@ -93,7 +93,7 @@ export default function Sidebar({ username, role }) {
                 }
                 style={({ isActive }) =>
                   isActive
-                    ? { backgroundColor: "var(--brand-secondary)", color: "var(--brand-primary)" }
+                    ? { backgroundColor: "var(--brand-sidebar-active)", color: "var(--brand-sidebar-active-text)" }
                     : undefined
                 }
               >
@@ -113,7 +113,7 @@ export default function Sidebar({ username, role }) {
                 }`}
                 style={
                   active
-                    ? { backgroundColor: "var(--brand-secondary)", color: "var(--brand-primary)" }
+                    ? { backgroundColor: "var(--brand-sidebar-active)", color: "var(--brand-sidebar-active-text)" }
                     : undefined
                 }
               >
@@ -139,10 +139,11 @@ export default function Sidebar({ username, role }) {
                       className={({ isActive }) =>
                         `block rounded-xl px-3 py-2 text-xs transition ${
                           isActive
-                            ? "bg-white/15 font-bold text-white"
+                            ? "font-bold"
                             : "text-gray-400 hover:bg-white/10 hover:text-white"
                         }`
                       }
+                      style={({ isActive }) => isActive ? { backgroundColor: "var(--brand-sidebar-active)", color: "var(--brand-sidebar-active-text)" } : undefined}
                     >
                       {labelFor(child.iconKey)}
                     </NavLink>

@@ -9,16 +9,31 @@ from sqlalchemy.orm import Session, joinedload
 from models import MesJobBomLine, MesJobRouteStep, MesProductionJob, MesProductionStage
 from services.audit import log_value_change
 from services.mes_jobs import load_job
+from services.project_execution import record_absolute_operation
 from services.mes_terminal_common import (
     QUEUE_JOB_STATUSES,
     get_active_step,
     ordered_steps,
     prior_steps_complete,
     sort_queue,
+    project_terminal_metadata,
 )
 
 PAINT_DEPARTMENT = "Kraska"
 PAINT_STAGE_NAMES = {"Kraska", "Tozalash", "Quritish"}
+
+
+def _paint_value(line: MesJobBomLine, field: str) -> float:
+    if getattr(getattr(line, "job", None), "project_id", None) and field in {"accepted_quantity", "rejected_quantity"}:
+        return float(getattr(line, f"paint_{field}") or 0)
+    return float(getattr(line, field) or 0)
+
+
+def _set_paint_value(line: MesJobBomLine, field: str, value: float) -> None:
+    if getattr(getattr(line, "job", None), "project_id", None) and field in {"accepted_quantity", "rejected_quantity"}:
+        setattr(line, f"paint_{field}", value)
+    else:
+        setattr(line, field, value)
 
 
 def get_paint_stages(db: Session) -> list[MesProductionStage]:
@@ -138,8 +153,8 @@ def serialize_bom_line_terminal(line: MesJobBomLine) -> dict:
         "unit": line.unit,
         "allocated_quantity": float(line.allocated_quantity or 0),
         "painted_quantity": float(line.painted_quantity or 0),
-        "accepted_quantity": float(line.accepted_quantity or 0),
-        "rejected_quantity": float(line.rejected_quantity or 0),
+        "accepted_quantity": _paint_value(line, "accepted_quantity"),
+        "rejected_quantity": _paint_value(line, "rejected_quantity"),
         "drawing_url": line.drawing_url,
         "notes": line.notes or "",
         "sort_order": line.sort_order,
@@ -162,6 +177,7 @@ def serialize_terminal_job(
         "id": job.id,
         "job_number": job.job_number,
         "customer_name": job.customer_name or "",
+        **project_terminal_metadata(job),
         "order_reference": job.order_reference or "",
         "template_id": job.template_id,
         "template_code": job.template.code if job.template else None,
@@ -417,18 +433,23 @@ def update_paint_quantities(
             qty = max(0.0, float(item[field]))
             if allocated > 0 and qty > allocated:
                 raise ValueError(f"{field} cannot exceed allocated ({line.part_number})")
-            old = float(getattr(line, field) or 0)
+            old = _paint_value(line, field)
             if old == qty:
                 continue
             log_value_change(
                 db, username, "quantity", "mes_job_bom_line", line.id, field, old, qty
             )
-            setattr(line, field, qty)
+            _set_paint_value(line, field, qty)
+            operation = {"painted_quantity": "painting_completed", "accepted_quantity": "painting_accepted", "rejected_quantity": "painting_rejected"}[field]
+            record_absolute_operation(db, job, operation_type=operation, absolute_quantity=qty,
+                                      username=username, terminal="painting", job_line=line, route_step=step,
+                                      accepted=qty if field == "accepted_quantity" else 0,
+                                      rejected=qty if field == "rejected_quantity" else 0)
             changed = True
 
         painted = float(line.painted_quantity or 0)
-        accepted = float(line.accepted_quantity or 0)
-        rejected = float(line.rejected_quantity or 0)
+        accepted = _paint_value(line, "accepted_quantity")
+        rejected = _paint_value(line, "rejected_quantity")
         if accepted + rejected > painted + 0.0001:
             raise ValueError(
                 f"Accepted + rejected cannot exceed painted ({line.part_number})"

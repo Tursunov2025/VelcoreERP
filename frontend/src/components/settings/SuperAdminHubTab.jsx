@@ -23,9 +23,9 @@ export default function SuperAdminHubTab({ onNavigate }) {
       >
         <span className="text-4xl">🎛️</span>
         <div>
-          <h3 className="text-lg font-black">Professional Super Admin CMS</h3>
+          <h3 className="text-lg font-black">{t("legacySettings.superAdminCms")}</h3>
           <p className="text-sm text-[var(--brand-muted)]">
-            Menyu, modullar, theme, form/table builder, rollar, audit, rollback
+            {t("legacySettings.superAdminCmsDescription")}
           </p>
         </div>
       </Link>

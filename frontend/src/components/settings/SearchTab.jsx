@@ -2,8 +2,10 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import { DEPARTMENTS, PRODUCTION_STAGES } from "../../constants/workflow";
 import Toast from "../ui/Toast";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function SearchTab() {
+  const { t } = useLocale();
   const [filters, setFilters] = useState({
     client: "",
     operator: "",
@@ -24,7 +26,7 @@ export default function SearchTab() {
     try {
       const data = await api.adminSearchOrders(filters);
       setResults(data);
-      setToast(`${data.length} ta topildi`);
+      setToast(t("legacySettings.search.found", { count: data.length }));
     } catch (err) {
       setToast(err.message);
     } finally {
@@ -34,16 +36,16 @@ export default function SearchTab() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-black">Kengaytirilgan qidiruv</h2>
+      <h2 className="mb-4 text-xl font-black">{t("legacySettings.search.title")}</h2>
       <form onSubmit={search} className="mb-6 grid gap-3 sm:grid-cols-2">
         <input
-          placeholder="Mijoz"
+          placeholder={t("legacySettings.search.customer")}
           value={filters.client}
           onChange={(e) => setFilters({ ...filters, client: e.target.value })}
           className="rounded-xl border px-4 py-3"
         />
         <input
-          placeholder="Operator"
+          placeholder={t("roleNames.operator")}
           value={filters.operator}
           onChange={(e) => setFilters({ ...filters, operator: e.target.value })}
           className="rounded-xl border px-4 py-3"
@@ -53,7 +55,7 @@ export default function SearchTab() {
           onChange={(e) => setFilters({ ...filters, stage: e.target.value })}
           className="rounded-xl border px-4 py-3"
         >
-          <option value="">Bosqich</option>
+          <option value="">{t("legacySettings.search.stage")}</option>
           {PRODUCTION_STAGES.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -65,7 +67,7 @@ export default function SearchTab() {
           onChange={(e) => setFilters({ ...filters, department: e.target.value })}
           className="rounded-xl border px-4 py-3"
         >
-          <option value="">Bo&apos;lim</option>
+          <option value="">{t("users.department")}</option>
           {DEPARTMENTS.map((d) => (
             <option key={d} value={d}>
               {d}
@@ -92,14 +94,14 @@ export default function SearchTab() {
               setFilters({ ...filters, include_deleted: e.target.checked })
             }
           />
-          O&apos;chirilganlarni ham qidirish
+          {t("legacySettings.search.includeDeleted")}
         </label>
         <button
           type="submit"
           disabled={loading}
           className="rounded-xl bg-black py-3 font-bold text-white sm:col-span-2"
         >
-          {loading ? "Qidirilmoqda..." : "Qidirish"}
+          {loading ? t("legacySettings.search.searching") : t("common.search")}
         </button>
       </form>
 
@@ -107,7 +109,7 @@ export default function SearchTab() {
         {results.map((o) => (
           <div key={o.id} className="rounded-xl border bg-white p-3 text-sm">
             <span className="font-bold">#{o.id}</span> {o.client} — {o.status}
-            {o.deleted_at && <span className="text-red-500"> (deleted)</span>}
+            {o.deleted_at && <span className="text-red-500"> ({t("legacySettings.deleted")})</span>}
           </div>
         ))}
       </div>

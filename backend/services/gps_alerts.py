@@ -7,12 +7,14 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session, joinedload
 
-from models import Driver, GpsAlertState, GpsLocation, TripRoute, Vehicle
+from models import Driver, GpsAlertState, GpsLocation, MesGpsDevice, MesVehicle, TripRoute, Vehicle
 from services.gps_fleet import latest_location_for_vehicle
 from services.gps_geocode import city_matches_destination, reverse_geocode
 from services.telegram import (
     format_gps_border_alert,
     format_gps_destination_alert,
+    format_gps_geofence_alert,
+    format_gps_overspeed_alert,
     format_gps_offline_alert,
     send_telegram_message,
 )
@@ -115,9 +117,124 @@ async def run_gps_alerts_job(db: Session | None = None) -> dict:
                         state.border_alert_sent = True
                         sent += 1
 
+            if (
+                state.geofence_enabled
+                and state.geofence_latitude is not None
+                and state.geofence_longitude is not None
+                and state.geofence_radius_m is not None
+            ):
+                from services.gps_geocode import haversine_meters
+
+                distance_m = haversine_meters(
+                    float(state.geofence_latitude),
+                    float(state.geofence_longitude),
+                    float(loc.latitude),
+                    float(loc.longitude),
+                )
+
+                if distance_m > float(state.geofence_radius_m):
+                    if not state.geofence_telegram_alert_sent:
+                        text = format_gps_geofence_alert(
+                            plate,
+                            driver,
+                            distance_m,
+                            float(state.geofence_radius_m),
+                            float(loc.latitude),
+                            float(loc.longitude),
+                        )
+                        await _notify(db, text, driver)
+                        state.geofence_telegram_alert_sent = 1
+                        sent += 1
+                elif state.geofence_telegram_alert_sent:
+                    state.geofence_telegram_alert_sent = 0
+
             state.last_city = city
             state.last_country = cc or country
             state.updated_at = now
+
+        # Canonical physical GPS devices — geofence works even without a trip
+        devices = (
+            db.query(MesGpsDevice)
+            .filter(MesGpsDevice.status == "active")
+            .all()
+        )
+
+        for device in devices:
+            if (
+                device.vehicle_id is None
+                or device.last_latitude is None
+                or device.last_longitude is None
+            ):
+                continue
+
+            state = _alert_state(db, device.vehicle_id)
+
+            vehicle = (
+                device.vehicle
+                or db.query(MesVehicle)
+                .filter(MesVehicle.id == device.vehicle_id)
+                .first()
+            )
+            plate = vehicle.registration_number if vehicle else str(device.vehicle_id)
+
+            checked += 1
+
+            # Overspeed Telegram alert
+            current_speed = float(device.last_speed_kmh or 0)
+            if state.speed_limit_kmh is not None:
+                speed_limit = float(state.speed_limit_kmh)
+
+                if current_speed > speed_limit:
+                    if not state.overspeed_telegram_alert_sent:
+                        text = format_gps_overspeed_alert(
+                            plate,
+                            None,
+                            current_speed,
+                            speed_limit,
+                            float(device.last_latitude),
+                            float(device.last_longitude),
+                        )
+                        await _notify(db, text, None)
+                        state.overspeed_telegram_alert_sent = 1
+                        state.updated_at = now
+                        sent += 1
+                elif state.overspeed_telegram_alert_sent:
+                    state.overspeed_telegram_alert_sent = 0
+                    state.updated_at = now
+
+            # Geofence Telegram alert
+            if (
+                state.geofence_enabled
+                and state.geofence_latitude is not None
+                and state.geofence_longitude is not None
+                and state.geofence_radius_m is not None
+            ):
+                from services.gps_geocode import haversine_meters
+
+                distance_m = haversine_meters(
+                    float(state.geofence_latitude),
+                    float(state.geofence_longitude),
+                    float(device.last_latitude),
+                    float(device.last_longitude),
+                )
+
+                if distance_m > float(state.geofence_radius_m):
+                    if not state.geofence_telegram_alert_sent:
+                        text = format_gps_geofence_alert(
+                            plate,
+                            None,
+                            distance_m,
+                            float(state.geofence_radius_m),
+                            float(device.last_latitude),
+                            float(device.last_longitude),
+                        )
+                        await _notify(db, text, None)
+                        state.geofence_telegram_alert_sent = 1
+                        state.updated_at = now
+                        sent += 1
+                elif state.geofence_telegram_alert_sent:
+                    state.geofence_telegram_alert_sent = 0
+                    state.updated_at = now
 
         db.commit()
     except Exception:

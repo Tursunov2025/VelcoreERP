@@ -89,7 +89,7 @@ export default function SvarshikTerminalQueuePage() {
       <PageHeader
         title={t("mes.svarshikTerminal")}
         subtitle={t("mes.svarshikQueueSubtitle")}
-        actions={
+        actions={<div className="flex gap-2"><Link to="/mes/terminal/svarshik/stock" className="min-h-[44px] rounded-2xl border px-5 py-2 text-sm font-semibold">{t("mes.warehouse")}</Link>
           <button
             type="button"
             onClick={load}
@@ -98,7 +98,7 @@ export default function SvarshikTerminalQueuePage() {
           >
             {t("common.refresh")}
           </button>
-        }
+        </div>}
       />
 
       <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">

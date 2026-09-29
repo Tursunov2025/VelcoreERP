@@ -4,8 +4,10 @@ import Card from "../ui/Card";
 import ErrorAlert from "../ui/ErrorAlert";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { downloadShipmentPdf } from "../../utils/shipmentGroupPdf";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function ShipmentsArchiveTab() {
+  const { t, formatDateTime } = useLocale();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,7 +33,7 @@ export default function ShipmentsArchiveTab() {
   }, [showDeleted]);
 
   const softDelete = async (id) => {
-    if (!window.confirm(`Yuk #${id} ni arxivdan o'chirish?`)) return;
+    if (!window.confirm(t("legacySettings.shipments.deleteConfirm", { id }))) return;
     try {
       await api.adminDeleteShipmentGroup(id);
       await load();
@@ -54,14 +56,14 @@ export default function ShipmentsArchiveTab() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold">Yuk arxivi boshqaruvi</h2>
+        <h2 className="text-lg font-bold">{t("legacySettings.shipments.title")}</h2>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={showDeleted}
             onChange={(e) => setShowDeleted(e.target.checked)}
           />
-          O&apos;chirilgan yuklar
+          {t("legacySettings.shipments.deletedShipments")}
         </label>
       </div>
       <ErrorAlert message={error} onRetry={load} />
@@ -71,17 +73,17 @@ export default function ShipmentsArchiveTab() {
             <div className="flex flex-wrap justify-between gap-2">
               <div>
                 <p className="font-bold">
-                  Yuk #{g.id}
+                  {t("legacySettings.shipments.shipmentNumber", { id: g.id })}
                   {g.deleted_at && (
-                    <span className="ml-2 text-xs text-red-600">(o&apos;chirilgan)</span>
+                    <span className="ml-2 text-xs text-red-600">({t("legacySettings.deleted")})</span>
                   )}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {g.shipped_at ? new Date(g.shipped_at).toLocaleString() : ""} —{" "}
+                  {g.shipped_at ? formatDateTime(g.shipped_at) : ""} —{" "}
                   {g.destination}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {g.warehouse_operator} | {g.total_products_count} mahsulot
+                  {g.warehouse_operator} | {t("legacySettings.shipments.products", { count: g.total_products_count })}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -98,7 +100,7 @@ export default function ShipmentsArchiveTab() {
                     onClick={() => restore(g.id)}
                     className="rounded-xl bg-green-600 px-3 py-1.5 text-xs font-bold text-white"
                   >
-                    Tiklash
+                    {t("platformAdministration.restore")}
                   </button>
                 ) : (
                   <button
@@ -106,7 +108,7 @@ export default function ShipmentsArchiveTab() {
                     onClick={() => softDelete(g.id)}
                     className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white"
                   >
-                    O&apos;chirish
+                    {t("common.delete")}
                   </button>
                 )}
               </div>

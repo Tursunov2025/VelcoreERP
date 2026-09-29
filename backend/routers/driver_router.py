@@ -13,10 +13,10 @@ from auth.deps import get_current_user
 from auth.security import AuthNotConfiguredError, create_access_token, create_refresh_token
 from config.paths import UPLOAD_PATH
 from database import get_db
-from models import ChatMessage, ChatReadState, ChatRoom, Driver, TransportTask, User, Vehicle
+from models import ChatMessage, ChatReadState, ChatRoom, Driver, TransportTask, TransportTaskEvent, User, Vehicle
 from routers.auth_router import _authenticate_user, _login_candidates_for_phone, _normalize_phone_digits
 from routers.gps_router import _serialize_transport_task, latest_locations_by_vehicle
-from schemas import PhoneLoginRequest, TokenResponse
+from schemas import DriverCodeLoginRequest, PhoneLoginRequest, TokenResponse
 from services.audit import log_action
 
 router = APIRouter(prefix="/driver", tags=["driver"])
@@ -186,82 +186,300 @@ def driver_login(data: PhoneLoginRequest, db: Session = Depends(get_db)):
     )
 
 
+@router.post("/login/code", response_model=DriverLoginResponse)
+def driver_login_code(
+    data: DriverCodeLoginRequest,
+    db: Session = Depends(get_db),
+):
+    """Driver code + password login."""
+    code = (data.login_code or "").strip().upper()
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Login kodi kerak")
+
+    driver = (
+        db.query(Driver)
+        .filter(Driver.login_code == code)
+        .first()
+    )
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Login kodi yoki parol xato")
+
+    if (driver.status or "active").lower() not in {"active", "on_trip"}:
+        raise HTTPException(status_code=403, detail="Haydovchi faol emas")
+
+    password_hash = getattr(driver, "password_hash", "") or ""
+    if not password_hash:
+        raise HTTPException(status_code=401, detail="Driver paroli sozlanmagan")
+
+    from auth.security import verify_password
+
+    if not verify_password(data.password, password_hash):
+        raise HTTPException(status_code=401, detail="Login kodi yoki parol xato")
+
+    username = (driver.user_username or "").strip()
+    if not username:
+        raise HTTPException(status_code=403, detail="Driver ERP foydalanuvchisiga ulanmagan")
+
+    user = (
+        db.query(User)
+        .filter(User.username == username)
+        .first()
+    )
+
+    if not user or not getattr(user, "is_active", True):
+        raise HTTPException(status_code=403, detail="ERP foydalanuvchisi faol emas")
+
+    base = _token_response(user)
+
+    vehicle = None
+    if getattr(driver, "default_vehicle_id", None):
+        vehicle = (
+            db.query(Vehicle)
+            .filter(Vehicle.id == driver.default_vehicle_id)
+            .first()
+        )
+
+    log_action(
+        db,
+        user.username,
+        "driver_login_code",
+        f"driver={driver.id}",
+    )
+
+    return DriverLoginResponse(
+        **base.model_dump(),
+        driver=_serialize_driver(driver),
+        vehicle=_serialize_vehicle(vehicle),
+    )
+
+
+class DriverTaskLocationIn(BaseModel):
+    latitude: float | None = None
+    longitude: float | None = None
+    address: str = ""
+
+
 @router.get("/tasks")
 def driver_tasks(
     status: str = Query(""),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    driver = _require_driver(db, user)
+    if user.role != "driver":
+        raise HTTPException(status_code=403, detail="Driver access required")
+
     query = (
         db.query(TransportTask)
-        .options(joinedload(TransportTask.vehicle), joinedload(TransportTask.driver))
-        .filter(TransportTask.driver_id == driver.id)
+        .options(
+            joinedload(TransportTask.vehicle),
+            joinedload(TransportTask.driver),
+        )
+        .filter(TransportTask.driver_user_id == user.id)
         .order_by(desc(TransportTask.created_at))
     )
+
     if status:
         query = query.filter(TransportTask.status == status)
+
     tasks = query.limit(100).all()
     latest = latest_locations_by_vehicle(db)
+
     return {
-        "driver": _serialize_driver(driver),
+        "driver": {
+            "id": user.id,
+            "username": user.username,
+            "full_name": getattr(user, "full_name", "") or user.username,
+            "phone": getattr(user, "phone", "") or "",
+        },
         "tasks": [
-            _serialize_transport_task(t, latest.get(t.vehicle_id) if t.vehicle_id else None)
+            _serialize_transport_task(
+                t,
+                latest.get(t.vehicle_id) if t.vehicle_id else None,
+            )
             for t in tasks
         ],
     }
 
 
-@router.post("/tasks/{task_id}/start")
-def driver_start_task(
+@router.post("/tasks/{task_id}/pickup")
+def driver_pickup_task(
     task_id: int,
+    data: DriverTaskLocationIn,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    driver = _require_driver(db, user)
-    task = db.query(TransportTask).filter(TransportTask.id == task_id).first()
-    if not task or task.driver_id != driver.id:
-        raise HTTPException(status_code=404, detail="Task not found")
-    if not task.vehicle_id:
-        raise HTTPException(status_code=400, detail="Assign a vehicle first")
-    task.tracking_active = True
-    task.status = "active"
-    task.started_at = task.started_at or datetime.utcnow()
-    driver.status = "on_trip"
-    db.commit()
     task = (
         db.query(TransportTask)
-        .options(joinedload(TransportTask.vehicle), joinedload(TransportTask.driver))
-        .filter(TransportTask.id == task_id)
+        .filter(
+            TransportTask.id == task_id,
+            TransportTask.driver_user_id == user.id,
+        )
         .first()
     )
-    loc = latest_locations_by_vehicle(db).get(task.vehicle_id)
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.status != "assigned":
+        raise HTTPException(status_code=400, detail="Task yukni olish holatida emas")
+
+    if not task.vehicle_id:
+        raise HTTPException(status_code=400, detail="Taskga transport biriktirilmagan")
+
+    now = datetime.utcnow()
+
+    task.status = "picked_up"
+    task.tracking_active = True
+    task.picked_up_at = now
+    task.started_at = task.started_at or now
+
+    task.pickup_latitude = data.latitude
+    task.pickup_longitude = data.longitude
+    task.pickup_address = (data.address or "").strip()
+
+    driver = _find_driver_for_user(db, user)
+    if driver:
+        driver.status = "on_trip"
+
+    event = TransportTaskEvent(
+        task_id=task.id,
+        event_type="pickup",
+        actor_user_id=user.id,
+        actor_username=user.username,
+        latitude=data.latitude,
+        longitude=data.longitude,
+        address=(data.address or "").strip(),
+        note="Yuk haydovchi tomonidan olindi",
+        created_at=now,
+    )
+    db.add(event)
+
+    db.commit()
+    db.refresh(task)
+
+    log_action(
+        db,
+        user.username,
+        "driver_task_pickup",
+        f"task={task.id}",
+    )
+
+    loc = (
+        latest_locations_by_vehicle(db).get(task.vehicle_id)
+        if task.vehicle_id
+        else None
+    )
+
     return _serialize_transport_task(task, loc)
 
 
-@router.post("/tasks/{task_id}/complete")
-def driver_complete_task(
+@router.post("/tasks/{task_id}/deliver")
+async def driver_deliver_task(
     task_id: int,
+    file: UploadFile = File(...),
+    latitude: float | None = Form(None),
+    longitude: float | None = Form(None),
+    address: str = Form(""),
+    note: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    driver = _require_driver(db, user)
-    task = db.query(TransportTask).filter(TransportTask.id == task_id).first()
-    if not task or task.driver_id != driver.id:
-        raise HTTPException(status_code=404, detail="Task not found")
-    task.tracking_active = False
-    task.status = "completed"
-    task.completed_at = datetime.utcnow()
-    if driver.status == "on_trip":
-        driver.status = "active"
-    db.commit()
     task = (
         db.query(TransportTask)
-        .options(joinedload(TransportTask.vehicle), joinedload(TransportTask.driver))
-        .filter(TransportTask.id == task_id)
+        .filter(
+            TransportTask.id == task_id,
+            TransportTask.driver_user_id == user.id,
+        )
         .first()
     )
-    loc = latest_locations_by_vehicle(db).get(task.vehicle_id) if task.vehicle_id else None
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.status != "picked_up":
+        raise HTTPException(status_code=400, detail="Avval yukni olish kerak")
+
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
+
+    if content_type not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Faqat JPEG, PNG yoki WebP",
+        )
+
+    data = await file.read()
+
+    if len(data) > MAX_PHOTO_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="Fayl hajmi 8 MB dan oshmasin",
+        )
+
+    ext = (
+        ".jpg"
+        if content_type == "image/jpeg"
+        else ".png"
+        if content_type == "image/png"
+        else ".webp"
+    )
+
+    filename = f"task_{task_id}_{uuid.uuid4().hex}{ext}"
+    path = DRIVER_PHOTO_DIR / filename
+    path.write_bytes(data)
+
+    now = datetime.utcnow()
+    photo_url = f"/uploads/driver_photos/{filename}"
+    clean_address = (address or "").strip()
+    clean_note = (note or "").strip()
+
+    task.status = "completed"
+    task.tracking_active = False
+    task.delivered_at = now
+    task.completed_at = now
+
+    task.delivery_latitude = latitude
+    task.delivery_longitude = longitude
+    task.delivery_address = clean_address
+
+    task.completion_photo_url = photo_url
+    task.completion_note = clean_note
+
+    driver = _find_driver_for_user(db, user)
+    if driver and driver.status == "on_trip":
+        driver.status = "active"
+
+    event = TransportTaskEvent(
+        task_id=task.id,
+        event_type="delivery",
+        actor_user_id=user.id,
+        actor_username=user.username,
+        latitude=latitude,
+        longitude=longitude,
+        address=clean_address,
+        photo_url=photo_url,
+        note=clean_note,
+        created_at=now,
+    )
+    db.add(event)
+
+    db.commit()
+    db.refresh(task)
+
+    log_action(
+        db,
+        user.username,
+        "driver_task_complete",
+        f"task={task.id} photo={filename}",
+    )
+
+    loc = (
+        latest_locations_by_vehicle(db).get(task.vehicle_id)
+        if task.vehicle_id
+        else None
+    )
+
     return _serialize_transport_task(task, loc)
 
 

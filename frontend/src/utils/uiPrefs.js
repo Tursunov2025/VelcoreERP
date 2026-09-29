@@ -1,8 +1,8 @@
 export const UI_PREFS_KEY = "azmus_ui_prefs";
 
 export const DEFAULT_UI_PREFS = {
-  language: "uz_latn",
-  theme: "light",
+  language: "uz",
+  theme: null,
   clock_format: "24h",
 };
 

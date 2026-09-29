@@ -1,8 +1,10 @@
+import { useLocale } from "../../context/LocaleContext";
 export default function OnlineOperatorsTable({
   operators = [],
   loading,
   showLoginTime = false,
 }) {
+  const { t, formatDate } = useLocale();
   if (loading) {
     return (
       <div className="animate-pulse space-y-3">
@@ -14,7 +16,7 @@ export default function OnlineOperatorsTable({
   }
 
   if (!operators.length) {
-    return <p className="text-center text-gray-500 py-6">Operatorlar yo&apos;q</p>;
+    return <p className="text-center text-gray-500 py-6">{t("dashboardTable.noOperators")}</p>;
   }
 
   return (
@@ -22,12 +24,8 @@ export default function OnlineOperatorsTable({
       <table className="w-full min-w-[500px] text-left text-sm">
         <thead>
           <tr className="border-b text-gray-500">
-            <th className="py-3 pr-4">Operator</th>
-            <th className="py-3 pr-4">Bo&apos;lim</th>
-            <th className="py-3 pr-4">Holat</th>
-            <th className="py-3 pr-4">Faol zakazlar</th>
-            {showLoginTime && <th className="py-3 pr-4">Kirish vaqti</th>}
-            <th className="py-3">Oxirgi faollik</th>
+            <th className="py-3 pr-4">{t("dashboardTable.operator")}</th><th className="py-3 pr-4">{t("dashboardTable.department")}</th><th className="py-3 pr-4">{t("common.status")}</th><th className="py-3 pr-4">{t("dashboardTable.activeOrders")}</th>
+            {showLoginTime && <th className="py-3 pr-4">{t("dashboardTable.loginTime")}</th>}<th className="py-3">{t("dashboardTable.lastActivity")}</th>
           </tr>
         </thead>
         <tbody>
@@ -48,18 +46,18 @@ export default function OnlineOperatorsTable({
                       op.is_online ? "bg-green-500 animate-pulse" : "bg-gray-400"
                     }`}
                   />
-                  {op.is_online ? "Online" : "Offline"}
+                  {t(op.is_online ? "common.online" : "common.offline")}
                 </span>
               </td>
               <td className="py-3 font-bold">{op.active_orders_count}</td>
               {showLoginTime && (
                 <td className="py-3 text-xs text-gray-500">
-                  {op.login_at ? new Date(op.login_at).toLocaleString() : "—"}
+                  {op.login_at ? formatDate(op.login_at, { dateStyle: "short", timeStyle: "short" }) : "—"}
                 </td>
               )}
               <td className="py-3 text-gray-500 text-xs">
                 {op.last_activity
-                  ? new Date(op.last_activity).toLocaleString()
+                  ? formatDate(op.last_activity, { dateStyle: "short", timeStyle: "short" })
                   : "—"}
               </td>
             </tr>

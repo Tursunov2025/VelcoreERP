@@ -15,22 +15,22 @@ import { useUiConfig } from "../hooks/useUiConfig";
 import { useFeatureFlags } from "../hooks/useFeatureFlags";
 
 const KPI_CARDS = [
-  { key: "orders", label: "Orders", emoji: "📦", to: "/orders" },
-  { key: "production_jobs", label: "Production Jobs", emoji: "🏭", to: "/mes/jobs" },
-  { key: "finished_products", label: "Finished Products", emoji: "✅", to: "/mes/terminal/warehouse" },
-  { key: "shipped_orders", label: "Shipped Orders", emoji: "🚚", to: "/logistics/delivered" },
-  { key: "customers", label: "Customers", emoji: "👥", to: "/crm" },
-  { key: "materials", label: "Materials", emoji: "🧱", to: "/materials" },
-  { key: "llp_documents", label: "LLP Documents", emoji: "📄", to: "/logistics/llp" },
-  { key: "export_shipments", label: "Yuklash rejalari", emoji: "🌍", to: "/logistics/loading-plans" },
+  { key: "orders", labelKey: "dashboard.orders", emoji: "📦", to: "/orders" },
+  { key: "production_jobs", labelKey: "dashboard.productionJobs", emoji: "🏭", to: "/mes/jobs" },
+  { key: "finished_products", labelKey: "dashboard.finishedProducts", emoji: "✅", to: "/mes/terminal/warehouse" },
+  { key: "shipped_orders", labelKey: "dashboard.shippedOrders", emoji: "🚚", to: "/logistics/delivered" },
+  { key: "customers", labelKey: "dashboard.customers", emoji: "👥", to: "/crm" },
+  { key: "materials", labelKey: "dashboard.materials", emoji: "🧱", to: "/materials" },
+  { key: "llp_documents", labelKey: "dashboard.llpDocuments", emoji: "📄", to: "/logistics/llp" },
+  { key: "export_shipments", labelKey: "dashboard.loadingPlans", emoji: "🌍", to: "/logistics/loading-plans" },
 ];
 
 const QUICK_ACTIONS = [
-  { label: "New Order", emoji: "➕", to: "/orders" },
-  { label: "New Job", emoji: "🛠️", to: "/mes/jobs/new" },
-  { label: "Material Receipt", emoji: "📥", to: "/materials/receipts" },
-  { label: "Yuklash rejasi", emoji: "🚚", to: "/logistics/loading-plans" },
-  { label: "Reports", emoji: "📊", to: "/analytics" },
+  { labelKey: "dashboard.newOrder", emoji: "➕", to: "/orders" },
+  { labelKey: "dashboard.newJob", emoji: "🛠️", to: "/mes/jobs/new" },
+  { labelKey: "dashboard.materialReceipt", emoji: "📥", to: "/materials/receipts" },
+  { labelKey: "dashboard.loadingPlan", emoji: "🚚", to: "/logistics/loading-plans" },
+  { labelKey: "dashboard.reports", emoji: "📊", to: "/analytics" },
 ];
 
 function formatNumber(value) {
@@ -39,8 +39,8 @@ function formatNumber(value) {
 }
 
 export default function DashboardPage() {
-  const { t } = useLocale();
-  const { isAdmin } = useAuth();
+  const { t, formatNumber: formatLocaleNumber } = useLocale();
+  const { isAdmin, hasPermission } = useAuth();
   const { config } = useUiConfig();
   const { traceabilityEnabled } = useFeatureFlags();
   const widgets = config?.dashboard_widgets || [];
@@ -72,14 +72,16 @@ export default function DashboardPage() {
       ] = await Promise.all([
         api.dashboardKpis().catch(() => null),
         api.getOnlineOperators().catch(() => null),
-        api.getDashboardAnalytics().catch(() => null),
-        api.currencyDashboard().catch(() => null),
-        api.crmTopDebtors(5).catch(() => null),
-        api.warehouseForecastAlerts(6).catch(() => null),
-        isWidgetEnabled(widgets, "export_shipments")
+        hasPermission("finance") ? api.getDashboardAnalytics().catch(() => null) : Promise.resolve(null),
+        hasPermission("finance") ? api.currencyDashboard().catch(() => null) : Promise.resolve(null),
+        hasPermission("orders") ? api.crmTopDebtors(5).catch(() => null) : Promise.resolve(null),
+        hasPermission("warehouse") || hasPermission("materials_view")
+          ? api.warehouseForecastAlerts(6).catch(() => null)
+          : Promise.resolve(null),
+        hasPermission("export_view") && isWidgetEnabled(widgets, "export_shipments")
           ? api.logisticsDashboard().catch(() => null)
           : Promise.resolve(null),
-        api.gpsDashboard().catch(() => null),
+        hasPermission("export_view") ? api.gpsDashboard().catch(() => null) : Promise.resolve(null),
       ]);
       setKpis(kpiData);
       setOperators(operatorData?.operators || []);
@@ -109,9 +111,10 @@ export default function DashboardPage() {
     load();
     const id = setInterval(load, 30000);
     return () => clearInterval(id);
-  }, [isAdmin, traceabilityEnabled, widgets.length]);
+  }, [hasPermission, isAdmin, traceabilityEnabled, widgets.length]);
 
   useEffect(() => {
+    if (!hasPermission("export_view")) return undefined;
     const refreshGps = async () => {
       try {
         const gpsData = await api.gpsDashboard();
@@ -123,12 +126,12 @@ export default function DashboardPage() {
     refreshGps();
     const id = setInterval(refreshGps, 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [hasPermission]);
 
   return (
     <div
         style={{
-            backgroundColor: "var(--erp-background)",
+            backgroundColor: "var(--brand-background)",
             minHeight: "100vh"
         }}
     >
@@ -147,18 +150,17 @@ export default function DashboardPage() {
       <div className="mb-6 flex flex-wrap gap-2">
         {QUICK_ACTIONS.map((action) => (
           <Link
-            key={action.label}
+            key={action.labelKey}
             to={action.to}
             className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
             style={{
             backgroundColor: "var(--brand-button)",
-            height: "var(--erp-button-height)",
-            borderRadius: "var(--erp-radius)",
-            fontSize: "var(--erp-font-size)"
+            color: "var(--brand-button-text)",
+            borderRadius: "var(--brand-radius)"
             }}
           >
             <span>{action.emoji}</span>
-            {action.label}
+            {t(action.labelKey)}
           </Link>
         ))}
       </div>
@@ -173,19 +175,19 @@ export default function DashboardPage() {
                 to={card.to}
                 className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
                 style={{
-                borderRadius: "var(--erp-radius)",
+                borderRadius: "var(--brand-radius)",
                 boxShadow: "0 0 8px rgba(0,0,0,.18)",
-                fontSize: "var(--erp-font-size)"
+                color: "var(--brand-text)"
               }}
               >
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brand-muted)]">
-                    {card.label}
+                    {t(card.labelKey)}
                   </p>
                   <span className="text-lg">{card.emoji}</span>
                 </div>
                 <p className="mt-2 text-3xl font-black text-[var(--brand-text)]">
-                  {kpis ? formatNumber(kpis[card.key]) : "—"}
+                  {kpis ? formatLocaleNumber(kpis[card.key] || 0) : "—"}
                 </p>
               </Link>
             ))}
@@ -220,8 +222,8 @@ export default function DashboardPage() {
             className="rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md"
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-bold text-[var(--brand-text)]">💱 Exchange Rates</h2>
-              <span className="text-xs text-[var(--brand-muted)]">1 unit → UZS</span>
+              <h2 className="font-bold text-[var(--brand-text)]">💱 {t("dashboard.exchangeRates")}</h2>
+              <span className="text-xs text-[var(--brand-muted)]">{t("dashboard.oneUnitToUzs")}</span>
             </div>
             <div className="space-y-2">
               {currencyStats.rates.map((rate) => {
@@ -257,11 +259,11 @@ export default function DashboardPage() {
             className="rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md"
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-bold text-[var(--brand-text)]">💸 Top Debtors</h2>
+              <h2 className="font-bold text-[var(--brand-text)]">💸 {t("dashboard.topDebtors")}</h2>
               <span className="text-xs text-[var(--brand-muted)]">UZS</span>
             </div>
             {topDebtors.debtors.length === 0 ? (
-              <p className="text-sm text-[var(--brand-muted)]">No outstanding debt</p>
+              <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.noOutstandingDebt")}</p>
             ) : (
               <div className="space-y-2">
                 {topDebtors.debtors.map((debtor) => (
@@ -285,13 +287,13 @@ export default function DashboardPage() {
             className="rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md"
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-bold text-[var(--brand-text)]">📉 Low Stock Alerts</h2>
+              <h2 className="font-bold text-[var(--brand-text)]">📉 {t("dashboard.lowStockAlerts")}</h2>
               <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
                 {forecastAlerts.total_low_stock ?? 0}
               </span>
             </div>
             {!forecastAlerts.alerts?.length ? (
-              <p className="text-sm text-[var(--brand-muted)]">No low stock materials</p>
+              <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.noLowStock")}</p>
             ) : (
               <div className="space-y-2">
                 {forecastAlerts.alerts.map((alert) => (
@@ -301,7 +303,7 @@ export default function DashboardPage() {
                     </span>
                     <span className="text-xs font-bold text-amber-600">
                       {alert.days_remaining != null
-                        ? `${alert.days_remaining}d left`
+                        ? t("dashboard.daysLeft", { count: alert.days_remaining })
                         : `${formatNumber(alert.quantity)} ${alert.unit}`}
                     </span>
                   </div>
@@ -315,9 +317,9 @@ export default function DashboardPage() {
       {gpsStats ? (
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[var(--brand-text)]">🛰️ GPS Fleet</h2>
+            <h2 className="text-lg font-bold text-[var(--brand-text)]">🛰️ {t("dashboard.gpsFleet")}</h2>
             <Link to="/logistics/live-map" className="text-sm font-semibold text-[var(--brand-primary)]">
-              Jonli xarita →
+              {t("dashboard.fullMap")} →
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -325,7 +327,7 @@ export default function DashboardPage() {
             to="/logistics/live-map"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
-            <p className="text-xs uppercase text-[var(--brand-muted)]">🚚 Online</p>
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🚚 {t("common.online")}</p>
             <p className="mt-1 text-2xl font-black text-green-600">
               {gpsStats.online_trucks ?? 0}
               <span className="text-sm font-normal text-[var(--brand-muted)]">
@@ -338,7 +340,7 @@ export default function DashboardPage() {
             to="/logistics/live-map"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
-            <p className="text-xs uppercase text-[var(--brand-muted)]">🟢 Moving</p>
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🟢 {t("dashboard.moving")}</p>
             <p className="mt-1 text-2xl font-black text-green-600">
               {gpsStats.moving_vehicles ?? 0}
             </p>
@@ -347,22 +349,22 @@ export default function DashboardPage() {
             to="/logistics/live-map"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
-            <p className="text-xs uppercase text-[var(--brand-muted)]">🅿️ Stopped</p>
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🅿️ {t("dashboard.stopped")}</p>
             <p className="mt-1 text-2xl font-black text-amber-600">
               {gpsStats.stopped_vehicles ?? 0}
             </p>
           </Link>
           <div className="rounded-3xl border bg-[var(--brand-card)] p-4">
-            <p className="text-xs uppercase text-[var(--brand-muted)]">⚡ Avg Speed</p>
+            <p className="text-xs uppercase text-[var(--brand-muted)]">⚡ {t("dashboard.averageSpeed")}</p>
             <p className="mt-1 text-2xl font-black">{gpsStats.average_speed_kmh ?? 0} km/h</p>
           </div>
           <Link
             to="/logistics/gps"
             className="rounded-3xl border bg-[var(--brand-card)] p-4 shadow-sm transition hover:shadow-md"
           >
-            <p className="text-xs uppercase text-[var(--brand-muted)]">🕒 ETA Arrivals</p>
+            <p className="text-xs uppercase text-[var(--brand-muted)]">🕒 {t("dashboard.etaArrivals")}</p>
             {!gpsStats.eta_arrivals?.length ? (
-              <p className="mt-1 text-sm text-[var(--brand-muted)]">No active trips</p>
+              <p className="mt-1 text-sm text-[var(--brand-muted)]">{t("dashboard.noActiveTrips")}</p>
             ) : (
               <div className="mt-1 space-y-1">
                 {gpsStats.eta_arrivals.slice(0, 2).map((row) => (
@@ -404,19 +406,19 @@ export default function DashboardPage() {
           className="mb-6 grid gap-4 rounded-3xl border bg-[var(--brand-card)] p-5 shadow-sm transition hover:shadow-md sm:grid-cols-4"
         >
           <div>
-            <p className="text-sm text-[var(--brand-muted)]">Yuklash rejalari</p>
+            <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.loadingPlans")}</p>
             <p className="mt-2 text-2xl font-black">{exportStats.total ?? 0}</p>
           </div>
           <div>
-            <p className="text-sm text-[var(--brand-muted)]">Rejalashtirilgan</p>
+            <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.planned")}</p>
             <p className="mt-2 text-xl font-black text-blue-600">{exportStats.planned ?? 0}</p>
           </div>
           <div>
-            <p className="text-sm text-[var(--brand-muted)]">Yo&apos;lda</p>
+            <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.inTransit")}</p>
             <p className="mt-2 text-xl font-black text-amber-600">{exportStats.in_transit ?? 0}</p>
           </div>
           <div>
-            <p className="text-sm text-[var(--brand-muted)]">Yetkazilgan</p>
+            <p className="text-sm text-[var(--brand-muted)]">{t("dashboard.delivered")}</p>
             <p className="mt-2 text-xl font-black text-green-600">{exportStats.delivered ?? 0}</p>
           </div>
         </Link>
@@ -442,11 +444,11 @@ export default function DashboardPage() {
       {isWidgetEnabled(widgets, "production_chart") ? (
         <Card>
           <h2 className="mb-4 text-lg font-bold">{t("dashboard.productionStats")}</h2>
-          <div className="h-64">
+          <div className="min-h-64 min-w-0">
             {loading ? (
               <div className="h-full animate-pulse rounded-2xl bg-gray-100" />
             ) : analytics?.production_stats?.length ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={256} minWidth={1}>
                 <BarChart data={analytics.production_stats}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="stage" tick={{ fontSize: 10 }} />

@@ -38,6 +38,8 @@ export default function LazerTerminalJobPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [surplus, setSurplus] = useState([]);
+  const [confirmingSurplus, setConfirmingSurplus] = useState([]);
 
   const load = useCallback(async () => {
     if (!canUse) return;
@@ -107,6 +109,7 @@ export default function LazerTerminalJobPage() {
       }));
       const updated = await api.mesLazerUpdateQuantities(id, lines);
       setJob(updated);
+      setSurplus(updated.surplus_candidates || []);
       if (updated.auto_completed) {
         setToast(t("mes.lazerAutoCompleted"));
       } else {
@@ -275,6 +278,7 @@ export default function LazerTerminalJobPage() {
       )}
 
       {error ? <ErrorAlert message={error} className="mt-4" /> : null}
+      {surplus.length ? <div className="fixed inset-0 z-50 flex items-end bg-black/50 p-3 sm:items-center sm:justify-center"><div className="w-full max-w-md rounded-3xl bg-[var(--brand-card)] p-6"><h3 className="font-black">{t("mes.surplusDetail")}</h3>{surplus.map((line) => { const confirming = confirmingSurplus.includes(line.bom_line_id); return <div key={line.bom_line_id} className="mt-3 rounded-2xl border p-3"><p className="font-bold">{t("mes.surplusQuestion", { code: line.part_number, quantity: line.surplus_quantity })}</p><div className="mt-3 flex gap-2"><button disabled={confirming} onClick={async () => { setConfirmingSurplus((x) => [...x, line.bom_line_id]); try { await api.warehouseDetailStockIn(id, line.bom_line_id, line.surplus_quantity); setSurplus((x) => x.filter((a) => a.bom_line_id !== line.bom_line_id)); setToast(t("mes.surplusAdded")); } catch (e) { setToast(e.message); } finally { setConfirmingSurplus((x) => x.filter((value) => value !== line.bom_line_id)); } }} className="rounded-xl bg-[var(--brand-button)] px-3 py-2 text-sm font-bold text-white disabled:opacity-60">{confirming ? t("common.saving") : t("mes.addSurplus")}</button><button disabled={confirming} onClick={() => setSurplus((x) => x.filter((a) => a.bom_line_id !== line.bom_line_id))} className="rounded-xl border px-3 py-2 text-sm disabled:opacity-60">{t("common.no")}</button></div></div>; })}</div></div> : null}
       <Toast message={toast} onClose={() => setToast("")} />
     </div>
   );

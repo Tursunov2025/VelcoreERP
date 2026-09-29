@@ -224,7 +224,7 @@ def auto_consume_on_stage_start(
         .all()
     )
 
-    pending: list[tuple[int, float, Material]] = []
+    pending: list[tuple[MaterialReservation, float, Material]] = []
     for res in reservations:
         if res.material_id not in rule_ids:
             continue
@@ -236,9 +236,9 @@ def auto_consume_on_stage_start(
         mat = res.material or get_material(db, res.material_id)
         if not mat:
             continue
-        pending.append((res.material_id, qty, mat))
+        pending.append((res, qty, mat))
 
-    for _mid, qty, mat in pending:
+    for _res, qty, mat in pending:
         available = float(mat.quantity or 0)
         if available < qty:
             code = mat.code or mat.name
@@ -248,7 +248,9 @@ def auto_consume_on_stage_start(
 
     created: list[MaterialConsumption] = []
     now = datetime.utcnow()
-    for material_id, qty, mat in pending:
+    for reservation, qty, mat in pending:
+        material_id = reservation.material_id
+
         result = create_issue(
             db,
             username,
@@ -257,7 +259,22 @@ def auto_consume_on_stage_start(
             reason=f"Auto consumption — {stage}",
             reference=job.job_number,
             notes=f"Job {job.job_number} · stage {stage}",
+            job_id=job.id,
+            project_id=job.project_id,
+            material_reservation_id=reservation.id,
+            planned_required_quantity=reservation.required_quantity,
+            operation_stage=stage,
+            operation_key=f"auto-consume:{job.id}:{stage}:{material_id}",
         )
+
+        # The stock issue consumed the reserved material.
+        # Release the consumed portion so it is not counted as committed stock again.
+        reservation.reserved_quantity = max(
+            0.0,
+            float(reservation.reserved_quantity or 0) - qty,
+        )
+        reservation.updated_at = now
+
         record = MaterialConsumption(
             job_id=job.id,
             material_id=material_id,

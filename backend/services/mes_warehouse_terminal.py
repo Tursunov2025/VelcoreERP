@@ -4,18 +4,22 @@ from __future__ import annotations
 
 from datetime import datetime, time
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from models import (
     MesFinishedGoodsInventory,
+    MesFinishedGoodsPlacement,
     MesInventoryMovement,
     MesJobPackage,
     MesJobRouteStep,
     MesProductionJob,
     MesProductionStage,
     MesWarehouseLocation,
+    ProjectLineBomSnapshot,
 )
 from services.audit import log_value_change
+from services.project_execution import reconcile_project_line, synchronize_project
 from services.mes_terminal_common import (
     QUEUE_JOB_STATUSES,
     get_active_step,
@@ -24,6 +28,7 @@ from services.mes_terminal_common import (
     serialize_route_step,
     sort_queue,
     terminal_step_state,
+    project_terminal_metadata,
 )
 
 WAREHOUSE_STAGE_NAME = "Sklad"
@@ -31,6 +36,28 @@ DISPATCH_STAGE_NAME = "Yuklash"
 WAREHOUSE_DEPARTMENT = "Ombor"
 
 DEFAULT_WAREHOUSE_LOCATIONS = ["A-01-01", "A-01-02", "B-01-01"]
+
+
+class WarehouseInvariantError(ValueError):
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+def _finished_eligible_quantity(db: Session, job: MesProductionJob) -> float:
+    if not job.project_id:
+        return float(job.quantity or 0)
+    # Pre-ProductionProject legacy MES jobs can carry project identifiers but
+    # have no immutable release BOM snapshot/evidence chain. Preserve that
+    # standalone behavior without weakening released ProductionProject jobs.
+    if not db.query(ProjectLineBomSnapshot.id).filter_by(project_line_id=job.project_line_id).first():
+        return float(job.quantity or 0)
+    facts = reconcile_project_line(db, job.project_line)
+    return max(0.0, min(
+        facts["required_quantity"], facts["produced_quantity"],
+        facts["qc_approved_quantity"] - facts["rework_pending_quantity"],
+        facts["packaged_quantity"],
+    ))
 
 
 def get_warehouse_stages(db: Session) -> list[MesProductionStage]:
@@ -100,9 +127,13 @@ def serialize_location(loc: MesWarehouseLocation) -> dict:
     return {
         "id": loc.id,
         "code": loc.code,
+        "segment_code": loc.segment_code or "",
+        "location_type": loc.location_type or "bin",
+        "parent_id": loc.parent_id,
         "description": loc.description or "",
         "sort_order": loc.sort_order,
         "is_active": bool(loc.is_active),
+        "version": int(loc.version or 1),
     }
 
 
@@ -126,6 +157,8 @@ def serialize_package_terminal(
         "location_code": loc_code,
         "received_at": pkg.received_at,
         "placed_at": pkg.placed_at,
+        "passport_serials": [row.serial_number for row in sorted(getattr(pkg, "product_passports", []), key=lambda item: item.unit_index)],
+        "passport_count": len(getattr(pkg, "product_passports", [])),
         **label_fields_for_package(pkg),
     }
 
@@ -143,6 +176,7 @@ def serialize_terminal_job(
         "id": job.id,
         "job_number": job.job_number,
         "customer_name": job.customer_name or "",
+        **project_terminal_metadata(job),
         "order_reference": job.order_reference or "",
         "template_id": job.template_id,
         "template_code": job.template.code if job.template else None,
@@ -238,11 +272,16 @@ def list_inventory_summary(db: Session) -> list[dict]:
                 "unit": row.unit or "dona",
                 "locations": set(),
                 "package_count": 0,
+                "passport_serials": [],
             }
         grouped[key]["quantity"] += float(row.quantity or 0)
         grouped[key]["package_count"] += 1
         if row.location:
             grouped[key]["locations"].add(row.location.code)
+        if row.package:
+            grouped[key]["passport_serials"].extend(
+                p.serial_number for p in sorted(getattr(row.package, "product_passports", []), key=lambda item: item.unit_index)
+            )
 
     result = []
     for item in grouped.values():
@@ -255,9 +294,55 @@ def list_inventory_summary(db: Session) -> list[dict]:
                 "unit": item["unit"],
                 "locations": sorted(item["locations"]),
                 "package_count": item["package_count"],
+                "passport_serials": item["passport_serials"],
+                "passport_count": len(item["passport_serials"]),
             }
         )
     result.sort(key=lambda x: (x["product_code"], x["product_name"]))
+    return result
+
+
+def list_inventory_items(db: Session) -> list[dict]:
+    """Return canonical package-level stock rows for the professional warehouse page."""
+    rows = (
+        db.query(MesFinishedGoodsInventory)
+        .options(
+            joinedload(MesFinishedGoodsInventory.location),
+            joinedload(MesFinishedGoodsInventory.package).joinedload(MesJobPackage.product_passports),
+            joinedload(MesFinishedGoodsInventory.job).joinedload(MesProductionJob.project),
+        )
+        .filter(MesFinishedGoodsInventory.status == "in_stock")
+        .order_by(MesFinishedGoodsInventory.id)
+        .all()
+    )
+    result = []
+    for row in rows:
+        package = row.package
+        job = row.job
+        metadata = project_terminal_metadata(job) if job else {}
+        project = metadata.get("project") or {}
+        result.append({
+            "id": row.id,
+            "job_id": row.job_id,
+            "package_id": row.package_id,
+            "package_number": package.package_number if package else None,
+            "product_code": row.product_code,
+            "product_name": row.product_name,
+            "quantity": float(row.quantity or 0),
+            "unit": row.unit or "dona",
+            "location_id": row.location_id,
+            "location_code": row.location.code if row.location else None,
+            "received_at": row.received_at,
+            "placed_at": row.placed_at,
+            "status": row.status,
+            "project_code": project.get("code"),
+            "destination_city": project.get("destination_city"),
+            "passport_serials": [
+                item.serial_number
+                for item in sorted(getattr(package, "product_passports", []), key=lambda item: item.unit_index)
+            ] if package else [],
+            **metadata,
+        })
     return result
 
 
@@ -320,7 +405,11 @@ def accept_warehouse_receipt(
         raise ValueError("Receipt already accepted")
     packages = receivable_packages(job)
     if not packages:
-        raise ValueError("No packed packages to receive")
+        raise WarehouseInvariantError("warehouse_no_packaged_quantity", "No packaged quantity is eligible for warehouse receipt")
+    if job.project_id:
+        requested = sum(float(pkg.quantity or 0) for pkg in packages)
+        if requested > _finished_eligible_quantity(db, job) + 0.0001:
+            raise WarehouseInvariantError("warehouse_receipt_exceeds_packaged", "Warehouse receipt exceeds authoritative packaged quantity")
 
     now = datetime.utcnow()
     log_value_change(
@@ -406,16 +495,56 @@ def assign_package_to_location(
     if not location:
         raise ValueError("Warehouse location not found")
 
-    pkg = next((p for p in receivable_packages(job) if p.id == package_id), None)
+    pkg = (
+        db.query(MesJobPackage)
+        .with_for_update()
+        .filter(MesJobPackage.id == package_id, MesJobPackage.job_id == job.id)
+        .first()
+    )
+    if pkg and pkg not in receivable_packages(job):
+        pkg = None
     if not pkg:
-        raise ValueError("Package not found on job")
-
+        raise WarehouseInvariantError("warehouse_package_ineligible", "Package is not eligible for finished warehouse")
     if pkg.location_id:
         raise ValueError(f"Package {pkg.package_number} already placed")
 
     template = job.template
     if not template:
         raise ValueError("Job template missing")
+
+    quantity = float(pkg.quantity or 0)
+    if quantity <= 0:
+        raise ValueError("Package quantity must be positive")
+    if job.project_id and (
+        pkg.project_id != job.project_id
+        or pkg.project_line_id != job.project_line_id
+        or pkg.project_release_snapshot_id != job.project_release_snapshot_id
+    ):
+        raise ValueError("Package project, line, or release does not match the job")
+    legacy_project_job = job.project_id and not db.query(ProjectLineBomSnapshot.id).filter_by(project_line_id=job.project_line_id).first()
+    if pkg.status not in ("received", "placed") or (not pkg.received_at and not legacy_project_job):
+        raise WarehouseInvariantError("warehouse_receipt_required", "Package must have an authoritative warehouse receipt before placement")
+    if job.project_id:
+        already_placed = db.query(func.coalesce(func.sum(MesFinishedGoodsPlacement.quantity), 0)).filter_by(
+            project_id=job.project_id,
+            project_line_id=job.project_line_id,
+            release_id=job.project_release_snapshot_id,
+            template_id=job.template_id,
+        ).scalar() or 0
+        if float(already_placed) + quantity > _finished_eligible_quantity(db, job) + 0.0001:
+            raise WarehouseInvariantError("warehouse_placement_exceeds_packaged", "Placement quantity exceeds eligible authoritative packaged quantity")
+
+    existing_inv = (
+        db.query(MesFinishedGoodsInventory)
+        .with_for_update()
+        .filter(MesFinishedGoodsInventory.package_id == pkg.id)
+        .first()
+    )
+    if existing_inv:
+        raise ValueError("Inventory record already exists for package")
+    existing_placement = db.query(MesFinishedGoodsPlacement).filter_by(package_id=pkg.id).first()
+    if existing_placement:
+        raise ValueError("Package already has a finished-goods placement")
 
     now = datetime.utcnow()
     old_loc = pkg.location_id
@@ -445,14 +574,6 @@ def assign_package_to_location(
             pkg.status,
         )
 
-    existing_inv = (
-        db.query(MesFinishedGoodsInventory)
-        .filter(MesFinishedGoodsInventory.package_id == pkg.id)
-        .first()
-    )
-    if existing_inv:
-        raise ValueError("Inventory record already exists for package")
-
     inventory = MesFinishedGoodsInventory(
         job_id=job.id,
         package_id=pkg.id,
@@ -460,7 +581,7 @@ def assign_package_to_location(
         product_code=template.code,
         product_name=template.name,
         location_id=location_id,
-        quantity=1.0,
+        quantity=float(pkg.quantity or 1.0),
         unit=template.unit or "dona",
         status="in_stock",
         received_at=pkg.received_at or now,
@@ -468,8 +589,27 @@ def assign_package_to_location(
         created_at=now,
         updated_at=now,
         created_by=username,
+        project_id=job.project_id,
+        project_line_id=job.project_line_id,
+        project_release_snapshot_id=job.project_release_snapshot_id,
     )
     db.add(inventory)
+    db.flush()
+
+    placement = MesFinishedGoodsPlacement(
+        inventory_id=inventory.id,
+        package_id=pkg.id,
+        location_id=location_id,
+        project_id=job.project_id,
+        project_line_id=job.project_line_id,
+        template_id=template.id,
+        release_id=job.project_release_snapshot_id,
+        quantity=quantity,
+        status="placed",
+        placed_by=username,
+        updated_by=username,
+    )
+    db.add(placement)
     db.flush()
 
     _log_movement(
@@ -480,12 +620,14 @@ def assign_package_to_location(
         package_id=pkg.id,
         inventory_id=inventory.id,
         to_location_id=location_id,
-        quantity=1.0,
+        quantity=float(pkg.quantity or 1.0),
         notes=f"Placed {pkg.package_number} at {location.code}",
     )
 
     job.updated_at = now
     step.completed_parts_count = len(placed_packages(job))
+    if job.project_id:
+        synchronize_project(db, job.project_id)
     return inventory
 
 
@@ -680,4 +822,5 @@ def update_location(
             is_active,
         )
     loc.updated_at = datetime.utcnow()
+    loc.version = int(loc.version or 1) + 1
     return serialize_location(loc)

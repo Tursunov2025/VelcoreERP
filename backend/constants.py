@@ -13,6 +13,7 @@ DEPARTMENTS = [
     "Kesish",
     "Svarka",
     "Kraska",
+    "Yig‘ish",
     "Upakovka",
     "Tekshiruv",
     "Ombor",
@@ -23,6 +24,7 @@ STAGE_DEPARTMENT_MAP = {
     "Kesish": "Kesish",
     "Svarka": "Svarka",
     "Kraska": "Kraska",
+    "Yig‘ish": "Yig‘ish",
     "Upakovka": "Upakovka",
     "Tekshiruv": "Tekshiruv",
     "Tayyor": "Ombor",
@@ -61,6 +63,75 @@ EXPORT_PERMISSIONS = [
     "export_manage",
 ]
 
+GPS_PERMISSIONS = [
+    "gps_trip_view",
+    "gps_trip_track",
+]
+
+PLATFORM_ADMIN_PERMISSIONS = [
+    "platform_admin_view",
+    "platform_admin_manage",
+    "platform_admin_roles",
+    "platform_admin_audit",
+    "platform_admin_backup",
+    "platform_admin_security",
+]
+
+DISPLAY_CENTER_PERMISSIONS = [
+    "display_center_view",
+    "display_center_manage",
+]
+
+PRODUCTION_PROJECT_PERMISSIONS = [
+    "production_projects_view",
+    "production_projects_edit",
+    "production_projects_release",
+    "production_projects_cancel",
+    "production_projects_forecast",
+    "production_projects_execute",
+    "production_projects_stock_reserve",
+    "production_projects_quality_approve",
+    "production_projects_package",
+    "production_projects_dispatch",
+]
+
+# Canonical Logistics master-data permissions.  The registry deliberately
+# reuses the existing User/identity and MesTrip/GPS authorities instead of
+# introducing a parallel driver or vehicle permission model.
+LOGISTICS_PERMISSIONS = [
+    "logistics_vehicle_manage",
+    "logistics_driver_manage",
+    "logistics_gps_bind",
+    "logistics_loading_correct",
+    "logistics_trip_transfer",
+]
+
+TRACEABILITY_PERMISSIONS = [
+    "traceability_view",
+    "traceability_generate_qr",
+    "traceability_print_labels",
+    "traceability_view_public_token",
+]
+
+PRODUCTION_PROJECT_STATUSES = [
+    "draft", "planned", "released", "in_production", "partially_ready",
+    "ready_to_ship", "shipped", "partially_delivered", "delivered", "completed", "cancelled",
+]
+
+PRODUCTION_PROJECT_TRANSITIONS = {
+    "draft": {"planned", "cancelled"},
+    "planned": {"draft", "released", "cancelled"},
+    "released": {"in_production", "cancelled"},
+    "in_production": {"partially_ready", "ready_to_ship", "cancelled"},
+    "partially_ready": {"in_production", "ready_to_ship", "cancelled"},
+    "ready_to_ship": {"shipped"},
+    "shipped": {"partially_delivered", "delivered", "completed"},
+    "partially_delivered": {"delivered", "completed"},
+    "delivered": {"completed"},
+    "completed": set(),
+    "cancelled": set(),
+}
+
 MES_PERMISSIONS = [
     "mes_view",
     "mes_edit",
@@ -73,6 +144,7 @@ MES_PERMISSIONS = [
     "mes_terminal_svarshik",
     "mes_terminal_kraska",
     "mes_terminal_qc",
+    "mes_terminal_yigish",
     "mes_terminal_packaging",
     "mes_terminal_warehouse",
     "mes_terminal_dispatch",
@@ -98,6 +170,7 @@ MES_DEFAULT_PRODUCTION_STAGES = [
     ("Tozalash", "Kraska"),
     ("Kraska", "Kraska"),
     ("Quritish", "Kraska"),
+    ("Yig‘ish", "Yig‘ish"),
     ("Nazorat", "Tekshiruv"),
     ("Upakovka", "Upakovka"),
     ("Sklad", "Ombor"),
@@ -110,6 +183,12 @@ ALL_PERMISSION_KEYS = (
     + MES_PERMISSIONS
     + MATERIALS_PERMISSIONS
     + EXPORT_PERMISSIONS
+    + GPS_PERMISSIONS
+    + PLATFORM_ADMIN_PERMISSIONS
+    + DISPLAY_CENTER_PERMISSIONS
+    + PRODUCTION_PROJECT_PERMISSIONS
+    + LOGISTICS_PERMISSIONS
+    + TRACEABILITY_PERMISSIONS
 )
 
 DEFAULT_OPERATOR_PERMISSIONS = {
@@ -137,6 +216,7 @@ DEFAULT_OPERATOR_PERMISSIONS = {
     "mes_terminal_svarshik": False,
     "mes_terminal_kraska": False,
     "mes_terminal_qc": False,
+    "mes_terminal_yigish": False,
     "mes_terminal_packaging": False,
     "mes_terminal_warehouse": False,
     "mes_terminal_dispatch": False,
@@ -144,6 +224,13 @@ DEFAULT_OPERATOR_PERMISSIONS = {
     "materials_edit": False,
     "export_view": False,
     "export_manage": False,
+    "platform_admin_view": False,
+    "platform_admin_manage": False,
+    "platform_admin_roles": False,
+    "platform_admin_audit": False,
+    "platform_admin_backup": False,
+    "platform_admin_security": False,
+    **{key: False for key in PRODUCTION_PROJECT_PERMISSIONS},
 }
 
 NOTIFICATION_EVENTS = [

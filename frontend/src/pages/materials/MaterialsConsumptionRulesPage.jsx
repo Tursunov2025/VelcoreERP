@@ -8,8 +8,6 @@ import Toast from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
 
-const STAGES = ["Lazer", "Kraska"];
-
 export default function MaterialsConsumptionRulesPage() {
   const { hasPermission, isAdmin } = useAuth();
   const { t } = useLocale();
@@ -17,9 +15,10 @@ export default function MaterialsConsumptionRulesPage() {
   const canEdit = isAdmin || hasPermission("materials_edit");
 
   const [rules, setRules] = useState([]);
+  const [stages, setStages] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [materialId, setMaterialId] = useState("");
-  const [stage, setStage] = useState("Lazer");
+  const [stage, setStage] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -33,8 +32,15 @@ export default function MaterialsConsumptionRulesPage() {
         api.materialsConsumptionRules(true),
         canEdit ? api.materialsItems() : Promise.resolve({ materials: [] }),
       ]);
+      const nextStages = rulesRes.stages || [];
+      setStages(nextStages);
       setRules(rulesRes.rules || []);
       setMaterials(itemsRes.materials || []);
+      setStage((current) => (
+        current && nextStages.includes(current)
+          ? current
+          : (nextStages[0] || "")
+      ));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -117,7 +123,7 @@ export default function MaterialsConsumptionRulesPage() {
             className="min-h-[48px] w-full rounded-xl border px-3"
             disabled={busy}
           >
-            {STAGES.map((s) => (
+            {stages.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import OnlineOperatorsTable from "../dashboard/OnlineOperatorsTable";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function OnlineTab() {
+  const { t } = useLocale();
   const [operators, setOperators] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,13 +27,13 @@ export default function OnlineTab() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-black">Online operatorlar</h2>
+        <h2 className="text-xl font-black">{t("legacySettings.onlineOperators")}</h2>
         <button
           type="button"
           onClick={load}
           className="rounded-xl border px-4 py-2 text-sm"
         >
-          Yangilash
+          {t("common.retry")}
         </button>
       </div>
       <div className="rounded-2xl border bg-white p-4">
@@ -41,7 +43,7 @@ export default function OnlineTab() {
           showLoginTime
         />
         <p className="mt-4 text-xs text-gray-400">
-          Login vaqti va oxirgi faollik real vaqtda yangilanadi
+          {t("legacySettings.onlineDescription")}
         </p>
       </div>
     </div>

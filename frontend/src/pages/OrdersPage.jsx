@@ -51,7 +51,7 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <BackButton fallback="/" label="Dashboard" className="mb-4" />
+      <BackButton fallback="/" label={t("dashboard.title")} className="mb-4" />
       <PageHeader
         title={t("orders.title")}
         subtitle={t("orders.subtitle")}
@@ -62,7 +62,7 @@ export default function OrdersPage() {
               onClick={() => setShowOrderModal(true)}
               className="rounded-2xl bg-black px-5 py-2 text-sm text-white"
             >
-              + Yangi zakaz
+              {t("orders.newOrder")}
             </button>
             {isAdmin && (
               <button
@@ -70,7 +70,7 @@ export default function OrdersPage() {
                 onClick={() => setShowUserModal(true)}
                 className="rounded-2xl bg-blue-600 px-5 py-2 text-sm text-white"
               >
-                + User
+                {t("orders.newUser")}
               </button>
             )}
             <button
@@ -78,7 +78,7 @@ export default function OrdersPage() {
               onClick={logout}
               className="rounded-2xl bg-red-500 px-5 py-2 text-sm text-white"
             >
-              Chiqish
+              {t("shell.logout")}
             </button>
           </div>
         }
@@ -87,7 +87,7 @@ export default function OrdersPage() {
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Qidirish..."
+        placeholder={t("orders.searchPlaceholder")}
         className="mb-6 w-full rounded-2xl border px-5 py-4 md:max-w-md"
       />
 

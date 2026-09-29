@@ -45,7 +45,7 @@ export default function MobileNav() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-black">Menu</h2>
+              <h2 className="text-lg font-black">{t("shell.menu")}</h2>
               <button
                 type="button"
                 onClick={() => setMenuOpen(false)}
@@ -112,7 +112,7 @@ export default function MobileNav() {
           className="flex min-w-0 flex-col items-center rounded-xl px-1 py-2 text-[10px] text-[var(--brand-muted)]"
         >
           <span className="text-lg">☰</span>
-          <span className="mt-1 max-w-full truncate text-center">Menu</span>
+          <span className="mt-1 max-w-full truncate text-center">{t("shell.menu")}</span>
         </button>
       </nav>
     </>

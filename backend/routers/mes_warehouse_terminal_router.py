@@ -13,6 +13,7 @@ from services.mes_warehouse_terminal import (
     complete_warehouse_receipt,
     create_location,
     get_warehouse_stages,
+    list_inventory_items,
     list_inventory_summary,
     list_locations,
     list_warehouse_queue,
@@ -22,11 +23,19 @@ from services.mes_warehouse_terminal import (
     update_location,
     warehouse_dashboard,
     warehouse_stage_ids,
+    WarehouseInvariantError,
 )
-from services.permissions import user_has_permission
+from services.permissions import require_project_job_permission, user_has_permission
+from services.production_brigades import user_has_brigade_terminal_access
 
 router = APIRouter(prefix="/mes/terminal/warehouse", tags=["mes-terminal-warehouse"])
 admin_router = APIRouter(prefix="/mes/warehouse", tags=["mes-warehouse-admin"])
+
+
+def _warehouse_error(db: Session, exc: ValueError) -> HTTPException:
+    db.rollback()
+    code = getattr(exc, "code", "warehouse_validation_failed")
+    return HTTPException(status_code=409, detail={"code": code, "message": str(exc)})
 
 
 class PlacePackageRequest(BaseModel):
@@ -48,7 +57,27 @@ class LocationUpdate(BaseModel):
 def _require_warehouse_terminal(db: Session, user: User) -> None:
     if user_has_permission(db, user, "mes_terminal_warehouse"):
         return
-    raise HTTPException(status_code=403, detail="Permission required: mes_terminal_warehouse")
+
+    stage = (
+        db.query(MesProductionStage)
+        .filter(
+            MesProductionStage.name == "Sklad",
+            MesProductionStage.is_active.is_(True),
+        )
+        .first()
+    )
+
+    if stage and user_has_brigade_terminal_access(
+        db,
+        user_id=user.id,
+        stage_id=stage.id,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Bu terminalga kirish uchun terminal ruxsati yoki unga biriktirilgan faol brigada kerak",
+    )
 
 
 def _require_mes_edit(db: Session, user: User) -> None:
@@ -96,11 +125,12 @@ def warehouse_queue(
 
 @router.get("/inventory")
 def warehouse_inventory(
+    detailed: bool = False,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     _require_warehouse_terminal(db, user)
-    return {"items": list_inventory_summary(db)}
+    return {"items": list_inventory_items(db) if detailed else list_inventory_summary(db)}
 
 
 @router.get("/locations")
@@ -138,10 +168,11 @@ def warehouse_accept_receipt(
     job = load_warehouse_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_package")
     try:
         accept_warehouse_receipt(db, job, ids, user.username)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _warehouse_error(db, exc) from exc
     db.commit()
     return serialize_terminal_job(load_warehouse_job(db, job_id), ids, include_packages=True)
 
@@ -157,10 +188,11 @@ def warehouse_start_placement(
     job = load_warehouse_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_package")
     try:
         start_warehouse_placement(db, job, ids, user.username)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _warehouse_error(db, exc) from exc
     db.commit()
     return serialize_terminal_job(load_warehouse_job(db, job_id), ids, include_packages=True)
 
@@ -176,10 +208,11 @@ def warehouse_complete_receipt(
     job = load_warehouse_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_package")
     try:
         complete_warehouse_receipt(db, job, ids, user.username)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _warehouse_error(db, exc) from exc
     db.commit()
     return serialize_terminal_job(load_warehouse_job(db, job_id), ids, include_packages=True)
 
@@ -197,6 +230,7 @@ def warehouse_place_package(
     job = load_warehouse_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_package")
     try:
         assign_package_to_location(
             db,
@@ -207,7 +241,7 @@ def warehouse_place_package(
             location_id=data.location_id,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _warehouse_error(db, exc) from exc
     db.commit()
     return serialize_terminal_job(load_warehouse_job(db, job_id), ids, include_packages=True)
 

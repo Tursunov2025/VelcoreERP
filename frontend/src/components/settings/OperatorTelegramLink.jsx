@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import Toast from "../ui/Toast";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function OperatorTelegramLink() {
+  const { t } = useLocale();
   const [status, setStatus] = useState(null);
   const [code, setCode] = useState("");
   const [linkCode, setLinkCode] = useState("");
@@ -33,7 +35,7 @@ export default function OperatorTelegramLink() {
       const res = await api.generateTelegramLinkCode();
       setLinkCode(res.code);
       setExpanded(true);
-      setToast("Kod yaratildi — 15 daqiqa amal qiladi");
+      setToast(t("legacySettings.telegramLink.codeCreated"));
     } catch (e) {
       setToast(e.message);
     } finally {
@@ -43,7 +45,7 @@ export default function OperatorTelegramLink() {
 
   const verify = async () => {
     if (!form.telegram_id.trim()) {
-      setToast("Telegram ID kiriting");
+      setToast(t("legacySettings.telegramLink.idRequired"));
       return;
     }
     setBusy(true);
@@ -53,7 +55,7 @@ export default function OperatorTelegramLink() {
         telegram_id: form.telegram_id.trim(),
         telegram_username: form.telegram_username.trim(),
       });
-      setToast("Telegram bog'landi");
+      setToast(t("legacySettings.telegramLink.linked"));
       setLinkCode("");
       setCode("");
       load();
@@ -68,7 +70,7 @@ export default function OperatorTelegramLink() {
     setBusy(true);
     try {
       await api.unlinkTelegram();
-      setToast("Telegram uzildi");
+      setToast(t("legacySettings.telegramLink.unlinked"));
       load();
     } catch (e) {
       setToast(e.message);
@@ -94,7 +96,7 @@ export default function OperatorTelegramLink() {
           {status?.linked ? (
             <>
               <p className="text-xs text-gray-300">
-                Bog&apos;langan: @{status.telegram_username || "—"} ({status.telegram_id})
+                {t("legacySettings.telegramLink.connected")}: @{status.telegram_username || "—"} ({status.telegram_id})
               </p>
               <button
                 type="button"
@@ -102,7 +104,7 @@ export default function OperatorTelegramLink() {
                 disabled={busy}
                 className="w-full rounded-xl bg-red-500/80 py-2 text-xs font-bold"
               >
-                Uzish
+                {t("legacySettings.telegramLink.unlink")}
               </button>
             </>
           ) : (
@@ -113,7 +115,7 @@ export default function OperatorTelegramLink() {
                 disabled={busy}
                 className="w-full rounded-xl bg-white/20 py-2 text-xs font-bold"
               >
-                Tasdiqlash kodi olish
+                {t("legacySettings.telegramLink.requestCode")}
               </button>
               {linkCode && (
                 <p className="rounded-xl bg-black/30 px-3 py-2 text-center font-mono text-lg tracking-widest">
@@ -123,13 +125,13 @@ export default function OperatorTelegramLink() {
               <input
                 value={code || linkCode}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="Kod"
+                placeholder={t("legacySettings.telegramLink.code")}
                 className="w-full rounded-xl border-0 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-gray-500"
               />
               <input
                 value={form.telegram_id}
                 onChange={(e) => setForm({ ...form, telegram_id: e.target.value })}
-                placeholder="Telegram ID"
+                placeholder={t("legacySettings.telegramLink.telegramId")}
                 className="w-full rounded-xl border-0 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-gray-500"
               />
               <input
@@ -144,7 +146,7 @@ export default function OperatorTelegramLink() {
                 disabled={busy}
                 className="w-full rounded-xl bg-white py-2 text-xs font-bold text-black"
               >
-                Bog&apos;lash
+                {t("legacySettings.telegramLink.link")}
               </button>
             </>
           )}

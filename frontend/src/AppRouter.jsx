@@ -1,21 +1,19 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { isTraceabilityEnabledForRoutes } from "./constants/featureFlags";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { BrandingProvider, useBranding } from "./context/BrandingContext";
 import { LocaleProvider } from "./context/LocaleContext";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
+import AdminRoute from "./components/layout/AdminRoute";
 import ThemeApplicator from "./components/layout/ThemeApplicator";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
-import OrdersPage from "./pages/OrdersPage";
-import ProductionPage from "./pages/ProductionPage";
 import WarehousePage from "./pages/WarehousePage";
 import OperatorsPage from "./pages/OperatorsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import FinancePage from "./pages/FinancePage";
 import InvoicesPage from "./pages/InvoicesPage";
-import SuperAdminPage from "./pages/superadmin/SuperAdminPage";
 import OrdersControlCenterPage from "./pages/OrdersControlCenterPage";
 import ChatPage from "./pages/ChatPage";
 import TasksPage from "./pages/TasksPage";
@@ -27,15 +25,11 @@ import DriverTrackingPage from "./pages/DriverTrackingPage";
 import VehiclesPage from "./pages/VehiclesPage";
 import DriversPage from "./pages/DriversPage";
 import GpsMonitoringHubPage from "./pages/gps/GpsMonitoringHubPage";
-import LogisticsDashboardPage from "./pages/logistics/LogisticsDashboardPage";
-import FinishedWarehousePage from "./pages/logistics/FinishedWarehousePage";
-import LoadingPlansPage from "./pages/logistics/LoadingPlansPage";
-import LoadingControlPage from "./pages/logistics/LoadingControlPage";
-import InTransitPage from "./pages/logistics/InTransitPage";
-import DeliveredLoadsPage from "./pages/logistics/DeliveredLoadsPage";
+import TransportTasksPage from "./pages/gps/TransportTasksPage";
 import DriverMobilePage from "./pages/driver/DriverMobilePage";
 import WarehouseForecastPage from "./pages/WarehouseForecastPage";
 import MesHubPage from "./pages/mes/MesHubPage";
+import MesBrigadesPage from "./pages/mes/MesBrigadesPage";
 import MesCategoriesPage from "./pages/mes/MesCategoriesPage";
 import MesPartsPage from "./pages/mes/MesPartsPage";
 import MesTemplatesPage from "./pages/mes/MesTemplatesPage";
@@ -47,7 +41,10 @@ import MesJobDetailPage from "./pages/mes/MesJobDetailPage";
 import LazerTerminalQueuePage from "./pages/mes/LazerTerminalQueuePage";
 import LazerTerminalJobPage from "./pages/mes/LazerTerminalJobPage";
 import SvarshikTerminalQueuePage from "./pages/mes/SvarshikTerminalQueuePage";
+import YigishTerminalQueuePage from "./pages/mes/YigishTerminalQueuePage";
+import YigishTerminalJobPage from "./pages/mes/YigishTerminalJobPage";
 import SvarshikTerminalJobPage from "./pages/mes/SvarshikTerminalJobPage";
+import SvarshikStockPage from "./pages/mes/SvarshikStockPage";
 import MesProductionMonitorPage from "./pages/mes/MesProductionMonitorPage";
 import KraskaTerminalQueuePage from "./pages/mes/KraskaTerminalQueuePage";
 import KraskaTerminalJobPage from "./pages/mes/KraskaTerminalJobPage";
@@ -77,9 +74,23 @@ import MobileUpdateGate from "./components/mobile/MobileUpdateGate";
 import PackagePassportPage from "./pages/traceability/PackagePassportPage";
 import PublicPackageTrackPage from "./pages/traceability/PublicPackageTrackPage";
 import PackageScannerPage from "./pages/traceability/PackageScannerPage";
-import DisplayCenterPage from "./pages/DisplayCenterPage";
-import DisplayRuntimePage from "./pages/DisplayRuntimePage";
-import DisplayDesignerPage from "./pages/DisplayDesignerPage";
+import ProductTraceabilityPage from "./pages/traceability/ProductTraceabilityPage";
+import PublicProductPassportPage from "./pages/traceability/PublicProductPassportPage";
+import ProductionProjectsPage from "./pages/productionProjects/ProductionProjectsPage";
+import ProductionProjectEditorPage from "./pages/productionProjects/ProductionProjectEditorPage";
+import ProductionProjectDetailPage from "./pages/productionProjects/ProductionProjectDetailPage";
+import ProfessionalFinishedWarehousePage from "./pages/finishedLogistics/FinishedWarehousePage";
+import TripsPage from "./pages/finishedLogistics/TripsPage";
+const LogisticsDashboardPage = lazy(() => import("./pages/logistics/LogisticsDashboardPage"));
+const TripDetailPage = lazy(() => import("./pages/finishedLogistics/TripDetailPage"));
+const CanonicalShipmentsPage = lazy(() => import("./pages/logistics/CanonicalShipmentsPage"));
+const CanonicalTransportPage = lazy(() => import("./pages/logistics/CanonicalTransportPage"));
+const CanonicalDriversPage = lazy(() => import("./pages/logistics/CanonicalDriversPage"));
+const CanonicalGpsPage = lazy(() => import("./pages/logistics/CanonicalGpsPage"));
+const CanonicalDeliveryHistoryPage = lazy(() => import("./pages/logistics/CanonicalDeliveryHistoryPage"));
+const DisplayCenterPage = lazy(() => import("./pages/DisplayCenterPage"));
+const DisplayRuntimePage = lazy(() => import("./pages/DisplayRuntimePage"));
+const DisplayDesignerPage = lazy(() => import("./pages/DisplayDesignerPage"));
 
 const PlatformAdministrationPage = lazy(() => import("./pages/PlatformAdministrationPage"));
 
@@ -114,6 +125,34 @@ function CatchAllRoute() {
   return <Navigate to={isLoggedIn ? "/" : "/login"} replace />;
 }
 
+const LEGACY_ADMIN_SECTIONS = {
+  company:"organization", users:"users", permissions:"roles", appearance:"appearance",
+  menuVisibility:"navigation", dashboardWidgets:"dashboard", production:"production",
+  productionStages:"production", warehouse:"warehouse-materials", materials:"warehouse-materials",
+  costing:"costing", telegram:"integrations", backupSettings:"backup", backup:"backup",
+  notifications:"integrations", chat:"integrations", labelPrinters:"integrations",
+  migration:"backup", audit:"audit", mobileApp:"mobile", systemLogs:"system",
+  orders:"system", shipments:"system", search:"system", online:"system", superAdmin:"system",
+};
+
+function LegacyAdminRedirect({ fallback = "organization" }) {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const legacy = params.get("tab") || location.pathname.split("/").filter(Boolean).at(-1);
+  params.delete("tab");
+  params.set("section", LEGACY_ADMIN_SECTIONS[legacy] || fallback);
+  return <Navigate replace to={`/admin?${params.toString()}`} />;
+}
+
+function LegacyLogisticsRedirect({ to }) {
+  const location = useLocation();
+  const [path, query=""] = to.split("?");
+  const params = new URLSearchParams(query);
+  new URLSearchParams(location.search).forEach((value,key)=>params.set(key,value));
+  const suffix=params.toString();
+  return <Navigate replace to={`${path}${suffix?`?${suffix}`:""}`} />;
+}
+
 function AppRoutes() {
   const traceabilityEnabled = isTraceabilityEnabledForRoutes();
 
@@ -121,39 +160,55 @@ function AppRoutes() {
     <Routes>
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/driver" element={<DriverMobilePage />} />
-          <Route path="/display/:displayCode" element={<DisplayRuntimePage />} />
+          <Route path="/display/:displayCode" element={<Suspense fallback={<LoadingSpinner />}><DisplayRuntimePage /></Suspense>} />
           {traceabilityEnabled ? (
             <Route path="/track/package/:labelCode" element={<PublicPackageTrackPage />} />
+          ) : null}
+          {traceabilityEnabled ? (
+            <Route path="/track/product/:token" element={<PublicProductPassportPage />} />
           ) : null}
           <Route element={<ProtectedRoute />}>
             {traceabilityEnabled ? (
               <>
                 <Route path="packages/:labelCode" element={<PackagePassportPage />} />
                 <Route path="scanner" element={<PackageScannerPage />} />
+                <Route path="traceability" element={<ProductTraceabilityPage />} />
+                <Route path="traceability/products/:serial" element={<ProductTraceabilityPage />} />
               </>
             ) : null}
             <Route index element={<DashboardPage />} />
-            <Route path="orders" element={<OrdersPage />} />
-            <Route path="production" element={<ProductionPage />} />
+            <Route path="orders" element={<LegacyLogisticsRedirect to="/crm" />} />
+            <Route path="production" element={<LegacyLogisticsRedirect to="/production-projects" />} />
+            <Route path="production-projects" element={<ProductionProjectsPage />} />
+            <Route path="production-projects/new" element={<ProductionProjectEditorPage />} />
+            <Route path="production-projects/:id/edit" element={<ProductionProjectEditorPage />} />
+            <Route path="production-projects/:id" element={<ProductionProjectDetailPage />} />
             <Route path="warehouse" element={<WarehousePage />} />
             <Route path="chat" element={<ChatPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="crm" element={<CrmPage />} />
             <Route path="currencies" element={<CurrenciesPage />} />
             <Route path="logistics" element={<LogisticsDashboardPage />} />
-            <Route path="logistics/finished-warehouse" element={<FinishedWarehousePage />} />
-            <Route path="logistics/loading-plans" element={<LoadingPlansPage />} />
-            <Route path="logistics/loading-control" element={<LoadingControlPage />} />
-            <Route path="logistics/transports" element={<VehiclesPage />} />
-            <Route path="logistics/drivers" element={<DriversPage />} />
+            <Route path="logistics/shipments" element={<CanonicalShipmentsPage />} />
+            <Route path="logistics/shipments/:id" element={<TripDetailPage />} />
+            <Route path="logistics/loading" element={<CanonicalShipmentsPage loadingOnly />} />
+            <Route path="logistics/transport" element={<CanonicalTransportPage />} />
+            <Route path="logistics/drivers" element={<CanonicalDriversPage />} />
             <Route path="logistics/gps" element={<GpsMonitoringHubPage />} />
-            <Route path="logistics/live-map" element={<LiveMapPage />} />
-            <Route path="logistics/in-transit" element={<InTransitPage />} />
-            <Route path="logistics/delivered" element={<DeliveredLoadsPage />} />
+            <Route path="logistics/gps/tasks" element={<TransportTasksPage />} />
+            <Route path="logistics/delivery-history" element={<CanonicalDeliveryHistoryPage />} />
+            <Route path="logistics/finished-warehouse" element={<LegacyLogisticsRedirect to="/mes/finished-warehouse" />} />
+            <Route path="logistics/loading-plans" element={<LegacyLogisticsRedirect to="/logistics/loading" />} />
+            <Route path="logistics/loading-control" element={<LegacyLogisticsRedirect to="/logistics/loading" />} />
+            <Route path="logistics/transports" element={<LegacyLogisticsRedirect to="/logistics/transport" />} />
+            <Route path="logistics/live-map" element={<LegacyLogisticsRedirect to="/logistics/gps" />} />
+            <Route path="logistics/in-transit" element={<LegacyLogisticsRedirect to="/logistics/shipments?status=in_transit" />} />
+            <Route path="logistics/delivered" element={<LegacyLogisticsRedirect to="/logistics/delivery-history" />} />
             <Route path="logistics/llp" element={<LlpPage />} />
             <Route path="driver-tracking" element={<DriverTrackingPage />} />
             <Route path="materials/forecast" element={<WarehouseForecastPage />} />
             <Route path="mes" element={<MesHubPage />} />
+            <Route path="mes/brigades" element={<MesBrigadesPage />} />
             <Route path="mes/categories" element={<MesCategoriesPage />} />
             <Route path="mes/parts" element={<MesPartsPage />} />
             <Route path="mes/templates" element={<MesTemplatesPage />} />
@@ -167,8 +222,12 @@ function AppRoutes() {
             <Route path="mes/monitor" element={<MesProductionMonitorPage />} />
             <Route path="mes/terminal/lazer" element={<LazerTerminalQueuePage />} />
             <Route path="mes/terminal/lazer/jobs/:id" element={<LazerTerminalJobPage />} />
+            <Route path="mes/terminal/lazer/stock" element={<SvarshikStockPage mode="lazer" />} />
             <Route path="mes/terminal/svarshik" element={<SvarshikTerminalQueuePage />} />
+            <Route path="mes/terminal/yigish" element={<YigishTerminalQueuePage />} />
+            <Route path="mes/terminal/yigish/jobs/:id" element={<YigishTerminalJobPage />} />
             <Route path="mes/terminal/svarshik/jobs/:id" element={<SvarshikTerminalJobPage />} />
+            <Route path="mes/terminal/svarshik/stock" element={<SvarshikStockPage />} />
             <Route path="mes/terminal/kraska" element={<KraskaTerminalQueuePage />} />
             <Route path="mes/terminal/kraska/jobs/:id" element={<KraskaTerminalJobPage />} />
             <Route path="mes/terminal/qc" element={<QcTerminalQueuePage />} />
@@ -179,8 +238,13 @@ function AppRoutes() {
             <Route path="mes/terminal/warehouse" element={<WarehouseTerminalQueuePage />} />
             <Route path="mes/terminal/warehouse/jobs/:id" element={<WarehouseTerminalJobPage />} />
             <Route path="mes/warehouse/locations" element={<MesWarehouseLocationsPage />} />
-            <Route path="mes/terminal/dispatch" element={<DispatchTerminalQueuePage />} />
-            <Route path="mes/terminal/dispatch/jobs/:id" element={<DispatchTerminalJobPage />} />
+            <Route path="mes/finished-warehouse" element={<ProfessionalFinishedWarehousePage />} />
+            <Route path="mes/finished-logistics/trips" element={<LegacyLogisticsRedirect to="/logistics/shipments" />} />
+            <Route path="mes/finished-logistics/trips/:id" element={<TripDetailPage />} />
+            <Route path="mes/finished-logistics/fleet" element={<LegacyLogisticsRedirect to="/logistics/gps" />} />
+            <Route path="mes/finished-logistics/deliveries" element={<LegacyLogisticsRedirect to="/logistics/delivery-history" />} />
+            <Route path="mes/terminal/dispatch" element={<LegacyLogisticsRedirect to="/logistics/loading" />} />
+            <Route path="mes/terminal/dispatch/jobs/:id" element={<LegacyLogisticsRedirect to="/logistics/loading" />} />
             <Route path="materials" element={<MaterialsHubPage />} />
             <Route path="materials/categories" element={<MaterialsCategoriesPage />} />
             <Route path="materials/items" element={<MaterialsItemsPage />} />
@@ -201,14 +265,14 @@ function AppRoutes() {
               path="admin"
               element={
                 <Suspense fallback={<LoadingSpinner />}>
-                  <PlatformAdministrationPage />
+                  <AdminRoute permission="platform_admin_view"><PlatformAdministrationPage /></AdminRoute>
                 </Suspense>
               }
             />
-            <Route path="display-center/*" element={<DisplayCenterPage />} />
-            <Route path="display-center/designer/:templateId" element={<DisplayDesignerPage />} />
-            <Route path="settings" element={<Navigate to="/display-center/settings" replace />} />
-            <Route path="super-admin" element={<SuperAdminPage />} />
+            <Route path="display-center/*" element={<Suspense fallback={<LoadingSpinner />}><DisplayCenterPage /></Suspense>} />
+            <Route path="display-center/designer/:templateId" element={<Suspense fallback={<LoadingSpinner />}><DisplayDesignerPage /></Suspense>} />
+            <Route path="settings/*" element={<LegacyAdminRedirect />} />
+            <Route path="super-admin/*" element={<LegacyAdminRedirect fallback="system" />} />
           </Route>
           <Route path="*" element={<CatchAllRoute />} />
     </Routes>

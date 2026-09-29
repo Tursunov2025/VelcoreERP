@@ -23,6 +23,7 @@ VELCORE_ENV = Path("/etc/velcore/.env")
 AZMUS_ENV = Path("/etc/azmus/.env")
 
 LOADED_ENV_FILES: list[str] = []
+PROCESS_ENV_KEYS = frozenset(os.environ)
 
 
 def _load_file(path: Path, *, override: bool) -> None:
@@ -70,6 +71,18 @@ def load_environment() -> None:
 
     if explicit:
         _load_file(Path(explicit), override=True)
+
+    process_url = os.getenv("DATABASE_URL", "") if "DATABASE_URL" in PROCESS_ENV_KEYS else ""
+    normalized_url = process_url.lower().replace("\\", "/")
+    if process_url.startswith("sqlite") and "/temp/" in normalized_url:
+        # An explicitly supplied temporary database is a test boundary. Do not
+        # inherit production seed/guard flags from a lower-priority dotenv file.
+        if "ENVIRONMENT" not in PROCESS_ENV_KEYS:
+            os.environ["ENVIRONMENT"] = "test"
+        if "DATABASE_GUARD" not in PROCESS_ENV_KEYS:
+            os.environ["DATABASE_GUARD"] = "false"
+        if "SKIP_DEMO_SEED" not in PROCESS_ENV_KEYS:
+            os.environ["SKIP_DEMO_SEED"] = "false"
 
 
 def get_database_url_source() -> str:

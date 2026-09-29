@@ -1,4 +1,5 @@
 import { ORDER_STATUSES, STATUS_COLORS } from "../../constants/orderStatuses";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function OrderCard({
   order,
@@ -6,6 +7,7 @@ export default function OrderCard({
   onStatusChange,
   onDelete,
 }) {
+  const { t, formatCurrency } = useLocale();
   const statusClass = STATUS_COLORS[order.status] || "bg-gray-500";
 
   return (
@@ -34,14 +36,14 @@ export default function OrderCard({
       >
         {ORDER_STATUSES.map((status) => (
           <option key={status} value={status}>
-            {status}
+            {t(`statuses.${status}`)}
           </option>
         ))}
       </select>
 
       <div className="flex items-center justify-between gap-4 md:justify-end md:gap-5">
         <div className="text-lg font-black text-green-600 md:text-xl">
-          {Number(order.amount).toLocaleString()} so&apos;m
+          {formatCurrency(Number(order.amount), "UZS")}
         </div>
 
         {isAdmin && (
@@ -50,7 +52,7 @@ export default function OrderCard({
             onClick={() => onDelete(order.id)}
             className="shrink-0 rounded-2xl bg-red-500 px-5 py-3 text-white transition hover:bg-red-600"
           >
-            O&apos;chirish
+            {t("common.delete")}
           </button>
         )}
       </div>

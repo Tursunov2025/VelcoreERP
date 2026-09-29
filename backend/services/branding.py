@@ -1,5 +1,7 @@
 """System-wide branding settings stored in system_settings."""
 
+import json
+
 from sqlalchemy.orm import Session
 
 from models import SystemSetting
@@ -16,9 +18,32 @@ DEFAULT_BRANDING = {
     "color_background": "#f5f6fa",
     "color_sidebar": "#000000",
     "color_button": "#000000",
+    "color_button_text": "#ffffff",
+    "color_secondary_button": "#ffffff",
+    "color_secondary_button_text": "#111827",
+    "color_card": "#ffffff",
+    "color_sidebar_text": "#ffffff",
+    "color_sidebar_active": "#ffffff",
+    "color_sidebar_active_text": "#111827",
+    "color_header": "#ffffff",
+    "color_heading": "#111827",
+    "color_text": "#111827",
+    "color_muted": "#6b7280",
+    "color_link": "#2563eb",
+    "color_input_background": "#ffffff",
+    "color_input_text": "#111827",
+    "color_input_border": "#d1d5db",
+    "color_table_header": "#f8fafc",
+    "color_table_header_text": "#475569",
+    "color_table_row": "#ffffff",
+    "color_border": "#e5e7eb",
     "color_success": "#22c55e",
     "color_warning": "#f59e0b",
     "color_danger": "#ef4444",
+    "color_info": "#3b82f6",
+    "color_focus": "#2563eb",
+    "font_scale": "1",
+    "reduced_motion": "false",
     "button_radius": "16",
     "button_shadow": "true",
     "button_style": "rounded",
@@ -66,6 +91,15 @@ def get_branding(db: Session) -> dict:
         field = _field_from_db_key(row.key)
         if field in data:
             data[field] = row.value
+    appearance = db.query(SystemSetting).filter(SystemSetting.key == "platform.appearance").first()
+    if appearance and appearance.value:
+        try:
+            extra = json.loads(appearance.value)
+        except (TypeError, json.JSONDecodeError):
+            extra = {}
+        for field in ("short_name", "interface_density", "login_footer"):
+            if field in extra:
+                data[field] = extra[field]
     return data
 
 

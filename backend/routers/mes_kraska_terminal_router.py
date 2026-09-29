@@ -21,7 +21,8 @@ from services.mes_kraska_terminal import (
     update_paint_metadata,
     update_paint_quantities,
 )
-from services.permissions import user_has_permission
+from services.permissions import require_project_job_permission, user_has_permission
+from services.production_brigades import user_has_brigade_terminal_access
 
 router = APIRouter(prefix="/mes/terminal/kraska", tags=["mes-terminal-kraska"])
 
@@ -47,7 +48,27 @@ class PaintMetadataUpdate(BaseModel):
 def _require_kraska_terminal(db: Session, user: User) -> None:
     if user_has_permission(db, user, "mes_terminal_kraska"):
         return
-    raise HTTPException(status_code=403, detail="Permission required: mes_terminal_kraska")
+
+    stage = (
+        db.query(MesProductionStage)
+        .filter(
+            MesProductionStage.name == "Kraska",
+            MesProductionStage.is_active.is_(True),
+        )
+        .first()
+    )
+
+    if stage and user_has_brigade_terminal_access(
+        db,
+        user_id=user.id,
+        stage_id=stage.id,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Bu terminalga kirish uchun terminal ruxsati yoki unga biriktirilgan faol brigada kerak",
+    )
 
 
 def _paint_stages_or_503(db: Session):
@@ -110,6 +131,7 @@ def kraska_accept_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         accept_paint_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -129,6 +151,7 @@ def kraska_start_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         start_paint_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -148,6 +171,7 @@ def kraska_send_to_drying(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         send_to_drying(db, job, ids, user.username)
     except ValueError as exc:
@@ -167,6 +191,7 @@ def kraska_complete_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         complete_paint_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -187,6 +212,7 @@ def kraska_update_paint_metadata(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     update_paint_metadata(
         db,
         job,
@@ -212,6 +238,7 @@ def kraska_update_quantities(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     if not data.lines:
         raise HTTPException(status_code=400, detail="No quantity lines provided")
     try:

@@ -95,13 +95,13 @@ export default function ProductionStagesManagerTab() {
 
       <section className="rounded-2xl border bg-white p-4">
         <h3 className="mb-3 font-bold">{t("controlCenter.mesRouteStages")}</h3>
-        <p className="mb-2 text-xs text-gray-500">[Bosqich nomi, Bo&apos;lim]</p>
+        <p className="mb-2 text-xs text-gray-500">{t("legacySettings.stagePairHint")}</p>
         <div className="space-y-2">
           {mesStages.map((row, i) => (
             <div key={i} className="grid grid-cols-2 gap-2">
               <input
                 value={row[0] || ""}
-                placeholder="Lazer"
+                placeholder={t("legacySettings.laserStage")}
                 onChange={(e) => {
                   const next = [...mesStages];
                   next[i] = [e.target.value, next[i]?.[1] || ""];
@@ -111,7 +111,7 @@ export default function ProductionStagesManagerTab() {
               />
               <input
                 value={row[1] || ""}
-                placeholder="Kesish"
+                placeholder={t("legacySettings.cuttingDepartment")}
                 onChange={(e) => {
                   const next = [...mesStages];
                   next[i] = [next[i]?.[0] || "", e.target.value];

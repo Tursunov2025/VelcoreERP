@@ -4,7 +4,6 @@ import { useBranding } from "../context/BrandingContext";
 import { useLocale } from "../context/LocaleContext";
 import { useUsers } from "../hooks/useUsers";
 
-const ROLE_LABELS = { admin: "Admin", operator: "Operator" };
 const DEPT_LABEL = (u) => (u.department ? ` — ${u.department}` : "");
 
 export default function LoginPage() {
@@ -21,7 +20,10 @@ export default function LoginPage() {
   };
 
   const loginLogo = branding.logo_login || branding.logo_main;
-  const tagline = branding.tagline || t("login.tagline");
+  const tagline =
+    !branding.tagline || branding.tagline === "Professional CRM / ERP tizimi"
+      ? t("login.tagline")
+      : branding.tagline;
 
   return (
     <div
@@ -56,7 +58,7 @@ export default function LoginPage() {
               </option>
               {users.map((user) => (
                 <option key={user.username} value={user.username}>
-                  {user.username} — {ROLE_LABELS[user.role] || user.role}{DEPT_LABEL(user)}
+                  {user.username} — {(() => { const system = t(`systemRoleNames.${user.role}`); return system.startsWith("systemRoleNames.") ? t(`roleNames.${user.role}`) : system; })()}{DEPT_LABEL(user)}
                 </option>
               ))}
             </select>
@@ -91,6 +93,7 @@ export default function LoginPage() {
             {t("login.refreshUsers")}
           </button>
         </form>
+        {branding.login_footer ? <p className="mt-6 text-center text-xs text-[var(--brand-muted)]">{branding.login_footer}</p> : null}
       </div>
     </div>
   );

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, time
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload, object_session
 
 from models import (
     MesJobBomLine,
@@ -16,6 +17,7 @@ from models import (
 )
 from services.audit import log_value_change
 from services.mes_jobs import load_job
+from services.project_execution import ExecutionError, qc_predecessor_fact, qc_predecessor_quantity, record_absolute_operation
 from services.mes_terminal_common import (
     QUEUE_JOB_STATUSES,
     get_active_step,
@@ -24,10 +26,25 @@ from services.mes_terminal_common import (
     serialize_route_step,
     sort_queue,
     terminal_step_state,
+    project_terminal_metadata,
 )
 
 QC_DEPARTMENT = "Tekshiruv"
 QC_STAGE_NAMES = {"Nazorat"}
+
+
+def _project_qc(line: MesJobBomLine) -> bool:
+    return bool(getattr(getattr(line, "job", None), "project_id", None))
+
+
+def _qc_value(line: MesJobBomLine, field: str) -> float:
+    attribute = f"qc_{field}" if _project_qc(line) else field
+    return float(getattr(line, attribute) or 0)
+
+
+def _set_qc_value(line: MesJobBomLine, field: str, value: float) -> None:
+    attribute = f"qc_{field}" if _project_qc(line) else field
+    setattr(line, attribute, value)
 
 
 def get_qc_stages(db: Session) -> list[MesProductionStage]:
@@ -71,9 +88,9 @@ def job_in_qc_queue(job: MesProductionJob, qc_ids: set[int]) -> bool:
 
 def line_disposition_total(line: MesJobBomLine) -> float:
     return (
-        float(line.accepted_quantity or 0)
-        + float(line.rejected_quantity or 0)
-        + float(line.rework_quantity or 0)
+        _qc_value(line, "accepted_quantity")
+        + _qc_value(line, "rejected_quantity")
+        + _qc_value(line, "rework_quantity")
     )
 
 
@@ -134,8 +151,11 @@ def serialize_rework(record: MesJobRework) -> dict:
     }
 
 
-def serialize_bom_line_terminal(line: MesJobBomLine) -> dict:
+def serialize_bom_line_terminal(db: Session, job: MesProductionJob, line: MesJobBomLine) -> dict:
     allocated = float(line.allocated_quantity or 0)
+    predecessor = qc_predecessor_fact(db, job, line)
+    completed, completed_source = predecessor["quantity"], predecessor["source"]
+    dispositioned = line_disposition_total(line)
     return {
         "id": line.id,
         "part_id": line.part_id,
@@ -143,9 +163,17 @@ def serialize_bom_line_terminal(line: MesJobBomLine) -> dict:
         "part_name": line.part_name,
         "unit": line.unit,
         "allocated_quantity": allocated,
-        "accepted_quantity": float(line.accepted_quantity or 0),
-        "rejected_quantity": float(line.rejected_quantity or 0),
-        "rework_quantity": float(line.rework_quantity or 0),
+        "completed_before_qc": completed,
+        "completed_before_qc_source": completed_source,
+        "required_previous_stage": predecessor["stage_name"],
+        "previous_stage_reported_quantity": predecessor["stage_reported_quantity"],
+        "qc_blocking_reason": predecessor["blocking_reason"],
+        "qc_diagnostic_code": predecessor["diagnostic_code"],
+        "already_dispositioned": dispositioned,
+        "available_for_qc": max(0.0, completed - dispositioned),
+        "accepted_quantity": _qc_value(line, "accepted_quantity"),
+        "rejected_quantity": _qc_value(line, "rejected_quantity"),
+        "rework_quantity": _qc_value(line, "rework_quantity"),
         "drawing_url": line.drawing_url,
         "notes": line.notes or "",
         "sort_order": line.sort_order,
@@ -161,6 +189,9 @@ def serialize_terminal_job(
     include_bom: bool = True,
     rework_records: list[MesJobRework] | None = None,
 ) -> dict:
+    db = object_session(job)
+    if db is None:
+        raise RuntimeError("QC job must be attached to a database session")
     qc_step = find_qc_step(job, qc_ids)
     current_step = get_current_qc_step(job, qc_ids) or qc_step
     bom_lines = sorted(job.bom_lines or [], key=lambda line: (line.sort_order, line.id))
@@ -172,6 +203,7 @@ def serialize_terminal_job(
         "id": job.id,
         "job_number": job.job_number,
         "customer_name": job.customer_name or "",
+        **project_terminal_metadata(job),
         "order_reference": job.order_reference or "",
         "template_id": job.template_id,
         "template_code": job.template.code if job.template else None,
@@ -191,8 +223,8 @@ def serialize_terminal_job(
         "open_rework_count": len(open_rework),
     }
     if include_bom:
-        payload["bom_lines"] = [serialize_bom_line_terminal(line) for line in bom_lines]
-        payload["qc_parts"] = [serialize_bom_line_terminal(line) for line in qc_parts]
+        payload["bom_lines"] = [serialize_bom_line_terminal(db, job, line) for line in bom_lines]
+        payload["qc_parts"] = [serialize_bom_line_terminal(db, job, line) for line in qc_parts]
     if rework_records is not None:
         payload["rework_records"] = [serialize_rework(r) for r in rework_records]
     return payload
@@ -425,18 +457,36 @@ def update_qc_quantities(
             "rejected_quantity": item.get("rejected_quantity"),
             "rework_quantity": item.get("rework_quantity"),
         }
+        proposed = {
+            field: _qc_value(line, field) if raw is None else max(0.0, float(raw))
+            for field, raw in fields.items()
+        }
+        completed, _ = qc_predecessor_quantity(db, job, line)
+        if sum(proposed.values()) > completed + 0.0001:
+            raise ExecutionError("qc_exceeds_completed", "QC disposition exceeds completed production")
         for field, raw in fields.items():
             if raw is None:
                 continue
             qty = max(0.0, float(raw))
             _validate_qty_field(line, field, qty, allocated)
-            old = float(getattr(line, field) or 0)
+            old = _qc_value(line, field)
             if old == qty:
                 continue
+            if field == "rework_quantity":
+                raise ExecutionError(
+                    "qc_rework_requires_record",
+                    "Create rework through the authoritative rework workflow",
+                )
             log_value_change(
                 db, username, "quantity", "mes_job_bom_line", line.id, field, old, qty
             )
-            setattr(line, field, qty)
+            _set_qc_value(line, field, qty)
+            operation = {"accepted_quantity": "qc_approved", "rejected_quantity": "qc_rejected", "rework_quantity": "rework_created"}[field]
+            record_absolute_operation(db, job, operation_type=operation, absolute_quantity=qty,
+                                      username=username, terminal="quality_control", job_line=line, route_step=step,
+                                      accepted=qty if field == "accepted_quantity" else 0,
+                                      rejected=qty if field == "rejected_quantity" else 0,
+                                      rework=qty if field == "rework_quantity" else 0)
             changed = True
 
         _validate_disposition(line)
@@ -447,6 +497,13 @@ def update_qc_quantities(
 
     auto_completed = False
     if job_qc_progress_pct(job) >= 100.0:
+        recorded_rework = float(
+            db.query(func.coalesce(func.sum(MesJobRework.quantity), 0))
+            .filter(MesJobRework.job_id == job.id)
+            .scalar()
+            or 0
+        )
+        disposition_rework = sum(_qc_value(line, "rework_quantity") for line in (job.bom_lines or []))
         open_rework = (
             db.query(MesJobRework)
             .filter(
@@ -455,7 +512,7 @@ def update_qc_quantities(
             )
             .count()
         )
-        if not open_rework:
+        if not open_rework and disposition_rework <= recorded_rework + 0.0001:
             _complete_qc_step(db, job, step, username, auto=True)
             auto_completed = True
 
@@ -473,7 +530,12 @@ def create_rework_record(
     rejection_reason_id: int | None = None,
     notes: str = "",
 ) -> MesJobRework:
-    step = _require_qc_step(job, qc_ids)
+    step = find_qc_step(job, qc_ids)
+    if not step:
+        raise ValueError("Job has no QC route step")
+    recovering_unrecorded = bool(step.completed_at)
+    if not recovering_unrecorded:
+        step = _require_qc_step(job, qc_ids)
     if not step.started_at:
         raise ValueError("Start inspection before creating rework")
 
@@ -487,8 +549,17 @@ def create_rework_record(
         raise ValueError("Rework quantity must be positive")
 
     allocated = float(line.allocated_quantity or 0)
-    old_rework = float(line.rework_quantity or 0)
-    new_rework = old_rework + qty
+    old_rework = _qc_value(line, "rework_quantity")
+    recorded_for_line = float(
+        db.query(func.coalesce(func.sum(MesJobRework.quantity), 0))
+        .filter(MesJobRework.job_id == job.id, MesJobRework.bom_line_id == line.id)
+        .scalar()
+        or 0
+    )
+    unrecorded = max(0.0, old_rework - recorded_for_line)
+    if recovering_unrecorded and qty > unrecorded + 0.0001:
+        raise ValueError("Completed QC can only recover an unrecorded rework disposition")
+    new_rework = old_rework if recovering_unrecorded else old_rework + qty
     _validate_qty_field(line, "rework_quantity", new_rework, allocated)
 
     if rejection_reason_id:
@@ -503,9 +574,9 @@ def create_rework_record(
         if not reason:
             raise ValueError("Rejection reason not found")
 
-    line.accepted_quantity = float(line.accepted_quantity or 0)
-    line.rejected_quantity = float(line.rejected_quantity or 0)
-    line.rework_quantity = new_rework
+    _set_qc_value(line, "accepted_quantity", _qc_value(line, "accepted_quantity"))
+    _set_qc_value(line, "rejected_quantity", _qc_value(line, "rejected_quantity"))
+    _set_qc_value(line, "rework_quantity", new_rework)
     _validate_disposition(line)
 
     now = datetime.utcnow()
@@ -525,8 +596,18 @@ def create_rework_record(
         updated_at=now,
     )
     db.add(record)
+    if recovering_unrecorded:
+        old_completed = step.completed_at
+        step.completed_at = None
+        log_value_change(
+            db, username, "reopen", "mes_job_route_step", step.id,
+            "completed_at", old_completed.isoformat() if old_completed else None, None,
+        )
     job.updated_at = now
     db.flush()
+    record_absolute_operation(db, job, operation_type="rework_created", absolute_quantity=new_rework,
+                              username=username, terminal="quality_control", job_line=line, route_step=step,
+                              result="rework", rework=qty, source_record_type="mes_job_rework")
     log_value_change(
         db,
         username,
@@ -566,6 +647,22 @@ def complete_rework(db: Session, record: MesJobRework, username: str) -> None:
     log_value_change(
         db, username, "complete", "mes_job_rework", record.id, "status", old, record.status
     )
+    job = record.job
+    if job and job.project_id:
+        line = record.bom_line
+        old_pending = _qc_value(line, "rework_quantity")
+        new_pending = max(0.0, old_pending - float(record.quantity or 0))
+        _set_qc_value(line, "rework_quantity", new_pending)
+        log_value_change(
+            db, username, "rework_return_to_qc", "mes_job_bom_line", line.id,
+            "rework_quantity", old_pending, new_pending,
+        )
+        completed = db.query(func.coalesce(func.sum(MesJobRework.quantity), 0)).filter(
+            MesJobRework.job_id == job.id, MesJobRework.bom_line_id == record.bom_line_id,
+            MesJobRework.status == "completed").scalar() or 0
+        record_absolute_operation(db, job, operation_type="rework_completed", absolute_quantity=float(completed),
+                                  username=username, terminal="quality_control", job_line=line,
+                                  result="reworked", source_record_type="mes_job_rework")
 
 
 def load_job_reworks(db: Session, job_id: int) -> list[MesJobRework]:

@@ -10,11 +10,13 @@ from constants import MES_JOB_PRIORITIES, MES_JOB_STATUSES
 from models import (
     MesBomLine,
     MesJobBomLine,
+    MesJobYigishLine,
     MesJobRouteStep,
     MesProductionJob,
     MesProductionRoute,
     MesProductTemplate,
     MesRouteStep,
+    MesYigishLine,
 )
 from services.mes_bom import active_bom_lines
 from services.mes_routes import active_route_steps, active_routes
@@ -54,11 +56,43 @@ def serialize_job_bom_line(line: MesJobBomLine) -> dict:
         "part_name": line.part_name,
         "unit": line.unit,
         "allocated_quantity": float(line.allocated_quantity or 0),
+        "stock_quantity": float(line.stock_reserved_quantity or 0),
+        "production_quantity": float(line.production_required_quantity if line.production_required_quantity is not None else line.allocated_quantity or 0),
+        "ready_quantity": float(line.stock_reserved_quantity or 0),
+        "availability_status": "TAYYOR" if float(line.stock_reserved_quantity or 0) >= float(line.allocated_quantity or 0) else ("QISMAN TAYYOR" if float(line.stock_reserved_quantity or 0) > 0 else "ISHLAB CHIQARISH KERAK"),
         "completed_quantity": float(line.completed_quantity or 0),
         "accepted_quantity": float(line.accepted_quantity or 0),
         "rejected_quantity": float(line.rejected_quantity or 0),
         "notes": line.notes or "",
         "drawing_url": line.drawing_url,
+        "sort_order": line.sort_order,
+    }
+
+
+def serialize_job_yigish_line(line: MesJobYigishLine) -> dict:
+    allocated = float(line.allocated_quantity or 0)
+    completed = float(line.completed_quantity or 0)
+
+    return {
+        "id": line.id,
+        "job_id": line.job_id,
+        "source_yigish_line_id": line.source_yigish_line_id,
+        "part_id": line.part_id,
+        "material_id": line.material_id,
+        "part_number": line.part_number,
+        "part_name": line.part_name,
+        "unit": line.unit or "dona",
+        "allocated_quantity": allocated,
+        "completed_quantity": completed,
+        "accepted_quantity": float(line.accepted_quantity or 0),
+        "rejected_quantity": float(line.rejected_quantity or 0),
+        "remaining_quantity": max(allocated - completed, 0.0),
+        "progress_pct": (
+            min((completed / allocated) * 100.0, 100.0)
+            if allocated > 0
+            else 0.0
+        ),
+        "notes": line.notes or "",
         "sort_order": line.sort_order,
     }
 
@@ -87,6 +121,7 @@ def serialize_job_route_step(step: MesJobRouteStep) -> dict:
 def serialize_job(job: MesProductionJob, *, include_snapshots: bool = True) -> dict:
     template = job.template
     bom_lines = sorted(job.bom_lines or [], key=lambda line: (line.sort_order, line.id))
+    yigish_lines = sorted(job.yigish_lines or [], key=lambda line: (line.sort_order, line.id))
     route_steps = sorted(job.route_steps or [], key=lambda step: (step.step_order, step.id))
     payload = {
         "id": job.id,
@@ -109,10 +144,26 @@ def serialize_job(job: MesProductionJob, *, include_snapshots: bool = True) -> d
         "updated_at": job.updated_at,
         "created_by": job.created_by,
         "bom_line_count": len(bom_lines),
+        "yigish_line_count": len(yigish_lines),
         "route_step_count": len(route_steps),
+        "project_id": job.project_id,
+        "project_line_id": job.project_line_id,
+        "project_release_snapshot_id": job.project_release_snapshot_id,
     }
+    if job.project_id and getattr(job, "project", None):
+        payload["project"] = {
+            "code": job.project.project_code, "name": job.project.project_name,
+            "destination_city": job.project.destination_city,
+            "site_name": job.project.site_name,
+            "deadline": job.due_date or job.project.required_delivery_date,
+            "priority": job.priority or job.project.priority,
+        }
     if include_snapshots:
         payload["bom_lines"] = [serialize_job_bom_line(line) for line in bom_lines]
+        payload["yigish_lines"] = [
+            serialize_job_yigish_line(line)
+            for line in yigish_lines
+        ]
         payload["route_steps"] = [serialize_job_route_step(step) for step in route_steps]
     return payload
 
@@ -124,14 +175,16 @@ def load_job(db: Session, job_id: int) -> MesProductionJob | None:
             joinedload(MesProductionJob.template),
             joinedload(MesProductionJob.route),
             joinedload(MesProductionJob.bom_lines),
+            joinedload(MesProductionJob.yigish_lines),
             joinedload(MesProductionJob.route_steps),
+            joinedload(MesProductionJob.project),
         )
         .filter(MesProductionJob.id == job_id)
         .first()
     )
 
 
-def release_job_snapshot(db: Session, job: MesProductionJob) -> None:
+def release_job_snapshot(db: Session, job: MesProductionJob, *, reserve_reusable_stock: bool = True) -> None:
     if job.status != "draft":
         raise ValueError("Only draft jobs can be released")
 
@@ -139,6 +192,8 @@ def release_job_snapshot(db: Session, job: MesProductionJob) -> None:
         db.query(MesProductTemplate)
         .options(
             joinedload(MesProductTemplate.bom_lines).joinedload(MesBomLine.part),
+            joinedload(MesProductTemplate.yigish_lines).joinedload(MesYigishLine.part),
+            joinedload(MesProductTemplate.yigish_lines).joinedload(MesYigishLine.material),
             joinedload(MesProductTemplate.routes)
             .joinedload(MesProductionRoute.steps)
             .joinedload(MesRouteStep.stage),
@@ -160,11 +215,19 @@ def release_job_snapshot(db: Session, job: MesProductionJob) -> None:
     if not bom_lines:
         raise ValueError("Template BOM is empty")
 
+    yigish_lines = [
+        line
+        for line in (template.yigish_lines or [])
+        if bool(line.is_active) and line.deleted_at is None
+    ]
+    yigish_lines.sort(key=lambda line: (line.sort_order or 0, line.id))
+
     steps = active_route_steps(route)
     if not steps:
         raise ValueError("Template route has no steps")
 
     job.bom_lines.clear()
+    job.yigish_lines.clear()
     job.route_steps.clear()
 
     qty = float(job.quantity or 1)
@@ -184,6 +247,43 @@ def release_job_snapshot(db: Session, job: MesProductionJob) -> None:
                 rejected_quantity=0.0,
                 notes=line.notes or "",
                 drawing_url=line.drawing_url,
+                sort_order=line.sort_order,
+            )
+        )
+
+    for line in yigish_lines:
+        part = line.part
+        material = line.material
+
+        if not part and not material:
+            continue
+
+        item_number = (
+            part.part_number
+            if part
+            else (material.code or f"MAT-{material.id}")
+        )
+        item_name = part.name if part else material.name
+        item_unit = (
+            line.unit
+            or (part.unit if part else material.unit)
+            or "dona"
+        )
+
+        db.add(
+            MesJobYigishLine(
+                job_id=job.id,
+                source_yigish_line_id=line.id,
+                part_id=part.id if part else None,
+                material_id=material.id if material else None,
+                part_number=item_number,
+                part_name=item_name,
+                unit=item_unit,
+                allocated_quantity=float(line.required_quantity or 0) * qty,
+                completed_quantity=0.0,
+                accepted_quantity=0.0,
+                rejected_quantity=0.0,
+                notes=line.notes or "",
                 sort_order=line.sort_order,
             )
         )
@@ -215,6 +315,14 @@ def release_job_snapshot(db: Session, job: MesProductionJob) -> None:
     from services.material_consumption import sync_job_material_reservations
 
     sync_job_material_reservations(db, job)
+    if not reserve_reusable_stock:
+        return
+    from services.warehouse_stock import reserve_for_job
+    # The relationship was cleared above and its newly flushed snapshot rows are
+    # not guaranteed to be present in this already-loaded collection. Expire it
+    # before reserving reusable details for the released job.
+    db.expire(job, ["bom_lines"])
+    reserve_for_job(db, job)
 
 
 def validate_status_transition(current: str, new_status: str) -> None:

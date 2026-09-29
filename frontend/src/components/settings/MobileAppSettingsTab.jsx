@@ -177,10 +177,10 @@ export default function MobileAppSettingsTab() {
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-3 py-2">Version</th>
-                  <th className="px-3 py-2">Code</th>
-                  <th className="px-3 py-2">Force</th>
-                  <th className="px-3 py-2">Date</th>
+                  <th className="px-3 py-2">{t("platformAdministration.version")}</th>
+                  <th className="px-3 py-2">{t("displayColumns.code")}</th>
+                  <th className="px-3 py-2">{t("legacySettings.forceUpdate")}</th>
+                  <th className="px-3 py-2">{t("legacySettings.migration.date")}</th>
                 </tr>
               </thead>
               <tbody>

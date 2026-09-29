@@ -3,8 +3,10 @@ import { api } from "../../api/client";
 import { PRODUCTION_STAGES } from "../../constants/workflow";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import Toast from "../ui/Toast";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function OrdersTab() {
+  const { t } = useLocale();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -41,7 +43,7 @@ export default function OrdersTab() {
         status: edit.status,
         estimated_finish_at: edit.estimated_finish_at || null,
       });
-      setToast("Zakaz yangilandi");
+      setToast(t("legacySettings.orders.updated"));
       setEdit(null);
       load();
     } catch (e) {
@@ -52,19 +54,19 @@ export default function OrdersTab() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-black">Zakaz boshqaruvi</h2>
+        <h2 className="text-xl font-black">{t("legacySettings.orders.title")}</h2>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={showDeleted}
             onChange={(e) => setShowDeleted(e.target.checked)}
           />
-          O&apos;chirilganlar
+          {t("legacySettings.orders.showDeleted")}
         </label>
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Yuklanmoqda...</p>
+        <p className="text-gray-500">{t("common.loading")}</p>
       ) : (
         <div className="space-y-3">
           {orders.map((order) => (
@@ -74,7 +76,7 @@ export default function OrdersTab() {
                   <p className="font-bold">
                     #{order.id} {order.client}
                     {order.deleted_at && (
-                      <span className="ml-2 text-xs text-red-600">[o&apos;chirilgan]</span>
+                      <span className="ml-2 text-xs text-red-600">[{t("legacySettings.deleted")}]</span>
                     )}
                   </p>
                   <p className="text-sm text-gray-500">
@@ -87,30 +89,30 @@ export default function OrdersTab() {
                     onClick={() => setEdit({ ...order })}
                     className="rounded-xl border px-3 py-1 text-sm"
                   >
-                    Tahrirlash
+                    {t("common.edit")}
                   </button>
                   {order.deleted_at ? (
                     <button
                       type="button"
                       onClick={async () => {
                         await api.adminRestoreOrder(order.id);
-                        setToast("Tiklandi");
+                        setToast(t("legacySettings.orders.restored"));
                         load();
                       }}
                       className="rounded-xl bg-green-600 px-3 py-1 text-sm text-white"
                     >
-                      Tiklash
+                      {t("platformAdministration.restore")}
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() =>
                         setConfirm({
-                          title: "O'chirish",
-                          message: `Zakaz #${order.id} o'chirilsinmi?`,
+                          title: t("common.delete"),
+                          message: t("legacySettings.orders.deleteConfirm", { id: order.id }),
                           onConfirm: async () => {
                             await api.adminDeleteOrder(order.id);
-                            setToast("O'chirildi");
+                            setToast(t("legacySettings.orders.deleted"));
                             setConfirm(null);
                             load();
                           },
@@ -118,7 +120,7 @@ export default function OrdersTab() {
                       }
                       className="rounded-xl bg-red-500 px-3 py-1 text-sm text-white"
                     >
-                      O&apos;chirish
+                      {t("common.delete")}
                     </button>
                   )}
                 </div>
@@ -131,13 +133,13 @@ export default function OrdersTab() {
       {edit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[28px] bg-white p-6">
-            <h3 className="mb-4 font-black">Zakaz #{edit.id}</h3>
+            <h3 className="mb-4 font-black">{t("legacySettings.orders.orderNumber", { id: edit.id })}</h3>
             <div className="space-y-3">
               {[
-                ["client", "Mijoz"],
-                ["phone", "Telefon"],
-                ["amount", "Summa"],
-                ["destination", "Manzil"],
+                ["client", t("legacySettings.search.customer")],
+                ["phone", t("organization.phone")],
+                ["amount", t("legacySettings.orders.amount")],
+                ["destination", t("organization.address")],
               ].map(([key, label]) => (
                 <input
                   key={key}
@@ -148,7 +150,7 @@ export default function OrdersTab() {
                 />
               ))}
               <textarea
-                placeholder="Izoh"
+                placeholder={t("legacySettings.orders.comment")}
                 value={edit.comment || ""}
                 onChange={(e) => setEdit({ ...edit, comment: e.target.value })}
                 className="w-full rounded-xl border px-4 py-3"
@@ -189,14 +191,14 @@ export default function OrdersTab() {
                 onClick={() => setEdit(null)}
                 className="flex-1 rounded-xl border py-3"
               >
-                Bekor
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
                 onClick={save}
                 className="flex-1 rounded-xl bg-black py-3 text-white"
               >
-                Saqlash
+                {t("common.save")}
               </button>
             </div>
           </div>

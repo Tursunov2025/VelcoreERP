@@ -1,5 +1,9 @@
 /** Shared translation keys — uz_latn is the source of truth for structure. */
 
+import professionalUz from "./locales/uz.js";
+import professionalRu from "./locales/ru.js";
+import ruLegacy from "./locales/ruLegacy.js";
+
 const uz_latn = {
   nav: {
     dashboard: "Dashboard",
@@ -42,6 +46,8 @@ const uz_latn = {
     technology: "Texnologiya",
     exportLogistics: "Export va Logistika",
     logisticsDashboard: "Dashboard",
+    shipments: "Jo‘natmalar",
+    deliveryHistory: "Yetkazish tarixi",
     finishedWarehouse: "Tayyor Mahsulot Ombori",
     loadingPlans: "Yuklash Rejalari",
     loadingControl: "Yuklash Nazorati",
@@ -455,6 +461,9 @@ const uz_latn = {
     savePaintMetadata: "Bo'yoq ma'lumotlarini saqlash",
     hubKraskaTerminal: "Kraska Terminal",
     hubKraskaTerminalDesc: "Bo'yash, quritish va QC",
+    hubYigishTerminal: "Yig‘ish Terminali",
+    hubYigishTerminalDesc: "Yig‘ish navbati va bajarilgan miqdorlar",
+
     qcTerminal: "Nazorat Terminal",
     qcQueueSubtitle: "Tekshiruv bosqichidagi ishlar navbati",
     qcQueueEmpty: "Tekshiruv navbatida ish yo'q",
@@ -472,6 +481,16 @@ const uz_latn = {
     qcQtySaved: "Miqdorlar saqlandi",
     qcStageDone: "Tekshiruv bosqichi yakunlangan",
     qcProgressHint: "Progress tekshirilgan miqdor asosida (qabul + rad + qayta ishlash)",
+    qcCompletedBefore: "QC oldidan yakunlangan",
+    qcAlreadyDispositioned: "Avval ajratilgan",
+    qcAvailable: "QC uchun mavjud",
+    qcInvariantExplanation: "Qabul + rad + qayta ishlash QC oldidan yakunlangan miqdordan oshmasligi kerak.",
+    qcPreviousStage: "Talab qilinadigan oldingi bosqich",
+    qcStageReported: "Bosqich qayd etgan miqdor",
+    qcBlock_predecessor_not_completed: "Oldingi majburiy bosqich hali qabul qilingan miqdorni qayd etmagan.",
+    qcBlock_predecessor_reconciliation_required: "Oldingi bosqich yakunlangan, ammo tarixiy qabul yozuvini administrator xavfsiz muvofiqlashtirishi kerak.",
+    qcExceedsCompleted: "Kiritilgan QC natijalari oldingi bosqichda yakunlangan miqdordan oshib ketdi.",
+    qcSaveFailed: "QC natijalarini saqlab bo‘lmadi. Miqdorlarni tekshirib, qayta urinib ko‘ring.",
     qcParts: "Tekshiruv detallari",
     hubQcTerminal: "Nazorat Terminal",
     hubQcTerminalDesc: "QC tekshiruv, rad etish va qayta ishlash",
@@ -651,6 +670,18 @@ const uz_latn = {
     printedToday: "Chop etilgan yorliqlar",
     inWarehouse: "Ombordagi qadoqlar",
     dispatchedToday: "Bugun yuklangan",
+    openPassport: "Passportni ochish",
+    generateQr: "QR yaratish",
+    batchPrintLabels: "Yorliqlarni guruhlab chop etish",
+    actorUnavailable: "Noma’lum",
+    duration: "Davomiyligi",
+    minutes: "daq.",
+    batchSelect: "Tanlash",
+    issuePending: "Kutilmoqda",
+    issueOpen: "Ochiq",
+    issueResolved: "Hal qilingan",
+    issueCompleted: "Yakunlangan",
+    issueRecorded: "Qayd etilgan",
   },
   printing: {
     queue: "Navbat",
@@ -839,6 +870,8 @@ const uz_cyrl = {
     technology: "Технология",
     exportLogistics: "Экспорт ва Логистика",
     logisticsDashboard: "Dashboard",
+    shipments: "Отгрузки",
+    deliveryHistory: "История доставок",
     finishedWarehouse: "Тайёр маҳсулот омбори",
     loadingPlans: "Юклаш реjalari",
     loadingControl: "Юклаш назорати",
@@ -953,6 +986,8 @@ const ru = {
     technology: "Технология",
     exportLogistics: "Экспорт и Логистика",
     logisticsDashboard: "Dashboard",
+    shipments: "Отгрузки",
+    deliveryHistory: "История доставок",
     finishedWarehouse: "Склад готовой продукции",
     loadingPlans: "Планы погрузки",
     loadingControl: "Контроль погрузки",
@@ -1356,17 +1391,38 @@ const tr = {
   common: { ...en.common, save: "Kaydet", logout: "Çıkış", loading: "Yükleniyor..." },
 };
 
+function mergeLocale(base, overlay) {
+  return Object.fromEntries(Array.from(new Set([...Object.keys(base), ...Object.keys(overlay)])).map((key) => [
+    key,
+    base[key] && overlay[key] && typeof base[key] === "object" && typeof overlay[key] === "object"
+      ? mergeLocale(base[key], overlay[key])
+      : overlay[key] ?? base[key],
+  ]));
+}
+
+const projectEditorUz = { checkpointD: {
+  actions: { saveProject: "Loyihani saqlash" },
+  editor: { savedLine:"Saqlangan", unsavedLine:"Bu mahsulot qatori hali saqlanmagan.", unsavedWarning:"Saqlanmagan o‘zgarishlar bor. Sahifadan chiqilsinmi?", releaseNeedsLine:"Loyihani ishlab chiqarishga chiqarish uchun kamida bitta mahsulotni saqlang.", saveBeforeRelease:"Avval mahsulot qatorlaridagi o‘zgarishlarni saqlang.", invalidLine:"Mahsulot va musbat miqdorni kiriting." },
+  errors: { project_has_no_lines:"Loyihani ishlab chiqarishga chiqarish uchun kamida bitta mahsulotni saqlang.", invalid_product_line:"Mahsulot va musbat miqdorni kiriting.", project_line_not_persisted:"Mahsulot qatori serverda tasdiqlanmadi. Saqlashni qayta urinib ko‘ring.", generic:"Amalni bajarib bo‘lmadi. Ma’lumotlarni tekshirib, qayta urinib ko‘ring." },
+} };
+const projectEditorRu = { checkpointD: {
+  actions: { saveProject: "Сохранить проект" },
+  editor: { savedLine:"Сохранено", unsavedLine:"Эта позиция продукции ещё не сохранена.", unsavedWarning:"Есть несохранённые изменения. Покинуть страницу?", releaseNeedsLine:"Чтобы запустить проект в производство, сохраните хотя бы одну позицию продукции.", saveBeforeRelease:"Сначала сохраните изменения в позициях продукции.", invalidLine:"Выберите продукцию и укажите положительное количество." },
+  errors: { project_has_no_lines:"Чтобы запустить проект в производство, сохраните хотя бы одну позицию продукции.", invalid_product_line:"Выберите продукцию и укажите положительное количество.", project_line_not_persisted:"Сервер не подтвердил сохранение позиции. Повторите сохранение.", generic:"Не удалось выполнить действие. Проверьте данные и повторите попытку." },
+} };
+
 export const LOCALES = {
-  uz_latn,
+  uz: mergeLocale(mergeLocale(uz_latn, professionalUz), projectEditorUz),
+  uz_latn: mergeLocale(mergeLocale(uz_latn, professionalUz), projectEditorUz),
   uz_cyrl,
-  ru,
+  ru: mergeLocale(mergeLocale(mergeLocale(ru, ruLegacy), professionalRu), projectEditorRu),
   en,
   kz,
   ky,
   tr,
 };
 
-export const LANGUAGE_OPTIONS = [
+const LEGACY_LANGUAGE_OPTIONS = [
   { id: "uz_latn", label: "O'zbek (Lotin)" },
   { id: "uz_cyrl", label: "Ўzbek (Kirill)" },
   { id: "ru", label: "Русский" },
@@ -1376,18 +1432,37 @@ export const LANGUAGE_OPTIONS = [
   { id: "tr", label: "Türkçe" },
 ];
 
-export const DEFAULT_LOCALE = "uz_latn";
+export const LANGUAGE_OPTIONS = [
+  { id: "uz", label: "O‘zbekcha" },
+  { id: "ru", label: LEGACY_LANGUAGE_OPTIONS.find((item) => item.id === "ru")?.label || "Русский" },
+];
 
-export function translate(locale, key) {
+export const DEFAULT_LOCALE = "uz";
+
+export function normalizeLocale(locale) {
+  return locale === "ru" ? "ru" : "uz";
+}
+
+export function translate(locale, key, params = {}) {
   const parts = key.split(".");
-  let node = LOCALES[locale] || LOCALES[DEFAULT_LOCALE];
+  const normalized = normalizeLocale(locale);
+  let node = LOCALES[normalized];
   for (const part of parts) {
     node = node?.[part];
   }
-  if (node !== undefined) return node;
-  node = LOCALES[DEFAULT_LOCALE];
-  for (const part of parts) {
-    node = node?.[part];
+  if (node === undefined && params.count !== undefined) {
+    const category = new Intl.PluralRules(normalized === "ru" ? "ru-RU" : "uz-UZ").select(Number(params.count));
+    node = LOCALES[normalized];
+    for (const part of `${key}_${category}`.split(".")) node = node?.[part];
+    if (node === undefined) {
+      node = LOCALES[normalized];
+      for (const part of `${key}_other`.split(".")) node = node?.[part];
+    }
   }
-  return node ?? key;
+  if (node === undefined) {
+    if (import.meta.env.DEV) console.warn(`[i18n] Missing ${normalized} translation: ${key}`);
+    return key;
+  }
+  if (typeof node !== "string") return node;
+  return node.replace(/{{\s*([\w.]+)\s*}}/g, (_, name) => String(params[name] ?? `{{${name}}}`));
 }

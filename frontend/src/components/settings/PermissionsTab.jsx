@@ -8,21 +8,22 @@ import {
   PERMISSION_MODULES,
 } from "../../constants/permissions";
 import Toast from "../ui/Toast";
+import { useLocale } from "../../context/LocaleContext";
 
 function isAdminUser(user) {
   return user.role === "admin" || user.department === "Admin";
 }
 
-function PermissionMatrix({ users, modules, savingId, onToggle }) {
+function PermissionMatrix({ users, modules, savingId, onToggle, t }) {
   return (
     <div className="overflow-x-auto rounded-2xl border bg-white">
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b bg-gray-50 text-left">
-            <th className="px-4 py-3 font-bold">Foydalanuvchi</th>
+            <th className="px-4 py-3 font-bold">{t("settingsNav.users")}</th>
             {modules.map((m) => (
               <th key={m.id} className="px-3 py-3 text-center font-bold">
-                {m.label}
+                {t(`permissionLabels.${m.id}`)}
               </th>
             ))}
           </tr>
@@ -65,6 +66,7 @@ function PermissionMatrix({ users, modules, savingId, onToggle }) {
 }
 
 export default function PermissionsTab() {
+  const { t } = useLocale();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
@@ -100,7 +102,7 @@ export default function PermissionsTab() {
           u.user_id === user.user_id ? { ...u, permissions: next } : u
         )
       );
-      setToast(`${user.username} — ruxsat yangilandi`);
+      setToast(t("legacySettings.permissions.updated", { username: user.username }));
     } catch (e) {
       setToast(e.message);
     } finally {
@@ -108,69 +110,74 @@ export default function PermissionsTab() {
     }
   };
 
-  if (loading) return <p>Yuklanmoqda...</p>;
+  if (loading) return <p>{t("common.loading")}</p>;
 
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="mb-2 text-xl font-black">Modul ruxsatlari</h2>
+        <h2 className="mb-2 text-xl font-black">{t("legacySettings.permissions.modulePermissions")}</h2>
         <PermissionMatrix
           users={users}
           modules={PERMISSION_MODULES}
           savingId={savingId}
           onToggle={togglePermission}
+          t={t}
         />
       </div>
 
       <div>
-        <h2 className="mb-2 text-xl font-black">LLP (Ichki hujjatlar)</h2>
+        <h2 className="mb-2 text-xl font-black">{t("legacySettings.permissions.llpTitle")}</h2>
         <p className="mb-4 text-sm text-gray-500">
-          Hujjatlar kutubxonasi uchun alohida ruxsatlar
+          {t("legacySettings.permissions.llpDescription")}
         </p>
         <PermissionMatrix
           users={users}
           modules={LLP_PERMISSIONS}
           savingId={savingId}
           onToggle={togglePermission}
+          t={t}
         />
       </div>
 
       <div>
-        <h2 className="mb-2 text-xl font-black">MES (Production Pro)</h2>
+        <h2 className="mb-2 text-xl font-black">{t("legacySettings.permissions.mesTitle")}</h2>
         <p className="mb-4 text-sm text-gray-500">
-          Mahsulot shablonlari, detallar va marshrutlar uchun ruxsatlar
+          {t("legacySettings.permissions.mesDescription")}
         </p>
         <PermissionMatrix
           users={users}
           modules={MES_PERMISSIONS}
           savingId={savingId}
           onToggle={togglePermission}
+          t={t}
         />
       </div>
 
       <div>
-        <h2 className="mb-2 text-xl font-black">Xom ashyo ombori</h2>
+        <h2 className="mb-2 text-xl font-black">{t("legacySettings.permissions.materialsTitle")}</h2>
         <p className="mb-4 text-sm text-gray-500">
-          Xom ashyo, qabul/chiqim va inventarizatsiya uchun ruxsatlar
+          {t("legacySettings.permissions.materialsDescription")}
         </p>
         <PermissionMatrix
           users={users}
           modules={MATERIALS_PERMISSIONS}
           savingId={savingId}
           onToggle={togglePermission}
+          t={t}
         />
       </div>
 
       <div>
-        <h2 className="mb-2 text-xl font-black">Export hujjatlari</h2>
+        <h2 className="mb-2 text-xl font-black">{t("legacySettings.permissions.exportTitle")}</h2>
         <p className="mb-4 text-sm text-gray-500">
-          Kazakhstan eksport jo'natmalari va hujjatlarini boshqarish.
+          {t("legacySettings.permissions.exportDescription")}
         </p>
         <PermissionMatrix
           users={users}
           modules={EXPORT_PERMISSIONS}
           savingId={savingId}
           onToggle={togglePermission}
+          t={t}
         />
       </div>
 

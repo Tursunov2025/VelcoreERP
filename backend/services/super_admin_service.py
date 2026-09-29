@@ -15,6 +15,7 @@ from models import (
     PermissionDefinition,
     Role,
     RolePermission,
+    SystemSetting,
     Theme,
     UiConfigVersion,
     UiSetting,
@@ -36,6 +37,8 @@ DEFAULT_ROLES = [
 ]
 
 DEFAULT_MODULES = [
+    ("authentication", "Authentication", "security", "#334155", "/login", 0),
+    ("platform_administration", "Platform Administration", "settings", "#0f172a", "/admin", 1),
     ("crm", "CRM", "👥", "#6366f1", "/crm", 1),
     ("warehouse", "Ombor", "📦", "#f59e0b", "/warehouse", 2),
     ("production", "Ishlab chiqarish", "🏭", "#ef4444", "/production", 3),
@@ -46,6 +49,14 @@ DEFAULT_MODULES = [
     ("gps", "GPS", "🛰️", "#14b8a6", "/logistics/gps", 8),
     ("driver", "Driver", "📱", "#a855f7", "/driver", 9),
     ("qc", "Sifat nazorati", "✅", "#ec4899", "/mes/terminal/qc", 10),
+    ("orders", "Orders", "orders", "#4f46e5", "/orders", 11),
+    ("mes", "MES", "mes", "#f97316", "/mes", 12),
+    ("materials", "Materials", "materials", "#a16207", "/materials", 13),
+    ("chat", "Chat", "chat", "#0891b2", "/chat", 14),
+    ("tasks", "Tasks", "tasks", "#7c3aed", "/tasks", 15),
+    ("display_center", "Display Center", "displayCenter", "#be123c", "/display-center", 16),
+    ("traceability", "Product Traceability", "qr_code", "#0f766e", "/traceability", 18),
+    ("analytics", "Analytics", "analytics", "#0369a1", "/analytics", 17),
 ]
 
 DEFAULT_NAV = [
@@ -60,6 +71,7 @@ DEFAULT_NAV = [
     ("finishedWarehouse", "Tayyor Mahsulot Ombori", "", "/logistics/finished-warehouse", "exportLogistics", 2, "logistics"),
     ("finance", "Moliya", "💰", "/finance", None, 7, "finance"),
     ("settings", "Sozlamalar", "⚙️", "/settings", None, 99, "settings"),
+    ("traceability", "Product Traceability", "🔖", "/traceability", None, 18, "traceability"),
 ]
 
 DEFAULT_WIDGETS = [
@@ -85,6 +97,26 @@ DEFAULT_THEME = {
     "border_radius": "16px",
     "animations_enabled": True,
 }
+
+
+def _permission_module(key: str) -> str:
+    """Return the stable catalog group used by the canonical RBAC UI."""
+    if key == "settings":
+        return "platform_administration"
+    for prefix, module in (
+        ("platform_admin_", "platform_administration"),
+        ("production_projects_", "production_projects"),
+        ("display_center_", "display_center"),
+        ("logistics_", "logistics"),
+        ("materials_", "materials"),
+        ("export_", "export"),
+        ("gps_", "gps"),
+        ("mes_", "mes"),
+        ("llp_", "llp"),
+    ):
+        if key.startswith(prefix):
+            return module
+    return key if "_" not in key else key.split("_", 1)[0]
 
 
 def _json_load(raw: str | None, default: Any) -> Any:
@@ -120,14 +152,17 @@ def seed_super_admin_defaults(db: Session) -> None:
     db.flush()
 
     for key in ALL_PERMISSION_KEYS:
-        if not db.query(PermissionDefinition).filter(PermissionDefinition.perm_key == key).first():
+        definition = db.query(PermissionDefinition).filter(PermissionDefinition.perm_key == key).first()
+        if not definition:
             db.add(
                 PermissionDefinition(
                     perm_key=key,
                     label=key.replace("_", " ").title(),
-                    module=key.split("_")[0] if "_" in key else "general",
+                    module=_permission_module(key),
                 )
             )
+        elif definition.module != _permission_module(key):
+            definition.module = _permission_module(key)
 
     super_role = db.query(Role).filter(Role.role_key == "super_admin").first()
     if super_role:
@@ -139,6 +174,25 @@ def seed_super_admin_defaults(db: Session) -> None:
             )
             if not exists:
                 db.add(RolePermission(role_id=super_role.id, permission_key=key, enabled=True))
+
+    # Existing installations historically treated ``admin`` as an implicit
+    # bypass. Seed a complete persisted baseline once, then leave every row
+    # editable. A role with any persisted rows has already entered managed
+    # mode and is never silently re-granted here.
+    admin_role = db.query(Role).filter(Role.role_key == "admin").first()
+    if admin_role and not db.query(RolePermission).filter(RolePermission.role_id == admin_role.id).first():
+        for key in ALL_PERMISSION_KEYS:
+            db.add(RolePermission(role_id=admin_role.id, permission_key=key, enabled=True))
+
+    driver_role = db.query(Role).filter(Role.role_key == "driver").first()
+    if driver_role:
+        for key in ("gps_trip_track",):
+            exists = db.query(RolePermission).filter(
+                RolePermission.role_id == driver_role.id,
+                RolePermission.permission_key == key,
+            ).first()
+            if not exists:
+                db.add(RolePermission(role_id=driver_role.id, permission_key=key, enabled=True))
 
     for mod_key, label, icon, color, url, order in DEFAULT_MODULES:
         if not db.query(ModuleSetting).filter(ModuleSetting.module_key == mod_key).first():
@@ -286,6 +340,9 @@ def get_runtime_config(db: Session) -> dict[str, Any]:
         for w in widgets
     ]
 
+    module_states_row = db.query(SystemSetting).filter(SystemSetting.key == "platform_module_states_runtime").first()
+    module_states = _json_load(module_states_row.value if module_states_row else None, {})
+
     return {
         "navigation": visible_nav,
         "nav_visibility": nav_visibility,
@@ -301,6 +358,7 @@ def get_runtime_config(db: Session) -> dict[str, Any]:
             }
             for m in modules
         ],
+        "module_states": module_states,
         "theme": _json_load(theme.config_json, DEFAULT_THEME) if theme else DEFAULT_THEME,
         "theme_dark": theme.is_dark if theme else False,
         "feature_flags": flags,

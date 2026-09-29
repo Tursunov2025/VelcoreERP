@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from constants import DEPARTMENTS, PRODUCTION_STAGES
 
@@ -437,9 +437,11 @@ class BrandingSettingsUpdate(BaseModel):
 
 
 class UserUiPreferencesUpdate(BaseModel):
-    ui_language: Optional[str] = None
-    ui_theme: Optional[str] = None
-    ui_clock_format: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    ui_language: Optional[Literal["uz", "uz_latn", "ru"]] = None
+    ui_theme: Optional[Literal["light", "dark", "auto", "system"]] = None
+    ui_clock_format: Optional[Literal["12h", "24h"]] = None
+    inherit_theme: bool = False
 
 
 class TelegramSettingsUpdate(BaseModel):
@@ -566,3 +568,166 @@ class MigrationHistoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# ---------------------------------------------------------------------------
+# Professional Finance
+# ---------------------------------------------------------------------------
+
+class FinanceAccountResponse(BaseModel):
+    id: int
+    code: str
+    name_uz: str
+    name_ru: str
+    account_type: str
+    currency_code: str
+    opening_balance: float
+    current_balance: float
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class FinanceCategoryResponse(BaseModel):
+    id: int
+    code: str
+    name_uz: str
+    name_ru: str
+    category_type: str
+    parent_id: Optional[int] = None
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class FinanceCounterpartyCreate(BaseModel):
+    name: str
+    counterparty_type: str = "other"
+    tax_id: str = ""
+    phone: str = ""
+    email: str = ""
+    address: str = ""
+
+
+class FinanceCounterpartyResponse(FinanceCounterpartyCreate):
+    id: int
+    is_active: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class FinanceTransactionCreate(BaseModel):
+    transaction_type: str
+    account_id: int
+    category_id: Optional[int] = None
+    counterparty_id: Optional[int] = None
+    amount: float
+    currency_code: str = "UZS"
+    exchange_rate: float = 1
+    description: str = ""
+    project_id: Optional[int] = None
+    transaction_date: Optional[datetime] = None
+
+
+class FinanceTransactionResponse(BaseModel):
+    id: int
+    document_no: str
+    transaction_type: str
+    account_id: int
+    category_id: Optional[int] = None
+    counterparty_id: Optional[int] = None
+    amount: float
+    currency_code: str
+    exchange_rate: float
+    amount_uzs: float
+    description: str
+    project_id: Optional[int] = None
+    status: str
+    transaction_date: datetime
+    created_by: str = ""
+
+    class Config:
+        from_attributes = True
+
+
+class FinanceTransferCreate(BaseModel):
+    from_account_id: int
+    to_account_id: int
+    amount: float
+    commission_amount: float = 0
+    description: str = ""
+    transfer_date: Optional[datetime] = None
+
+
+class FinanceObligationCreate(BaseModel):
+    obligation_type: str
+    counterparty_id: int
+    project_id: Optional[int] = None
+    document_no: str = ""
+    original_amount: float
+    paid_amount: float = 0
+    currency_code: str = "UZS"
+    due_date: Optional[datetime] = None
+    description: str = ""
+
+
+class FinanceObligationResponse(BaseModel):
+    id: int
+    obligation_type: str
+    counterparty_id: int
+    project_id: Optional[int] = None
+    document_no: str
+    original_amount: float
+    paid_amount: float
+    currency_code: str
+    due_date: Optional[datetime] = None
+    status: str
+    description: str
+
+    class Config:
+        from_attributes = True
+
+
+class FinanceProfessionalDashboard(BaseModel):
+    total_income_uzs: float
+    total_expense_uzs: float
+    net_profit_uzs: float
+    cash_balance_uzs: float
+    bank_balance_uzs: float
+    receivable_uzs: float
+    payable_uzs: float
+    transactions_count: int
+
+
+class FinanceObligationPaymentCreate(BaseModel):
+    amount: float
+    account_id: Optional[int] = None
+    payment_date: Optional[datetime] = None
+    payment_method: str = ""
+    document_no: str = ""
+    description: str = ""
+
+
+class FinanceObligationPaymentResponse(BaseModel):
+    id: int
+    obligation_id: int
+    account_id: Optional[int] = None
+    transaction_id: Optional[int] = None
+    amount: float
+    currency_code: str
+    payment_date: datetime
+    payment_method: str
+    document_no: str
+    description: str
+    created_by: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DriverCodeLoginRequest(BaseModel):
+    login_code: str
+    password: str

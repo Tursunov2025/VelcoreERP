@@ -17,7 +17,8 @@ from services.mes_lazer_terminal import (
     start_lazer_job,
     update_lazer_quantities,
 )
-from services.permissions import user_has_permission
+from services.permissions import require_project_job_permission, user_has_permission
+from services.production_brigades import user_has_brigade_terminal_access
 
 router = APIRouter(prefix="/mes/terminal/lazer", tags=["mes-terminal-lazer"])
 
@@ -34,7 +35,27 @@ class QuantitiesUpdate(BaseModel):
 def _require_lazer_terminal(db: Session, user: User) -> None:
     if user_has_permission(db, user, "mes_terminal_lazer"):
         return
-    raise HTTPException(status_code=403, detail="Permission required: mes_terminal_lazer")
+
+    stage = (
+        db.query(MesProductionStage)
+        .filter(
+            MesProductionStage.name == "Lazer",
+            MesProductionStage.is_active.is_(True),
+        )
+        .first()
+    )
+
+    if stage and user_has_brigade_terminal_access(
+        db,
+        user_id=user.id,
+        stage_id=stage.id,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Bu terminalga kirish uchun terminal ruxsati yoki unga biriktirilgan faol brigada kerak",
+    )
 
 
 def _lazer_stage_or_404(db: Session):
@@ -80,6 +101,7 @@ def lazer_accept_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         accept_lazer_job(db, job, stage.id, user.username)
     except ValueError as exc:
@@ -99,6 +121,7 @@ def lazer_start_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         start_lazer_job(db, job, stage.id, user.username)
     except ValueError as exc:
@@ -118,6 +141,7 @@ def lazer_complete_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     try:
         complete_lazer_job(db, job, stage.id, user.username)
     except ValueError as exc:
@@ -138,6 +162,7 @@ def lazer_update_quantities(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_execute")
     if not data.lines:
         raise HTTPException(status_code=400, detail="No quantity lines provided")
     try:
@@ -153,4 +178,10 @@ def lazer_update_quantities(
     db.commit()
     payload = serialize_terminal_job(load_job(db, job_id), stage.id, include_bom=True)
     payload["auto_completed"] = auto_completed
+    payload["surplus_candidates"] = [
+        {"bom_line_id": line.id, "part_number": line.part_number, "part_name": line.part_name,
+         "required_quantity": float(line.allocated_quantity or 0), "completed_quantity": float(line.completed_quantity or 0),
+         "surplus_quantity": float(line.completed_quantity or 0) - float(line.allocated_quantity or 0) - float(line.surplus_stocked_quantity or 0)}
+        for line in (load_job(db, job_id).bom_lines or []) if float(line.completed_quantity or 0) - float(line.allocated_quantity or 0) - float(line.surplus_stocked_quantity or 0) > 0
+    ]
     return payload

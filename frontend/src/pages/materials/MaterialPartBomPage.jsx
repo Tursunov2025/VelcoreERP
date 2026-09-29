@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import BackButton from "../../components/ui/BackButton";
 import ErrorAlert from "../../components/ui/ErrorAlert";
@@ -31,16 +31,26 @@ export default function MaterialPartBomPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const partsLoadSequence = useRef(0);
+  const materialsLoadSequence = useRef(0);
+  const localizedError = useCallback((exception) => {
+    const key = exception?.code ? `materialMaster.errors.${exception.code}` : "";
+    const translated = key ? t(key) : "";
+    return translated && translated !== key ? translated : t("materialMaster.errors.generic");
+  }, [t]);
 
   const loadParts = useCallback(async () => {
     if (!canView) return;
+    const sequence = ++partsLoadSequence.current;
     try {
       const data = await api.materialsPlanningParts();
+      if (sequence !== partsLoadSequence.current) return;
       setParts(data.parts || []);
+      setError("");
     } catch (e) {
-      setError(e.message);
+      if (sequence === partsLoadSequence.current) setError(localizedError(e));
     }
-  }, [canView]);
+  }, [canView, localizedError]);
 
   const loadPartBom = useCallback(async () => {
     if (!selectedPartId || !canView) return;
@@ -51,11 +61,11 @@ export default function MaterialPartBomPage() {
       setPartInfo(data.part);
       setLines(data.lines || []);
     } catch (e) {
-      setError(e.message);
+      setError(localizedError(e));
     } finally {
       setBusy(false);
     }
-  }, [selectedPartId, canView]);
+  }, [selectedPartId, canView, localizedError]);
 
   useEffect(() => {
     loadParts().finally(() => setLoading(false));
@@ -63,7 +73,12 @@ export default function MaterialPartBomPage() {
 
   useEffect(() => {
     if (!canEdit) return;
-    api.materialsItems().then((data) => setMaterials(data.materials || [])).catch(() => {});
+    const sequence = ++materialsLoadSequence.current;
+    api.materialsItems()
+      .then((data) => {
+        if (sequence === materialsLoadSequence.current) setMaterials(data.materials || []);
+      })
+      .catch(() => {});
   }, [canEdit]);
 
   useEffect(() => {
@@ -89,7 +104,7 @@ export default function MaterialPartBomPage() {
       await loadParts();
       setToast(t("materials.partBomSaved"));
     } catch (e) {
-      setToast(e.message);
+      setToast(localizedError(e));
     } finally {
       setBusy(false);
     }
@@ -106,7 +121,7 @@ export default function MaterialPartBomPage() {
       await loadPartBom();
       setToast(t("materials.partBomSaved"));
     } catch (e) {
-      setToast(e.message);
+      setToast(localizedError(e));
     } finally {
       setBusy(false);
     }
@@ -121,7 +136,7 @@ export default function MaterialPartBomPage() {
       await loadParts();
       setToast(t("materials.partBomSaved"));
     } catch (e) {
-      setToast(e.message);
+      setToast(localizedError(e));
     } finally {
       setBusy(false);
     }

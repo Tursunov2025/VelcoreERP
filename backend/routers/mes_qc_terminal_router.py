@@ -27,7 +27,9 @@ from services.mes_qc_terminal import (
     update_qc_quantities,
     update_rejection_reason,
 )
-from services.permissions import user_has_permission
+from services.permissions import require_project_job_permission, user_has_permission
+from services.production_brigades import user_has_brigade_terminal_access
+from services.project_execution import ExecutionError
 
 router = APIRouter(prefix="/mes/terminal/qc", tags=["mes-terminal-qc"])
 admin_router = APIRouter(prefix="/mes/qc", tags=["mes-qc-admin"])
@@ -65,7 +67,27 @@ class RejectionReasonUpdate(BaseModel):
 def _require_qc_terminal(db: Session, user: User) -> None:
     if user_has_permission(db, user, "mes_terminal_qc"):
         return
-    raise HTTPException(status_code=403, detail="Permission required: mes_terminal_qc")
+
+    stage = (
+        db.query(MesProductionStage)
+        .filter(
+            MesProductionStage.name == "Nazorat",
+            MesProductionStage.is_active.is_(True),
+        )
+        .first()
+    )
+
+    if stage and user_has_brigade_terminal_access(
+        db,
+        user_id=user.id,
+        stage_id=stage.id,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Bu terminalga kirish uchun terminal ruxsati yoki unga biriktirilgan faol brigada kerak",
+    )
 
 
 def _require_mes_edit(db: Session, user: User) -> None:
@@ -156,8 +178,12 @@ def qc_accept_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_quality_approve")
     try:
         accept_qc_job(db, job, ids, user.username)
+    except ExecutionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
@@ -176,6 +202,7 @@ def qc_start_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_quality_approve")
     try:
         start_qc_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -196,6 +223,7 @@ def qc_complete_job(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_quality_approve")
     try:
         complete_qc_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -217,11 +245,15 @@ def qc_update_quantities(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_quality_approve")
     if not data.lines:
         raise HTTPException(status_code=400, detail="No quantity lines provided")
     try:
         payload_lines = [item.model_dump(exclude_none=True) for item in data.lines]
         auto_completed = update_qc_quantities(db, job, ids, user.username, payload_lines)
+    except ExecutionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
@@ -243,6 +275,7 @@ def qc_create_rework(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_quality_approve")
     try:
         record = create_rework_record(
             db,
@@ -254,6 +287,9 @@ def qc_create_rework(
             rejection_reason_id=data.rejection_reason_id,
             notes=data.notes,
         )
+    except ExecutionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
@@ -273,6 +309,7 @@ def qc_start_rework(
     record = db.query(MesJobRework).filter(MesJobRework.id == rework_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Rework record not found")
+    require_project_job_permission(db, user, record.job, "production_projects_quality_approve")
     try:
         start_rework(db, record, user.username)
     except ValueError as exc:
@@ -291,6 +328,7 @@ def qc_complete_rework(
     record = db.query(MesJobRework).filter(MesJobRework.id == rework_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Rework record not found")
+    require_project_job_permission(db, user, record.job, "production_projects_quality_approve")
     try:
         complete_rework(db, record, user.username)
     except ValueError as exc:

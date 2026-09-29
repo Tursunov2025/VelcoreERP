@@ -1,87 +1,29 @@
-import { Capacitor } from "@capacitor/core";
+﻿const CONFIGURED_API_URL = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+export { normalizeApiErrorPayload } from "./errorNormalizer.js";
+import { normalizeApiErrorPayload } from "./errorNormalizer.js";
 
-const PRODUCTION_API_URL = "https://api.velcore.uz";
-const DEVELOPMENT_API_URL = "http://127.0.0.1:8000";
-const VELCORE_HOSTS = new Set(["erp.velcore.uz", "api.velcore.uz"]);
-
-/** A Capacitor APK has the WebView origin (https://localhost), not erp.velcore.uz. */
-function isNativeApp() {
-  return typeof window !== "undefined" && Capacitor.isNativePlatform();
+if (!CONFIGURED_API_URL) {
+  throw new Error("VITE_API_URL is required. Select the correct Vite mode/environment file.");
 }
 
 /** Runtime override when build was compiled with wrong VITE_API_URL (VPS hostname). */
 export function productionApiUrlFromHost() {
-  if (typeof window === "undefined") return "";
-  if (VELCORE_HOSTS.has(window.location.hostname)) {
-    return PRODUCTION_API_URL;
-  }
-  return "";
-}
-
-function readMetaApiUrl() {
-  if (typeof document === "undefined") return "";
-  return (document.querySelector('meta[name="velcore-api-url"]')?.getAttribute("content") || "")
-    .trim()
-    .replace(/\/+$/, "");
+  return CONFIGURED_API_URL;
 }
 
 function resolveBuiltInApiUrl() {
-  // Never let a stale VITE_API_URL embedded in an APK point at localhost or a VPS IP.
-  if (isNativeApp()) return PRODUCTION_API_URL;
-
-  const hostOverride = productionApiUrlFromHost();
-  if (hostOverride) return hostOverride;
-
-  const metaUrl = readMetaApiUrl();
-  if (metaUrl) return metaUrl;
-
-  const fromEnv = (import.meta.env.VITE_API_URL || "").trim();
-  if (fromEnv) return fromEnv.replace(/\/+$/, "");
-  return import.meta.env.PROD ? PRODUCTION_API_URL : DEVELOPMENT_API_URL;
+  return CONFIGURED_API_URL;
 }
 
 let API_BASE = resolveBuiltInApiUrl();
 
-const BUILT_IN_API_URL = API_BASE;
-const IS_PRODUCTION_BUILD = import.meta.env.PROD;
-
-function isLocalApiUrl(url) {
-  return !url || url.includes("127.0.0.1") || url.includes("localhost");
-}
-
 let apiConfigPromise = null;
 
-/** Load /remote-api.json only for local dev — never override Velcore production API URL. */
+/** Load /remote-api.json only for local dev вЂ” never override Velcore production API URL. */
 async function ensureApiBase() {
   if (apiConfigPromise) return apiConfigPromise;
   apiConfigPromise = (async () => {
-    if (isNativeApp()) {
-      API_BASE = PRODUCTION_API_URL;
-      return API_BASE;
-    }
-
-    const hostOverride = productionApiUrlFromHost();
-    if (hostOverride) {
-      API_BASE = hostOverride;
-      return API_BASE;
-    }
-
-    if (IS_PRODUCTION_BUILD) {
-      if (isLocalApiUrl(BUILT_IN_API_URL)) {
-        API_BASE = PRODUCTION_API_URL;
-        if (import.meta.env.DEV) {
-          console.warn(
-            `[api] Production build had local VITE_API_URL (${BUILT_IN_API_URL}); using ${PRODUCTION_API_URL}`
-          );
-        }
-      } else {
-        API_BASE = BUILT_IN_API_URL;
-      }
-      return API_BASE;
-    }
-
-    if (!isLocalApiUrl(BUILT_IN_API_URL)) {
-      API_BASE = BUILT_IN_API_URL;
+    if (import.meta.env.VITE_RUNTIME_API_CONFIG !== "true") {
       return API_BASE;
     }
 
@@ -105,7 +47,7 @@ async function ensureApiBase() {
 }
 
 export function getApiBase() {
-  return isNativeApp() ? PRODUCTION_API_URL : productionApiUrlFromHost() || API_BASE;
+  return API_BASE;
 }
 
 /** Always call before raw fetch() outside request(). */
@@ -200,10 +142,11 @@ async function request(path, options = {}, retry = true) {
   try {
     response = await fetch(url, { ...options, headers });
   } catch (networkErr) {
-    console.error(`[api] ${method} ${url} — network error:`, networkErr);
-    throw new Error(
-      `API tarmoq xatosi: ${networkErr?.message || "noma'lum xato"}. URL: ${url}`
-    );
+    const cancelled = networkErr?.name === "AbortError" || options.signal?.aborted;
+    const error = new Error(cancelled ? "Request cancelled" : "Network request failed");
+    error.code = cancelled ? "request_cancelled" : "network_error";
+    error.cause = networkErr;
+    throw error;
   }
 
   if (response.status === 401 && retry && tokens?.refresh_token) {
@@ -214,11 +157,7 @@ async function request(path, options = {}, retry = true) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error ||
-      data?.detail ||
-      (Array.isArray(data?.detail) ? data.detail[0]?.msg : null) ||
-      response.statusText;
+    const normalized = normalizeApiErrorPayload(data, response.statusText || "Request failed");
 
     if (response.status === 401) {
       setStoredTokens(null);
@@ -229,14 +168,19 @@ async function request(path, options = {}, retry = true) {
 
     if (response.status === 404) {
       console.error(
-        `[api] ${method} ${url} → 404 Not Found. ` +
+        `[api] ${method} ${url} в†’ 404 Not Found. ` +
           `Tekshiring: VITE_API_URL (${API_BASE}) shu route mavjud bo'lgan backendga ishora qilyaptimi?`
       );
     } else {
-      console.error(`[api] ${method} ${url} → ${response.status}`, data);
+      console.error(`[api] ${method} ${url} в†’ ${response.status}`, data);
     }
 
-    throw new Error(message || "Request failed");
+    const error = new Error(normalized.message);
+    error.status = response.status;
+    error.data = data;
+    error.code = normalized.code;
+    error.fieldErrors = normalized.fieldErrors;
+    throw error;
   }
 
   if (data?.error) throw new Error(data.error);
@@ -252,6 +196,13 @@ export function uploadUrl(path) {
 export const api = {
   identityUsers: (params = {}) => request(`/admin/identity/users?${new URLSearchParams(params).toString()}`),
   identityMeta: () => request("/admin/identity/meta"),
+  identityDepartments: () => request("/admin/identity/departments"),
+  createIdentityDepartment: (body) => request("/admin/identity/departments", { method: "POST", body: JSON.stringify(body) }),
+  renameIdentityDepartment: (name, body) => request(`/admin/identity/departments/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteIdentityDepartment: (name) => request(`/admin/identity/departments/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  identityActivity: () => request("/admin/identity/activity"),
+  identitySessions: () => request("/admin/identity/sessions"),
+  revokeIdentitySession: (id) => request(`/admin/identity/sessions/${id}/revoke`, { method: "POST" }),
   createIdentityUser: (body) => request("/admin/identity/users", { method: "POST", body: JSON.stringify(body) }),
   updateIdentityUser: (id, body) => request(`/admin/identity/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   setIdentityUserStatus: (id, active) => request(`/admin/identity/users/${id}/status?active=${active}`, { method: "POST" }),
@@ -266,7 +217,34 @@ export const api = {
     form.append("file", file);
     return request("/admin/organization/assets", { method: "POST", body: form });
   },
-  // Display Center — isolated enterprise signage API
+  platformAccess: () => request("/admin/platform/access"),
+  platformRoles: () => request("/admin/platform/roles"),
+  platformCreateRole: (body) => request("/admin/platform/roles", { method: "POST", body: JSON.stringify(body) }),
+  platformUpdateRole: (id, body) => request(`/admin/platform/roles/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  platformDeleteRole: (id) => request(`/admin/platform/roles/${id}`, { method: "DELETE" }),
+  platformAppearance: () => request("/admin/platform/appearance"),
+  platformSaveAppearance: (body) => request("/admin/platform/appearance", { method: "PUT", body: JSON.stringify(body) }),
+  platformResetAppearance: () => request("/admin/platform/appearance/reset", { method: "POST" }),
+  platformUploadLogo: (file) => { const body = new FormData(); body.append("file", file); return request("/admin/platform/appearance/logo", { method: "POST", body }); },
+  platformRemoveLogo: () => request("/admin/platform/appearance/logo", { method: "DELETE" }),
+  platformNavigation: () => request("/admin/platform/navigation"),
+  platformSaveNavigation: (id, body) => request(`/admin/platform/navigation/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  platformResetNavigation: () => request("/admin/platform/navigation/reset", { method: "POST" }),
+  platformModules: () => request("/admin/platform/modules"),
+  platformSaveModule: (key, body) => request(`/admin/platform/modules/${key}`, { method: "PUT", body: JSON.stringify(body) }),
+  platformIntegrations: () => request("/admin/platform/integrations"),
+  platformTestTelegram: () => request("/admin/platform/integrations/telegram/test", { method: "POST" }),
+  platformBackups: () => request("/admin/platform/backups"),
+  platformCreateBackup: () => request("/admin/platform/backups", { method: "POST" }),
+  platformBackupPreflight: (name) => request(`/admin/platform/backups/${encodeURIComponent(name)}/preflight`, { method: "POST" }),
+  platformBackupDownloadUrl: (name) => `${API_BASE}/admin/platform/backups/${encodeURIComponent(name)}/download`,
+  platformAudit: (params = {}) => request(`/admin/platform/audit?${new URLSearchParams(params).toString()}`),
+  platformAuditCsvUrl: () => `${API_BASE}/admin/platform/audit/export.csv`,
+  platformSecurity: () => request("/admin/platform/security"),
+  platformSaveSecurity: (body) => request("/admin/platform/security", { method: "PUT", body: JSON.stringify(body) }),
+  platformSystem: () => request("/admin/platform/system"),
+  platformAbout: () => request("/admin/platform/about"),
+  // Display Center вЂ” isolated enterprise signage API
   displayDashboard: () => request("/display-center/dashboard"),
   displayFactoryDashboard: () => request("/display-center/factory-dashboard"),
   displayRuntime: (code) => request(`/display-center/display/${encodeURIComponent(code)}`),
@@ -274,6 +252,8 @@ export const api = {
   displayTemplates: () => request("/display-center/templates"),
   createDisplayTemplate: (body) => request("/display-center/templates", { method: "POST", body: JSON.stringify(body) }),
   updateDisplayTemplate: (id, body) => request(`/display-center/templates/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  cloneDisplayTemplate: (id, body = {}) => request(`/display-center/templates/${id}/clone`, { method: "POST", body: JSON.stringify(body) }),
+  deleteDisplayTemplate: (id) => request(`/display-center/templates/${id}`, { method: "DELETE" }),
   displayHeartbeat: (body) => request("/display-center/heartbeat", { method: "POST", body: JSON.stringify(body) }),
   displayMeta: () => request("/display-center/meta"),
   displays: () => request("/display-center/displays"),
@@ -282,12 +262,41 @@ export const api = {
   deleteDisplay: (id) => request(`/display-center/displays/${id}`, { method: "DELETE" }),
   displayWidgets: () => request("/display-center/widgets"),
   createDisplayWidget: (body) => request("/display-center/widgets", { method: "POST", body: JSON.stringify(body) }),
+  updateDisplayWidget: (id, body) => request(`/display-center/widgets/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteDisplayWidget: (id) => request(`/display-center/widgets/${id}`, { method: "DELETE" }),
   displayPlaylists: () => request("/display-center/playlists"),
   createDisplayPlaylist: (body) => request("/display-center/playlists", { method: "POST", body: JSON.stringify(body) }),
+  updateDisplayPlaylist: (id, body) => request(`/display-center/playlists/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteDisplayPlaylist: (id) => request(`/display-center/playlists/${id}`, { method: "DELETE" }),
+  displayPlaylistItems: (id) => request(`/display-center/playlists/${id}/items`),
+  createDisplayPlaylistItem: (id, body) => request(`/display-center/playlists/${id}/items`, { method: "POST", body: JSON.stringify(body) }),
+  updateDisplayPlaylistItem: (id, body) => request(`/display-center/playlist-items/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteDisplayPlaylistItem: (id) => request(`/display-center/playlist-items/${id}`, { method: "DELETE" }),
   displaySchedules: () => request("/display-center/schedules"),
   createDisplaySchedule: (body) => request("/display-center/schedules", { method: "POST", body: JSON.stringify(body) }),
+  updateDisplaySchedule: (id, body) => request(`/display-center/schedules/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteDisplaySchedule: (id) => request(`/display-center/schedules/${id}`, { method: "DELETE" }),
+  displayMonitoring: () => request("/display-center/monitoring"),
+  displaySettings: () => request("/display-center/settings"),
+  saveDisplaySettings: (body) => request("/display-center/settings", { method: "PUT", body: JSON.stringify(body) }),
   displayMedia: (q = "") => request(`/display-center/media${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   uploadDisplayMedia: (file, folderId = null) => { const form = new FormData(); form.append("file", file); return request(`/display-center/media/upload${folderId ? `?folder_id=${folderId}` : ""}`, { method: "POST", body: form }); },
+  deleteDisplayMedia: (id) => request(`/display-center/media/${id}`, { method: "DELETE" }),
+  traceabilityDashboard: () => request("/traceability/dashboard"),
+  traceabilityProducts: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== "" && v !== null && v !== undefined && v !== false) q.set(k, String(v)); });
+    return request(`/traceability/products${q.toString() ? `?${q.toString()}` : ""}`);
+  },
+  traceabilityProduct: (serial) => request(`/traceability/products/${encodeURIComponent(serial)}`),
+  generateProductPassports: (packageId) => request(`/traceability/packages/${packageId}/passports`, { method: "POST" }),
+  generateProductPassportsBatch: (packageIds) => request("/traceability/passports/batch", { method: "POST", body: JSON.stringify({ package_ids: packageIds }) }),
+  productPassportLabelUrl: (serial, size = "100x50") => `${API_BASE}/traceability/products/${encodeURIComponent(serial)}/label.png?size=${encodeURIComponent(size)}`,
+  productPassportPdfUrl: (serial) => `${API_BASE}/traceability/products/${encodeURIComponent(serial)}/label.pdf`,
+  productPassportDocumentUrl: (serial, format, language = "uz") => `${API_BASE}/traceability/products/${encodeURIComponent(serial)}/passport.${encodeURIComponent(format)}?language=${encodeURIComponent(language)}`,
+  traceabilityBatchLabelPdfUrl: () => `${API_BASE}/traceability/passports/batch/labels.pdf`,
+  traceabilityBatchExcelUrl: () => `${API_BASE}/traceability/passports/batch/export.xlsx`,
+  publicProductPassport: (token) => request(`/track/product/${encodeURIComponent(token)}`),
   login: async (body) => {
     await ensureApiBase();
     const url = `${getApiBase()}/auth/login`;
@@ -300,14 +309,14 @@ export const api = {
       });
     } catch (networkErr) {
       // Never log credentials; URL and the platform error are enough to diagnose APK networking.
-      console.error(`[api] POST ${url} — login network error:`, networkErr);
+      console.error(`[api] POST ${url} вЂ” login network error:`, networkErr);
       throw new Error(
         `Login tarmoq xatosi: ${networkErr?.message || "noma'lum xato"}. URL: ${url}`
       );
     }
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      console.error(`[api] POST ${url} → ${res.status} ${res.statusText}`, data);
+      console.error(`[api] POST ${url} в†’ ${res.status} ${res.statusText}`, data);
       const detail =
         data?.error ||
         data?.detail ||
@@ -642,6 +651,7 @@ export const api = {
   },
 
   getMyPermissions: () => request("/auth/me/permissions"),
+  mesMyBrigadeTerminalAccess: () => request("/mes/brigades/my-access"),
 
   adminGetPermissions: () => request("/admin/permissions"),
   adminUpdateUserPermissions: (userId, body) =>
@@ -715,7 +725,7 @@ export const api = {
   llpDeleteDocument: (id) => request(`/llp/documents/${id}`, { method: "DELETE" }),
   llpMarkRead: (id) => request(`/llp/documents/${id}/read`, { method: "POST" }),
 
-  // Logistics — finished warehouse + loading shipments
+  // Logistics вЂ” finished warehouse + loading shipments
   logisticsDashboard: () => request("/logistics/dashboard"),
   logisticsProducts: (params = {}) => {
     const q = new URLSearchParams();
@@ -746,7 +756,7 @@ export const api = {
   logisticsDeliverShipment: (id) =>
     request(`/logistics/shipments/${id}/deliver`, { method: "POST" }),
 
-  // Phase 11B — Multi Currency
+  // Phase 11B вЂ” Multi Currency
   currencies: () => request("/currencies"),
   currencyDashboard: () => request("/currencies/dashboard"),
   currencyRateHistory: (code, limit = 60) =>
@@ -756,7 +766,7 @@ export const api = {
   convertCurrency: (amount, from, to) =>
     request(`/currencies/convert?amount=${amount}&from=${from}&to=${to}`),
 
-  // Phase 11B — Transport Management
+  // Phase 11B вЂ” Transport Management
   transports: (params = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -777,7 +787,7 @@ export const api = {
       body: JSON.stringify({ status, comment }),
     }),
 
-  // Phase 11B — CRM / Customer debt
+  // Phase 11B вЂ” CRM / Customer debt
   crmLedger: (q = "") => request(`/crm/ledger${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   crmTopDebtors: (limit = 5) => request(`/crm/top-debtors?limit=${limit}`),
   crmPayments: (customer = "") =>
@@ -785,7 +795,7 @@ export const api = {
   crmRecordPayment: (body) =>
     request("/crm/payments", { method: "POST", body: JSON.stringify(body) }),
 
-  // Phase 11B — Dashboard KPIs + Warehouse forecast
+  // Phase 11B вЂ” Dashboard KPIs + Warehouse forecast
   dashboardKpis: () => request("/dashboard/kpis"),
   warehouseForecast: (params = {}) => {
     const q = new URLSearchParams();
@@ -793,11 +803,11 @@ export const api = {
       if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
     });
     const qs = q.toString();
-    return request(`/warehouse-forecast${qs ? `?${qs}` : ""}`);
+    return request(`/warehouse-forecast/${qs ? `?${qs}` : ""}`);
   },
   warehouseForecastAlerts: (limit = 8) => request(`/warehouse-forecast/alerts?limit=${limit}`),
 
-  // Phase 12 — GPS Fleet Tracking
+  // Phase 12 вЂ” GPS Fleet Tracking
   gpsVehicles: () => request("/gps/vehicles"),
   gpsCreateVehicle: (body) =>
     request("/gps/vehicles", { method: "POST", body: JSON.stringify(body) }),
@@ -841,6 +851,27 @@ export const api = {
   gpsCreateTrip: (body) =>
     request("/gps/trips", { method: "POST", body: JSON.stringify(body) }),
   gpsDashboard: () => request("/gps/dashboard"),
+
+  // Professional GPS monitoring
+  gpsTrackingFleet: (vehicleId = null) => {
+    const query = vehicleId ? `?vehicle_id=${encodeURIComponent(vehicleId)}` : "";
+    return request(`/mes/finished-logistics/tracking/fleet${query}`);
+  },
+
+  gpsTrackingHistory: (vehicleId, from, to) =>
+    request(
+      `/mes/finished-logistics/tracking/history?vehicle_id=${encodeURIComponent(vehicleId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+    ),
+
+  gpsTrackingHistoryDaily: (vehicleId, fromDate, toDate) =>
+    request(
+      `/mes/finished-logistics/tracking/history/daily?vehicle_id=${encodeURIComponent(vehicleId)}&from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}`
+    ),
+
+  gpsTrackingHistoryStops: (vehicleId, from, to, minStopSeconds = 300) =>
+    request(
+      `/mes/finished-logistics/tracking/history/stops?vehicle_id=${encodeURIComponent(vehicleId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&min_stop_seconds=${encodeURIComponent(minStopSeconds)}`
+    ),
   gpsTransportSuggestions: () => request("/gps/suggestions/transports"),
   gpsImportFromTransports: () =>
     request("/gps/import/from-transports", { method: "POST" }),
@@ -909,6 +940,32 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ lines }),
     }),
+  mesGetTemplateYigish: (templateId) =>
+    request(`/mes/templates/${templateId}/yigish`),
+
+  mesAddYigishLine: (templateId, body) =>
+    request(`/mes/templates/${templateId}/yigish`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  mesUpdateYigishLine: (templateId, lineId, body) =>
+    request(`/mes/templates/${templateId}/yigish/${lineId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  mesDeleteYigishLine: (templateId, lineId) =>
+    request(`/mes/templates/${templateId}/yigish/${lineId}`, {
+      method: "DELETE",
+    }),
+
+  mesReorderYigishLines: (templateId, lines) =>
+    request(`/mes/templates/${templateId}/yigish/reorder`, {
+      method: "PUT",
+      body: JSON.stringify({ lines }),
+    }),
+
   mesUploadBomDrawing: async (templateId, lineId, file) => {
     const form = new FormData();
     form.append("file", file);
@@ -917,6 +974,36 @@ export const api = {
       body: form,
     });
   },
+
+  mesGetBrigades: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    return request(`/mes/brigades${q.toString() ? `?${q.toString()}` : ""}`);
+  },
+  mesGetBrigadeUsers: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== "" && v !== null && v !== undefined) q.set(k, String(v));
+    });
+    return request(`/mes/brigades/users${q.toString() ? `?${q.toString()}` : ""}`);
+  },
+  mesCreateBrigade: (body) =>
+    request("/mes/brigades", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  mesUpdateBrigade: (id, body) =>
+    request(`/mes/brigades/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  mesSetBrigadeStatus: (id, is_active) =>
+    request(`/mes/brigades/${id}/status`, {
+      method: "POST",
+      body: JSON.stringify({ is_active: Boolean(is_active) }),
+    }),
 
   mesGetStages: (includeInactive = false) =>
     request(`/mes/stages?include_inactive=${includeInactive ? "true" : "false"}`),
@@ -1026,6 +1113,30 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ lines }),
     }),
+  warehouseDetailStock: (params = {}) => request(`/warehouse/stock?${new URLSearchParams(params).toString()}`),
+  warehouseDetailTransactions: (params = {}) => request(`/warehouse/transactions?${new URLSearchParams(params).toString()}`),
+  warehouseDetailStockIn: (jobId, bomLineId, quantity) => request(`/warehouse/stock/in?job_id=${jobId}&bom_line_id=${bomLineId}&quantity=${quantity}`, { method: "POST" }),
+  warehouseDetailStockAction: (action, params) => request(`/warehouse/stock/${action}?${new URLSearchParams(params).toString()}`, { method: "POST" }),
+
+  mesYigishQueue: () => request("/mes/terminal/yigish/queue"),
+  mesYigishBrigade: () => request("/mes/terminal/yigish/brigade"),
+  mesYigishJob: (id) => request(`/mes/terminal/yigish/jobs/${id}`),
+  mesYigishAcceptJob: (id) =>
+    request(`/mes/terminal/yigish/jobs/${id}/accept`, { method: "POST" }),
+  mesYigishStartJob: (id) =>
+    request(`/mes/terminal/yigish/jobs/${id}/start`, { method: "POST" }),
+  mesYigishCompleteJob: (id, workerUserIds = []) =>
+    request(`/mes/terminal/yigish/jobs/${id}/complete`, {
+      method: "POST",
+      body: JSON.stringify({
+        worker_user_ids: workerUserIds,
+      }),
+    }),
+  mesYigishUpdateQuantities: (id, lines) =>
+    request(`/mes/terminal/yigish/jobs/${id}/quantities`, {
+      method: "PUT",
+      body: JSON.stringify({ lines }),
+    }),
 
   mesSvarshikDashboard: () => request("/mes/terminal/svarshik/dashboard"),
   mesSvarshikQueue: () => request("/mes/terminal/svarshik/queue"),
@@ -1122,7 +1233,7 @@ export const api = {
 
   mesWarehouseDashboard: () => request("/mes/terminal/warehouse/dashboard"),
   mesWarehouseQueue: () => request("/mes/terminal/warehouse/queue"),
-  mesWarehouseInventory: () => request("/mes/terminal/warehouse/inventory"),
+  mesWarehouseInventory: (detailed = false) => request(`/mes/terminal/warehouse/inventory${detailed ? "?detailed=true" : ""}`),
   mesWarehouseLocations: () => request("/mes/terminal/warehouse/locations"),
   mesWarehouseJob: (id) => request(`/mes/terminal/warehouse/jobs/${id}`),
   mesWarehouseAcceptReceipt: (id) =>
@@ -1174,16 +1285,48 @@ export const api = {
   materialsItems: (includeInactive = false) =>
     request(`/materials/items?include_inactive=${includeInactive ? "true" : "false"}`),
   materialsGetItem: (id) => request(`/materials/items/${id}`),
+  materialsCodePreview: (params) =>
+    request(`/materials/code-preview?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== "" && value != null))}`),
   materialsCreateItem: (body) =>
     request("/materials/items", { method: "POST", body: JSON.stringify(body) }),
   materialsUpdateItem: (id, body) =>
     request(`/materials/items/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  materialsUploadImage: async (id, file) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    const data = await request(`/materials/items/${id}/image`, {
+      method: "POST",
+      body: form,
+    });
+    return {
+      ...data,
+      image_url: uploadUrl(data?.image_url),
+    };
+  },
   materialsReceipts: (limit = 100) => request(`/materials/receipts?limit=${limit}`),
+  materialsReceipt: (id) => request(`/materials/receipts/${id}`),
   materialsCreateReceipt: (body) =>
     request("/materials/receipts", { method: "POST", body: JSON.stringify(body) }),
+  materialsUpdateReceipt: (id, body) =>
+    request(`/materials/receipts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  materialsConfirmReceipt: (id, body) =>
+    request(`/materials/receipts/${id}/confirm`, { method: "POST", body: JSON.stringify(body) }),
+  materialsReverseReceipt: (id, body) =>
+    request(`/materials/receipts/${id}/reverse`, { method: "POST", body: JSON.stringify(body) }),
   materialsIssues: (limit = 100) => request(`/materials/issues?limit=${limit}`),
   materialsCreateIssue: (body) =>
     request("/materials/issues", { method: "POST", body: JSON.stringify(body) }),
+  materialPhysicalPieces: (materialId = "") => request(`/materials/physical-pieces${materialId ? `?material_id=${materialId}` : ""}`),
+  materialPhysicalIssues: () => request("/materials/physical-issues"),
+  materialCreatePhysicalIssue: (body) => request("/materials/physical-issues", { method: "POST", body: JSON.stringify(body) }),
+  materialReservePiece: (id, body) => request(`/materials/physical-issues/${id}/reserve`, { method: "POST", body: JSON.stringify(body) }),
+  materialReleasePieces: (id) => request(`/materials/physical-issues/${id}/release`, { method: "POST" }),
+  materialIssueReserved: (id) => request(`/materials/physical-issues/${id}/issue`, { method: "POST" }),
+  materialRecordCut: (id, body) => request(`/materials/physical-issues/${id}/cuts`, { method: "POST", body: JSON.stringify(body) }),
+  materialCutRecommendation: (body) => request("/materials/cutting/recommend", { method: "POST", body: JSON.stringify(body) }),
+  materialCuttingContext: () => request("/materials/cutting/context"),
+  materialJobRequirements: (jobId) => request(`/materials/cutting/jobs/${jobId}/requirements`),
+  materialCreateIssueFromRequirement: (body) => request("/materials/cutting/issues", { method: "POST", body: JSON.stringify(body) }),
   materialsAdjustments: (limit = 100) => request(`/materials/adjustments?limit=${limit}`),
   materialsCreateAdjustment: (body) =>
     request("/materials/adjustments", { method: "POST", body: JSON.stringify(body) }),
@@ -1308,6 +1451,108 @@ export const api = {
       body: form,
     });
   },
+
+  productionProjects: (params = {}) => request(`/production-projects?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== "" && value != null))}`),
+  productionProject: (id) => request(`/production-projects/${id}`),
+  productionProjectCreate: (body) => request("/production-projects", { method: "POST", body: JSON.stringify(body) }),
+  productionProjectUpdate: (id, body) => request(`/production-projects/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  productionProjectAddLine: (id, body) => request(`/production-projects/${id}/lines`, { method: "POST", body: JSON.stringify(body) }),
+  productionProjectUpdateLine: (id, lineId, body) => request(`/production-projects/${id}/lines/${lineId}`, { method: "PUT", body: JSON.stringify(body) }),
+  productionProjectRemoveLine: (id, lineId) => request(`/production-projects/${id}/lines/${lineId}`, { method: "DELETE" }),
+  productionProjectMergeLine: (id, body) => request(`/production-projects/${id}/lines/merge`, { method: "POST", body: JSON.stringify(body) }),
+  productionProjectPreview: (id, signal) =>
+    request(`/production-projects/${id}/requirements/preview`, { signal }),
+  productionProjectRequirements: (id) => request(`/production-projects/${id}/requirements`),
+  productionProjectProgress: (id) => request(`/production-projects/${id}/progress`),
+  productionProjectForecast: (id) => request(`/production-projects/${id}/forecast`),
+  productionProjectRelease: (id, body) => request(`/production-projects/${id}/release`, { method: "POST", body: JSON.stringify(body) }),
+  productionProjectCancel: (id, body) => request(`/production-projects/${id}/cancel`, { method: "POST", body: JSON.stringify(body) }),
+  productionProjectClone: (id, code) => request(`/production-projects/${id}/clone?project_code=${encodeURIComponent(code)}`, { method: "POST" }),
+  productionJobStageReturn: (id, body) => request(`/production-projects/jobs/${id}/stage-return`, { method: "POST", body: JSON.stringify(body) }),
+  productionJobStageReopen: (id, body) => request(`/production-projects/jobs/${id}/stage-reopen`, { method: "POST", body: JSON.stringify(body) }),
+  productionJobPaintReconcile: (id, body) => request(`/production-projects/jobs/${id}/paint-reconciliation`, { method: "POST", body: JSON.stringify(body) }),
+  productionJobCorrectionHistory: (id) => request(`/production-projects/jobs/${id}/correction-history`),
+
+  finishedLocations: (includeInactive = false) => request(`/mes/finished-logistics/locations?include_inactive=${includeInactive}`),
+  finishedLocationCreate: (body) => request("/mes/finished-logistics/locations", { method: "POST", body: JSON.stringify(body) }),
+  finishedWarehouseTotals: (projectId = "") => request(`/mes/finished-logistics/warehouse-totals${projectId ? `?project_id=${projectId}` : ""}`),
+  finishedPlacements: (params = {}) => request(`/mes/finished-logistics/placements?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== "" && value != null))}`),
+  finishedVehicles: (includeInactive = false) => request(`/mes/finished-logistics/vehicles?include_inactive=${includeInactive}`),
+  finishedDrivers: (includeInactive = false) => request(`/mes/finished-logistics/drivers?include_inactive=${includeInactive}`),
+  driverMe: () => request("/mes/finished-logistics/driver/me"),
+  driverTasks: (status = "") =>
+    request(status ? `/driver/tasks?status=${encodeURIComponent(status)}` : "/driver/tasks"),
+
+  driverTaskPickup: (id, location = {}) =>
+    request(`/driver/tasks/${id}/pickup`, {
+      method: "POST",
+      body: JSON.stringify({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        address: location.address || "",
+      }),
+    }),
+
+  driverTaskDeliver: (id, form) =>
+    request(`/driver/tasks/${id}/deliver`, {
+      method: "POST",
+      body: form,
+    }),
+
+  driverTaskComplete: (id, form) =>
+    request(`/driver/tasks/${id}/complete`, {
+      method: "POST",
+      body: form,
+    }),
+  finishedVehicleCreate: (body) => request("/mes/finished-logistics/vehicles", { method: "POST", body: JSON.stringify(body) }),
+  finishedVehicleUpdate: (id, body) => request(`/mes/finished-logistics/vehicles/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  finishedVehicleStateUpdate: (id, body) => request(`/mes/finished-logistics/vehicles/${id}/operational-state`, { method: "PUT", body: JSON.stringify(body) }),
+  finishedDriverCreate: (body) => request("/mes/finished-logistics/drivers", { method: "POST", body: JSON.stringify(body) }),
+  finishedDriverUpdate: (id, body) => request(`/mes/finished-logistics/drivers/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  finishedDriverStatus: (id, body) => request(`/mes/finished-logistics/drivers/${id}/status`, { method: "POST", body: JSON.stringify(body) }),
+  finishedGpsDevices: (includeInactive = false) => request(`/mes/finished-logistics/gps-devices?include_inactive=${includeInactive}`),
+  finishedGpsDeviceCreate: (body) => request("/mes/finished-logistics/gps-devices", { method: "POST", body: JSON.stringify(body) }),
+  finishedGpsDeviceUpdate: (id, body) => request(`/mes/finished-logistics/gps-devices/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  finishedGpsDeviceUnbind: (id, body) => request(`/mes/finished-logistics/gps-devices/${id}/unbind`, { method: "POST", body: JSON.stringify(body) }),
+  finishedTrips: (params = {}) => { const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== "" && value != null)).toString(); return request(`/mes/finished-logistics/trips${qs ? `?${qs}` : ""}`); },
+  finishedTrip: (id) => request(`/mes/finished-logistics/trips/${id}`),
+  finishedTripCreate: (body) => request("/mes/finished-logistics/trips", { method: "POST", body: JSON.stringify(body) }),
+  finishedConsolidatedTripCreate: (body) => request("/mes/finished-logistics/trips/consolidated", { method: "POST", body: JSON.stringify(body) }),
+  finishedReadyCargo: () => request("/mes/finished-logistics/ready-for-logistics"),
+  finishedTripTransition: (id, body) => request(`/mes/finished-logistics/trips/${id}/transition`, { method: "POST", body: JSON.stringify(body) }),
+  finishedTripAssignmentUpdate: (id, body) => request(`/mes/finished-logistics/trips/${id}/assignment`, { method: "PUT", body: JSON.stringify(body) }),
+  finishedTripPlanningUpdate: (id, body) => request(`/mes/finished-logistics/trips/${id}/planning`, { method: "PUT", body: JSON.stringify(body) }),
+  finishedTripRoute: (id) => request(`/mes/finished-logistics/trips/${id}/route`),
+  finishedTripRouteCreate: (id, body) => request(`/mes/finished-logistics/trips/${id}/route`, { method: "POST", body: JSON.stringify(body) }),
+  finishedTripRouteUpdate: (id, body) => request(`/mes/finished-logistics/trips/${id}/route`, { method: "PUT", body: JSON.stringify(body) }),
+  finishedTripRouteStatus: (id, body) => request(`/mes/finished-logistics/trips/${id}/route/status`, { method: "POST", body: JSON.stringify(body) }),
+  finishedTripRouteCancel: (id, version) => request(`/mes/finished-logistics/trips/${id}/route?expected_version=${version}`, { method: "DELETE" }),
+  finishedTripRouteStopCreate: (id, body) => request(`/mes/finished-logistics/trips/${id}/route/stops`, { method: "POST", body: JSON.stringify(body) }),
+  finishedTripRouteStopUpdate: (id, stopId, body) => request(`/mes/finished-logistics/trips/${id}/route/stops/${stopId}`, { method: "PUT", body: JSON.stringify(body) }),
+  finishedTripRouteStopDelete: (id, stopId, version) => request(`/mes/finished-logistics/trips/${id}/route/stops/${stopId}?expected_version=${version}`, { method: "DELETE" }),
+  finishedTripRouteStopsReorder: (id, body) => request(`/mes/finished-logistics/trips/${id}/route/stops/reorder`, { method: "POST", body: JSON.stringify(body) }),
+  finishedLogisticsAlerts: () => request("/mes/finished-logistics/alerts"),
+  finishedTripAssign: (id, body) => request(`/mes/finished-logistics/trips/${id}/shipment-items`, { method: "POST", body: JSON.stringify(body) }),
+  finishedTripProgress: (id) => request(`/mes/finished-logistics/trips/${id}/progress`),
+  finishedLoadingPlan: (id) => request(`/mes/finished-logistics/trips/${id}/loading-plan`),
+  finishedLoadingPlanSave: (id, placements) => request(`/mes/finished-logistics/trips/${id}/loading-plan`, { method: "PUT", body: JSON.stringify({ placements }) }),
+  finishedLoadingPlanAutomatic: (id) => request(`/mes/finished-logistics/trips/${id}/loading-plan/automatic`, { method: "POST" }),
+  finishedLoadingPlanValidate: (id) => request(`/mes/finished-logistics/trips/${id}/loading-plan/validate`, { method: "POST" }),
+  finishedConfirmLoading: (id, body) => request(`/mes/finished-logistics/trips/${id}/confirm-loading`, { method: "POST", body: JSON.stringify(body) }),
+  finishedDispatch: (id, body) => request(`/mes/finished-logistics/trips/${id}/dispatch`, { method: "POST", body: JSON.stringify(body) }),
+  finishedArrival: (id, body) => request(`/mes/finished-logistics/trips/${id}/arrival`, { method: "POST", body: JSON.stringify(body) }),
+  finishedDelivery: (id, body) => request(`/mes/finished-logistics/trips/${id}/delivery`, { method: "POST", body: JSON.stringify(body) }),
+  finishedAcceptance: (id, body) => request(`/mes/finished-logistics/trips/${id}/acceptance`, { method: "POST", body: JSON.stringify(body) }),
+  finishedUnload: (id, itemId, body) => request(`/mes/finished-logistics/trips/${id}/shipment-items/${itemId}/unload`, { method: "POST", body: JSON.stringify(body) }),
+  finishedReturnToWarehouse: (id, itemId, body) => request(`/mes/finished-logistics/trips/${id}/shipment-items/${itemId}/return-to-warehouse`, { method: "POST", body: JSON.stringify(body) }),
+  finishedReload: (id, itemId, body) => request(`/mes/finished-logistics/trips/${id}/shipment-items/${itemId}/reload`, { method: "POST", body: JSON.stringify(body) }),
+  finishedTransfer: (id, itemId, body) => request(`/mes/finished-logistics/trips/${id}/shipment-items/${itemId}/transfer`, { method: "POST", body: JSON.stringify(body) }),
+  finishedEvidence: (id) => request(`/mes/finished-logistics/trips/${id}/evidence`),
+  finishedEvidenceUpload: (id, form) => request(`/mes/finished-logistics/trips/${id}/evidence`, { method: "POST", body: form }),
+  finishedTripTracking: (id, limit = 500) => request(`/mes/finished-logistics/trips/${id}/tracking?limit=${limit}`),
+  finishedTripDocuments: (id) => request(`/mes/finished-logistics/trips/${id}/documents`),
+  finishedTripDocumentCreate: (id, body) => request(`/mes/finished-logistics/trips/${id}/documents`, { method: "POST", body: JSON.stringify(body) }),
+  finishedTrackingFleet: (params = {}) => { const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== "" && value != null)).toString(); return request(`/mes/finished-logistics/tracking/fleet${qs ? `?${qs}` : ""}`); },
 };
 
 export async function apiDownload(path, filename) {
@@ -1322,3 +1567,5 @@ export async function apiDownload(path, filename) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+

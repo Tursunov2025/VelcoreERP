@@ -22,7 +22,9 @@ from services.mes_dispatch_terminal import (
     start_loading,
     update_transport_info,
 )
-from services.permissions import user_has_permission
+from services.permissions import require_project_job_permission, user_has_permission
+from services.production_brigades import user_has_brigade_terminal_access
+from services.project_execution import ExecutionError
 
 router = APIRouter(prefix="/mes/terminal/dispatch", tags=["mes-terminal-dispatch"])
 
@@ -37,7 +39,27 @@ class TransportUpdate(BaseModel):
 def _require_dispatch_terminal(db: Session, user: User) -> None:
     if user_has_permission(db, user, "mes_terminal_dispatch"):
         return
-    raise HTTPException(status_code=403, detail="Permission required: mes_terminal_dispatch")
+
+    stage = (
+        db.query(MesProductionStage)
+        .filter(
+            MesProductionStage.name == "Yuklash",
+            MesProductionStage.is_active.is_(True),
+        )
+        .first()
+    )
+
+    if stage and user_has_brigade_terminal_access(
+        db,
+        user_id=user.id,
+        stage_id=stage.id,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Bu terminalga kirish uchun terminal ruxsati yoki unga biriktirilgan faol brigada kerak",
+    )
 
 
 def _dispatch_stages_or_503(db: Session):
@@ -103,8 +125,12 @@ def dispatch_accept(
     job = load_dispatch_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_dispatch")
     try:
         accept_dispatch(db, job, ids, user.username)
+    except ExecutionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
@@ -122,6 +148,7 @@ def dispatch_start_loading(
     job = load_dispatch_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_dispatch")
     try:
         start_loading(db, job, ids, user.username)
     except ValueError as exc:
@@ -141,6 +168,7 @@ def dispatch_update_transport(
     job = load_dispatch_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_dispatch")
     dispatch = get_job_dispatch(db, job_id)
     if not dispatch:
         raise HTTPException(status_code=400, detail="Accept dispatch first")
@@ -173,8 +201,12 @@ def dispatch_load_package(
     job = load_dispatch_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_dispatch")
     try:
         load_dispatch_package(db, job, ids, user.username, package_id=package_id)
+    except ExecutionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
@@ -192,8 +224,12 @@ def dispatch_mark_shipped(
     job = load_dispatch_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_dispatch")
     try:
         mark_shipped(db, job, ids, user.username)
+    except ExecutionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
@@ -211,6 +247,7 @@ def dispatch_mark_delivered(
     job = load_dispatch_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_dispatch")
     try:
         mark_delivered(db, job, ids, user.username)
     except ValueError as exc:

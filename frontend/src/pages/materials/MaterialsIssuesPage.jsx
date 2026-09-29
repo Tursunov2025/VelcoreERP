@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import ErrorAlert from "../../components/ui/ErrorAlert";
@@ -8,164 +8,45 @@ import Toast from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
 
-function formatDate(value) {
-  if (!value) return "";
-  return new Date(value).toLocaleString();
-}
+const opKey = (prefix) => `${prefix}-${Date.now()}-${crypto.randomUUID()}`;
+const tone = (s) => ({DRAFT:"bg-slate-100 text-slate-700",RESERVED:"bg-amber-100 text-amber-800",ISSUED:"bg-blue-100 text-blue-800",COMPLETED:"bg-emerald-100 text-emerald-800"}[s] || "bg-slate-100");
 
 export default function MaterialsIssuesPage() {
-  const { hasPermission, isAdmin } = useAuth();
-  const { t } = useLocale();
+  const { hasPermission, isAdmin } = useAuth(); const { t } = useLocale();
   const canEdit = isAdmin || hasPermission("materials_edit");
-
-  const [materials, setMaterials] = useState([]);
-  const [issues, setIssues] = useState([]);
-  const [materialId, setMaterialId] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [reason, setReason] = useState("");
-  const [reference, setReference] = useState("");
-  const [notes, setNotes] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
-
-  const load = useCallback(async () => {
-    if (!canEdit) return;
-    setError("");
-    try {
-      const [itemsRes, issuesRes] = await Promise.all([
-        api.materialsItems(),
-        api.materialsIssues(),
-      ]);
-      setMaterials(itemsRes.materials || []);
-      setIssues(issuesRes.issues || []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [canEdit]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const submit = async () => {
-    if (!materialId || !quantity) return;
-    setBusy(true);
-    setToast("");
-    try {
-      await api.materialsCreateIssue({
-        material_id: Number(materialId),
-        quantity: Number(quantity),
-        reason: reason.trim(),
-        reference: reference.trim(),
-        notes: notes.trim(),
-      });
-      setQuantity("");
-      setReason("");
-      setReference("");
-      setNotes("");
-      await load();
-      setToast(t("materials.issueSaved"));
-    } catch (e) {
-      setToast(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!canEdit) {
-    return <p className="py-12 text-center text-red-500">{t("materials.noAccess")}</p>;
-  }
-
-  return (
-    <div className="pb-24">
-      <Link to="/materials" className="mb-4 inline-block min-h-[44px] text-sm font-semibold text-[var(--brand-primary)]">
-        ← {t("materials.title")}
-      </Link>
-
-      <PageHeader title={t("materials.issuesTitle")} subtitle={t("materials.issuesSubtitle")} />
-
-      {loading ? <LoadingSpinner /> : null}
-      <ErrorAlert message={error} onRetry={load} />
-
-      <div className="mb-6 space-y-2 rounded-2xl border bg-[var(--brand-card)] p-4">
-        <select
-          value={materialId}
-          onChange={(e) => setMaterialId(e.target.value)}
-          className="min-h-[48px] w-full rounded-xl border px-3"
-          disabled={busy}
-        >
-          <option value="">{t("materials.selectMaterial")}</option>
-          {materials.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.code} — {m.name} ({m.current_stock} {m.unit})
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min="0"
-          step="any"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          placeholder={t("materials.fieldQuantity")}
-          className="min-h-[48px] w-full rounded-xl border px-3"
-          disabled={busy}
-        />
-        <input
-          type="text"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder={t("materials.fieldReason")}
-          className="min-h-[48px] w-full rounded-xl border px-3"
-          disabled={busy}
-        />
-        <input
-          type="text"
-          value={reference}
-          onChange={(e) => setReference(e.target.value)}
-          placeholder={t("materials.fieldReference")}
-          className="min-h-[48px] w-full rounded-xl border px-3"
-          disabled={busy}
-        />
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder={t("common.notes")}
-          rows={2}
-          className="w-full rounded-xl border px-3 py-2"
-          disabled={busy}
-        />
-        <button
-          type="button"
-          disabled={busy || !materialId || !quantity}
-          onClick={submit}
-          className="min-h-[48px] w-full rounded-xl font-bold text-white disabled:opacity-60"
-          style={{ backgroundColor: "var(--brand-button)" }}
-        >
-          {t("materials.submitIssue")}
-        </button>
-      </div>
-
-      <h3 className="mb-2 font-bold">{t("materials.recentIssues")}</h3>
-      <div className="space-y-2">
-        {issues.map((item) => (
-          <div key={item.id} className="rounded-xl border bg-[var(--brand-card)] p-4">
-            <p className="font-bold">
-              {item.material_code} — {item.material_name}
-            </p>
-            <p className="text-sm">
-              -{item.quantity} · {formatDate(item.created_at)}
-            </p>
-            {item.reason ? <p className="text-xs text-[var(--brand-muted)]">{item.reason}</p> : null}
-          </div>
-        ))}
-      </div>
-
-      <Toast message={toast} onClose={() => setToast("")} />
-    </div>
-  );
+  const [materials,setMaterials]=useState([]), [pieces,setPieces]=useState([]), [issues,setIssues]=useState([]);
+  const [context,setContext]=useState({projects:[]}), [projectId,setProjectId]=useState(""), [lineId,setLineId]=useState(""), [jobId,setJobId]=useState("");
+  const [requirements,setRequirements]=useState([]), [requirementKey,setRequirementKey]=useState("");
+  const [materialId,setMaterialId]=useState(""), [required,setRequired]=useState(""), [cut,setCut]=useState(""), [kerf,setKerf]=useState("0.003");
+  const [active,setActive]=useState(null), [selected,setSelected]=useState(null), [recommendation,setRecommendation]=useState(null);
+  const [loading,setLoading]=useState(true), [busy,setBusy]=useState(false), [error,setError]=useState(""), [toast,setToast]=useState("");
+  const createKey=useRef(""), cutKey=useRef("");
+  const available=useMemo(()=>pieces.filter((p)=>["AVAILABLE","OFFCUT"].includes(p.status)),[pieces]);
+  const project=context.projects.find(p=>String(p.id)===projectId), line=project?.lines.find(x=>String(x.id)===lineId);
+  const requirement=requirements.find(x=>x.key===requirementKey);
+  const load=useCallback(async()=>{ if(!canEdit)return; setError(""); try { const [m,i,p,c]=await Promise.all([api.materialsItems(),api.materialPhysicalIssues(),api.materialPhysicalPieces(materialId),api.materialCuttingContext()]); setMaterials(m.materials||[]);setIssues(i.issues||[]);setPieces(p.pieces||[]);setContext(c||{projects:[]}); if(active){const same=(i.issues||[]).find(x=>x.id===active.id);if(same)setActive(same);} }catch(e){setError(e.message);}finally{setLoading(false)}},[canEdit,materialId,active?.id]);
+  useEffect(()=>{load()},[load]);
+  const chooseJob=async(value, issue=null)=>{setJobId(value);setRequirementKey("");setRequirements([]);if(!issue)setActive(null);if(!value)return;setBusy(true);try{const r=await api.materialJobRequirements(value);setRequirements(r.requirements||[]);const rows=r.requirements||[];const first=issue?rows.find(x=>x.source_job_bom_line_id===issue.source_job_bom_line_id&&x.source_material_bom_line_id===issue.source_material_bom_line_id):rows.find(x=>x.remaining_quantity>0);if(first){setRequirementKey(first.key);setMaterialId(String(first.material_id));setRequired(String(issue?.planned_required_quantity??first.remaining_quantity));}}catch(e){setToast(e.message)}finally{setBusy(false)}};
+  const openIssue=async(issue)=>{setActive(issue);setProjectId(String(issue.project_id||""));setLineId(String(issue.project_line_id||""));setMaterialId(String(issue.material_id));await chooseJob(String(issue.job_id||""),issue)};
+  const run=async(fn,success)=>{setBusy(true);setToast("");try{const value=await fn();if(value?.id)setActive(value);await load();setToast(success);}catch(e){setToast(e.message);}finally{setBusy(false)}};
+  const suggest=()=>run(async()=>{const r=await api.materialCutRecommendation({material_id:Number(materialId),cuts:[Number(required)],kerf_m:Number(kerf)});setRecommendation(r);setSelected(r.piece);return null},t("materialIssue.recommended"));
+  const chooseRequirement=(value)=>{setRequirementKey(value);const row=requirements.find(x=>x.key===value);if(row){setMaterialId(String(row.material_id));setRequired(String(row.remaining_quantity));setSelected(null);setRecommendation(null)}};
+  const create=()=>run(async()=>{createKey.current ||= opKey("physical-issue");return api.materialCreateIssueFromRequirement({job_id:Number(jobId),source_job_bom_line_id:requirement.source_job_bom_line_id,source_material_bom_line_id:requirement.source_material_bom_line_id,operation_key:createKey.current})},t("materialIssue.draftSaved"));
+  const reserve=()=>run(()=>api.materialReservePiece(active.id,{piece_id:selected.id,expected_version:selected.version}),t("materialIssue.reserved"));
+  const issue=()=>run(()=>api.materialIssueReserved(active.id),t("materialIssue.issued"));
+  const record=()=>run(async()=>{cutKey.current ||= opKey("cut");const piece=active.pieces.find(p=>["ISSUED","PARTIALLY_USED"].includes(p.status));return api.materialRecordCut(active.id,{piece_id:piece.id,planned_cut_length_m:Number(required),actual_cut_length_m:Number(cut),kerf_m:Number(kerf),operation_key:cutKey.current})},t("materialIssue.cutRecorded"));
+  if(!canEdit)return <p className="py-12 text-center text-red-600">{t("materials.noAccess")}</p>;
+  return <div className="pb-24"><Link to="/materials" className="mb-4 inline-block min-h-[44px] font-semibold text-[var(--brand-primary)]">← {t("materials.title")}</Link>
+    <PageHeader title={t("materialIssue.title")} subtitle={t("materialIssue.subtitle")}/>{loading?<LoadingSpinner/>:null}<ErrorAlert message={error} onRetry={load}/>
+    <section className="overflow-hidden rounded-2xl border bg-[var(--brand-card)] shadow-sm"><div className="bg-[var(--brand-primary)] p-5 text-white"><p className="text-xs font-bold uppercase tracking-widest text-blue-100">{t("materialIssue.document")}</p><div className="flex items-center justify-between"><h2 className="text-xl font-black">{active?.document_number||t("materialIssue.newDocument")}</h2><span className={`rounded-full px-3 py-1 text-xs font-black ${tone(active?.status||"DRAFT")}`}>{t(`materialIssue.status.${active?.status||"DRAFT"}`)}</span></div></div>
+      <div className="grid gap-5 p-5 xl:grid-cols-3"><div className="space-y-3"><h3 className="font-black">{t("materialIssue.requirement")}</h3>
+      <label className="text-sm font-bold">{t("materialIssue.project")}<select aria-label={t("materialIssue.project")} className="mt-1 min-h-11 w-full rounded-xl border px-3" value={projectId} onChange={e=>{setProjectId(e.target.value);setLineId("");setJobId("");setRequirements([])}}><option value="">—</option>{context.projects.map(p=><option key={p.id} value={p.id}>{p.project_code} — {p.project_name}</option>)}</select></label>
+      <label className="text-sm font-bold">{t("materialIssue.projectLine")}<select aria-label={t("materialIssue.projectLine")} className="mt-1 min-h-11 w-full rounded-xl border px-3" value={lineId} disabled={!projectId} onChange={e=>{setLineId(e.target.value);setJobId("");setRequirements([])}}><option value="">—</option>{(project?.lines||[]).map(x=><option key={x.id} value={x.id}>{x.product_code} — {x.product_name} × {x.quantity}</option>)}</select></label>
+      <label className="text-sm font-bold">{t("materialIssue.mesJob")}<select aria-label={t("materialIssue.mesJob")} className="mt-1 min-h-11 w-full rounded-xl border px-3" value={jobId} disabled={!lineId} onChange={e=>chooseJob(e.target.value)}><option value="">—</option>{(line?.jobs||[]).map(j=><option key={j.id} value={j.id}>{j.job_number} · {j.status==="released"?t("materialIssue.jobReleased"):j.status}</option>)}</select></label>
+      <label className="text-sm font-bold">{t("materialIssue.bomRequirement")}<select aria-label={t("materialIssue.bomRequirement")} className="mt-1 min-h-11 w-full rounded-xl border px-3" value={requirementKey} disabled={!jobId} onChange={e=>chooseRequirement(e.target.value)}><option value="">—</option>{requirements.map(r=><option key={r.key} value={r.key}>{r.detail_code} · {r.material_code} · {r.required_quantity} m</option>)}</select></label>
+      {requirement?<div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-950"><p className="font-black">{requirement.material_code} — {requirement.material_name}</p><p>{t("materialIssue.detail")}: {requirement.detail_code} — {requirement.detail_name}</p><div className="mt-2 grid grid-cols-2 gap-1"><span>{t("materialIssue.required")}: {requirement.required_quantity} m</span><span>{t("materialIssue.reservedQty")}: {requirement.reserved_quantity} m</span><span>{t("materialIssue.issuedQty")}: {requirement.issued_quantity} m</span><span>{t("materialIssue.cutQty")}: {requirement.cut_quantity} m</span><b>{t("materialIssue.remaining")}: {requirement.remaining_quantity} m</b><span>{t("materialIssue.stage")}: {t("materialIssue.stageLazer")}</span></div></div>:null}
+      <label className="text-sm font-bold">{t("materialIssue.kerf")}<input className="mt-1 min-h-11 w-full rounded-xl border px-3" type="number" min="0" step=".001" value={kerf} onChange={e=>setKerf(e.target.value)}/></label><button disabled={busy||!requirement||!required} onClick={suggest} className="min-h-11 w-full rounded-xl border border-blue-300 font-bold text-blue-800 disabled:opacity-50">{t("materialIssue.recommend")}</button><button disabled={busy||!recommendation?.piece||active||!requirement} onClick={create} className="min-h-11 w-full rounded-xl bg-[var(--brand-button)] font-bold text-white disabled:opacity-50">{t("materialIssue.saveDraft")}</button></div>
+      <div><h3 className="mb-3 font-black">{t("materialIssue.availablePieces")}</h3><div className="max-h-80 space-y-2 overflow-y-auto">{available.map(p=><button type="button" key={p.id} onClick={()=>setSelected(p)} className={`w-full rounded-xl border p-3 text-left ${selected?.id===p.id?"border-blue-600 bg-blue-50":""}`}><div className="flex justify-between font-black"><span>{p.current_length_m} m</span><span>{t(`materialIssue.pieceStatus.${p.status}`)}</span></div><p className="text-xs text-slate-500">{p.location_code||"—"} · {p.lot_number||"—"}</p></button>)}</div>{recommendation?.piece?<div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900"><b>{t("materialIssue.estimatedRemainder")}:</b> {recommendation.remainder_m} m · {recommendation.utilization_pct}%</div>:null}{["DRAFT","ISSUED"].includes(active?.status)?<button disabled={!selected||busy} onClick={reserve} className="mt-3 min-h-11 w-full rounded-xl bg-amber-500 font-bold text-white disabled:opacity-50">{t("materialIssue.reserve")}</button>:null}{active?.pieces?.some(p=>p.status==="RESERVED")?<div className="mt-3 grid grid-cols-2 gap-2"><button onClick={issue} className="min-h-11 rounded-xl bg-blue-700 font-bold text-white">{t("materialIssue.issue")}</button><button onClick={()=>run(()=>api.materialReleasePieces(active.id),t("materialIssue.released"))} className="min-h-11 rounded-xl border font-bold">{t("materialIssue.release")}</button></div>:null}</div>
+      <div><h3 className="font-black">{t("materialIssue.cutPlan")}</h3>{active?.pieces?.map(p=><div key={p.id} className="mt-3 rounded-xl border p-3"><p className="font-black">#{p.id} · {p.current_length_m} m</p><p className="text-xs text-slate-500">{t("materialIssue.sourceLot")}: {p.source_length_lot_id||"—"}</p></div>)}<label className="mt-3 block text-sm font-bold">{t("materialIssue.actualCut")}<input className="mt-1 min-h-11 w-full rounded-xl border px-3" type="number" min="0" step=".001" value={cut} onChange={e=>setCut(e.target.value)}/></label><button disabled={busy||active?.status!=="ISSUED"||!cut} onClick={record} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-700 font-bold text-white disabled:opacity-50">{t("materialIssue.recordCut")}</button>{active?.cuts?.map(c=><div key={c.id} className="mt-3 rounded-xl bg-slate-50 p-3 text-sm"><p>{c.length_before_m} = {c.actual_cut_length_m} + {c.kerf_m} + <b>{c.remainder_m} m</b></p><p>{c.scrap_length_m?`${t("materialIssue.scrap")}: ${c.scrap_length_m} m`:t("materialIssue.reusableOffcut")}</p></div>)}</div></div></section>
+    <h3 className="mb-2 mt-6 font-black">{t("materialIssue.history")}</h3><div className="grid gap-3 md:grid-cols-2">{issues.map(i=><button key={i.id} onClick={()=>openIssue(i)} className="rounded-xl border bg-[var(--brand-card)] p-4 text-left"><div className="flex justify-between"><b>{i.document_number}</b><span className={`rounded-full px-2 py-1 text-xs ${tone(i.status)}`}>{t(`materialIssue.status.${i.status}`)}</span></div><p className="text-sm">{i.quantity} m · {i.operation_stage}</p></button>)}</div><Toast message={toast} onClose={()=>setToast("")}/></div>;
 }

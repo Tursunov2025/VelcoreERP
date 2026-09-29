@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from models import Driver, GpsLocation, TripRoute, Transport, Vehicle
+from models import Driver, GpsLocation, TripRoute, Transport, Vehicle, MesGpsDevice
 from services.gps_geocode import (
     coords_for_destination,
     estimate_eta_hours,
@@ -20,15 +21,53 @@ OFFLINE_ALERT_MINUTES = 10
 ACTIVE_TRIP_STATUSES = ("Planned", "Active", "In Transit")
 MOVING_SPEED_KMH = 5.0
 DEDUP_DISTANCE_METERS = 5.0
+STATIONARY_HEARTBEAT_SAVE_SECONDS = 30
 
 
-def latest_location_for_vehicle(db: Session, vehicle_id: int) -> GpsLocation | None:
-    return (
+def _device_location_proxy(device):
+    if not device or device.last_latitude is None or device.last_longitude is None:
+        return None
+    return SimpleNamespace(
+        id=f"device-{device.id}",
+        vehicle_id=device.vehicle_id,
+        driver_id=device.driver_user_id,
+        latitude=device.last_latitude,
+        longitude=device.last_longitude,
+        speed=device.last_speed_kmh,
+        battery_level=None,
+        recorded_at=device.last_seen_at,
+    )
+
+
+def latest_location_for_vehicle(db: Session, vehicle_id: int):
+    legacy = (
         db.query(GpsLocation)
         .filter(GpsLocation.vehicle_id == vehicle_id)
         .order_by(desc(GpsLocation.recorded_at), desc(GpsLocation.id))
         .first()
     )
+
+    device = (
+        db.query(MesGpsDevice)
+        .filter(
+            MesGpsDevice.vehicle_id == vehicle_id,
+            MesGpsDevice.status == "active",
+            MesGpsDevice.last_latitude.isnot(None),
+            MesGpsDevice.last_longitude.isnot(None),
+        )
+        .order_by(desc(MesGpsDevice.last_seen_at), desc(MesGpsDevice.id))
+        .first()
+    )
+    physical = _device_location_proxy(device)
+
+    if not legacy:
+        return physical
+    if not physical:
+        return legacy
+
+    legacy_time = legacy.recorded_at or datetime.min
+    physical_time = physical.recorded_at or datetime.min
+    return physical if physical_time >= legacy_time else legacy
 
 
 def serialize_location(loc: GpsLocation | None) -> dict | None:
@@ -52,8 +91,8 @@ def serialize_location(loc: GpsLocation | None) -> dict | None:
     }
 
 
-def latest_locations_by_vehicle(db: Session) -> dict[int, GpsLocation]:
-    """Most recent GPS row per vehicle (SQL max id per group)."""
+def latest_locations_by_vehicle(db: Session) -> dict[int, object]:
+    """Latest location per vehicle, including physical GPS devices without a trip."""
     subq = (
         db.query(
             GpsLocation.vehicle_id.label("vehicle_id"),
@@ -71,19 +110,76 @@ def latest_locations_by_vehicle(db: Session) -> dict[int, GpsLocation]:
         )
         .all()
     )
-    return {row.vehicle_id: row for row in rows}
+
+    latest = {row.vehicle_id: row for row in rows}
+
+    devices = (
+        db.query(MesGpsDevice)
+        .filter(
+            MesGpsDevice.status == "active",
+            MesGpsDevice.last_latitude.isnot(None),
+            MesGpsDevice.last_longitude.isnot(None),
+        )
+        .all()
+    )
+
+    for device in devices:
+        physical = _device_location_proxy(device)
+        if not physical:
+            continue
+
+        current = latest.get(device.vehicle_id)
+        if current is None:
+            latest[device.vehicle_id] = physical
+            continue
+
+        current_time = current.recorded_at or datetime.min
+        physical_time = physical.recorded_at or datetime.min
+        if physical_time >= current_time:
+            latest[device.vehicle_id] = physical
+
+    return latest
 
 
 def should_save_location(
     prev: GpsLocation | None,
     latitude: float,
     longitude: float,
+    recorded_at: datetime,
 ) -> bool:
-    """Skip insert when coords unchanged within DEDUP_DISTANCE_METERS."""
+    """Keep movement points and periodic stationary heartbeat points."""
     if not prev:
         return True
-    dist = haversine_meters(prev.latitude, prev.longitude, latitude, longitude)
-    return dist >= DEDUP_DISTANCE_METERS
+
+    dist = haversine_meters(
+        prev.latitude,
+        prev.longitude,
+        latitude,
+        longitude,
+    )
+
+    if prev.recorded_at:
+        elapsed = (recorded_at - prev.recorded_at).total_seconds()
+
+        # Ignore invalid/out-of-order timestamps.
+        if elapsed <= 0:
+            return False
+
+        # Protect the GPS database from impossible coordinate jumps.
+        # A long gap can happen when the tracker is offline, so do not
+        # reject a point solely because the elapsed time is large.
+        if elapsed <= 300:
+            implied_speed_kmh = (dist / elapsed) * 3.6
+            if implied_speed_kmh > 160.0:
+                return False
+
+        if elapsed >= STATIONARY_HEARTBEAT_SAVE_SECONDS and dist < DEDUP_DISTANCE_METERS:
+            return True
+
+    if dist >= DEDUP_DISTANCE_METERS:
+        return True
+
+    return False
 
 
 def save_location(
@@ -95,13 +191,29 @@ def save_location(
     longitude: float,
     speed: float,
     battery_level: float | None,
+    recorded_at: datetime | None = None,
 ) -> tuple[GpsLocation, bool]:
     """
     Insert GPS row unless duplicate within 5 m of last point.
     Returns (location, saved_new_row).
     """
-    prev = latest_location_for_vehicle(db, vehicle_id)
-    if not should_save_location(prev, latitude, longitude):
+    prev = (
+        db.query(GpsLocation)
+        .filter(GpsLocation.vehicle_id == vehicle_id)
+        .order_by(desc(GpsLocation.recorded_at), desc(GpsLocation.id))
+        .first()
+    )
+    effective_recorded_at = recorded_at or datetime.utcnow()
+
+    if getattr(effective_recorded_at, "tzinfo", None) is not None:
+        effective_recorded_at = effective_recorded_at.replace(tzinfo=None)
+
+    if not should_save_location(
+        prev,
+        latitude,
+        longitude,
+        effective_recorded_at,
+    ):
         return prev, False
 
     loc = GpsLocation(
@@ -111,7 +223,7 @@ def save_location(
         longitude=longitude,
         speed=speed,
         battery_level=battery_level,
-        recorded_at=datetime.utcnow(),
+        recorded_at=effective_recorded_at,
     )
     db.add(loc)
     db.flush()

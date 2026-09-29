@@ -11,13 +11,14 @@ export default function MesHubPage() {
   const canView = hasPermission("mes_view");
   const canLazer = isAdmin || hasPermission("mes_terminal_lazer");
   const canSvarshik = isAdmin || hasPermission("mes_terminal_svarshik");
+  const canYigish = isAdmin || hasPermission("mes_terminal_yigish");
   const canKraska = isAdmin || hasPermission("mes_terminal_kraska");
   const canQc = isAdmin || hasPermission("mes_terminal_qc");
   const canPackaging = isAdmin || hasPermission("mes_terminal_packaging");
   const canWarehouse = isAdmin || hasPermission("mes_terminal_warehouse");
   const canDispatch = isAdmin || hasPermission("mes_terminal_dispatch");
 
-  if (!canView && !canLazer && !canSvarshik && !canKraska && !canQc && !canPackaging && !canWarehouse && !canDispatch) {
+  if (!canView && !canLazer && !canSvarshik && !canYigish && !canKraska && !canQc && !canPackaging && !canWarehouse && !canDispatch) {
     return (
       <p className="py-12 text-center text-red-500">{t("mes.noAccess")}</p>
     );
@@ -51,6 +52,16 @@ export default function MesHubPage() {
             title: t("mes.hubKraskaTerminal"),
             desc: t("mes.hubKraskaTerminalDesc"),
             emoji: "🎨",
+          },
+        ]
+      : []),
+    ...(canYigish
+      ? [
+          {
+            to: "/mes/terminal/yigish",
+            title: t("mes.hubYigishTerminal"),
+            desc: t("mes.hubYigishTerminalDesc"),
+            emoji: "🔧",
           },
         ]
       : []),
@@ -113,6 +124,12 @@ export default function MesHubPage() {
             title: t("mes.hubTemplates"),
             desc: t("mes.hubTemplatesDesc"),
             emoji: "📦",
+          },
+          {
+            to: "/mes/brigades",
+            title: "Brigadalar",
+            desc: "Ishlab chiqarish bosqichlari bo‘yicha brigadir va ishchilarni boshqarish",
+            emoji: "👷",
           },
           {
             to: "/mes/categories",

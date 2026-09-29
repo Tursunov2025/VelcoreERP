@@ -229,11 +229,15 @@ def update_job_status(
     job = load_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    previous_status = job.status
     try:
         apply_status_change(job, data.status.strip().lower())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    if job.status == "cancelled" and previous_status != "cancelled":
+        from services.warehouse_stock import release_job_reservations
+        release_job_reservations(db, job, user.username)
     log_action(
         db,
         user.username,

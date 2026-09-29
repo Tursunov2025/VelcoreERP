@@ -6,11 +6,13 @@ import ErrorAlert from "../components/ui/ErrorAlert";
 import PageHeader from "../components/ui/PageHeader";
 import Toast from "../components/ui/Toast";
 import { useAuth } from "../context/AuthContext";
+import { useLocale } from "../context/LocaleContext";
 
 const UPDATE_INTERVAL_MS = 5_000;
 
 export default function DriverTrackingPage() {
   const { username } = useAuth();
+  const { t } = useLocale();
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [vehicleId, setVehicleId] = useState("");
@@ -104,11 +106,11 @@ export default function DriverTrackingPage() {
 
   const startTracking = () => {
     if (!vehicleId) {
-      setToast("Select a vehicle first");
+      setToast(t("checkpointD.driverTracking.selectVehicleFirst"));
       return;
     }
     if (!navigator.geolocation) {
-      setToast("Geolocation not supported");
+      setToast(t("checkpointD.driverTracking.geolocationUnsupported"));
       return;
     }
     setTracking(true);
@@ -145,31 +147,31 @@ export default function DriverTrackingPage() {
 
   return (
     <div className="pb-28">
-      <BackButton fallback="/logistics/live-map" label="Live Map" className="mb-4" />
+      <BackButton fallback="/logistics/live-map" label={t("checkpointD.driverTracking.liveMap")} className="mb-4" />
       <PageHeader
-        title="Driver GPS Tracking"
-        subtitle={`Live updates every 5s · ${username}${pageActive ? "" : " · paused (tab hidden)"}`}
+        title={t("checkpointD.driverTracking.title")}
+        subtitle={t(pageActive ? "checkpointD.driverTracking.subtitle" : "checkpointD.driverTracking.subtitlePaused", { username })}
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border bg-[var(--brand-card)] p-3">
-          <p className="text-xs uppercase text-[var(--brand-muted)]">Status</p>
+          <p className="text-xs uppercase text-[var(--brand-muted)]">{t("checkpointD.driverTracking.status")}</p>
           <p className={`font-bold ${tracking && pageActive ? "text-green-600" : "text-gray-500"}`}>
-            {tracking && pageActive ? "Live tracking" : tracking ? "Paused" : "Offline"}
+            {t(tracking && pageActive ? "checkpointD.driverTracking.live" : tracking ? "checkpointD.driverTracking.paused" : "checkpointD.driverTracking.offline")}
           </p>
         </div>
         <div className="rounded-2xl border bg-[var(--brand-card)] p-3">
-          <p className="text-xs uppercase text-[var(--brand-muted)]">Network</p>
+          <p className="text-xs uppercase text-[var(--brand-muted)]">{t("checkpointD.driverTracking.network")}</p>
           <p className={`font-bold ${online ? "text-green-600" : "text-red-500"}`}>
-            {online ? "Online" : "Offline"}
+            {t(online ? "checkpointD.driverTracking.online" : "checkpointD.driverTracking.offline")}
           </p>
         </div>
         <div className="rounded-2xl border bg-[var(--brand-card)] p-3">
-          <p className="text-xs uppercase text-[var(--brand-muted)]">Battery</p>
+          <p className="text-xs uppercase text-[var(--brand-muted)]">{t("checkpointD.driverTracking.battery")}</p>
           <p className="font-bold">{battery != null ? `${battery}%` : "—"}</p>
         </div>
         <div className="rounded-2xl border bg-[var(--brand-card)] p-3">
-          <p className="text-xs uppercase text-[var(--brand-muted)]">Last sent</p>
+          <p className="text-xs uppercase text-[var(--brand-muted)]">{t("checkpointD.driverTracking.lastSent")}</p>
           <p className="text-sm font-bold">
             {lastSent ? lastSent.toLocaleTimeString() : "—"}
             {sendCount > 0 ? ` (${sendCount})` : ""}
@@ -182,10 +184,10 @@ export default function DriverTrackingPage() {
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
             <p className="font-semibold text-amber-900 dark:text-amber-200">
               {vehicles.length === 0 && drivers.length === 0
-                ? "No fleet vehicles or drivers registered yet."
+                ? t("checkpointD.driverTracking.noFleetOrDrivers")
                 : vehicles.length === 0
-                  ? "No vehicles registered — select or create one first."
-                  : "No drivers registered — optional but recommended."}
+                  ? t("checkpointD.driverTracking.noVehicles")
+                  : t("checkpointD.driverTracking.noDrivers")}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {vehicles.length === 0 ? (
@@ -194,7 +196,7 @@ export default function DriverTrackingPage() {
                   className="rounded-lg px-3 py-1.5 text-xs font-bold text-white"
                   style={{ backgroundColor: "var(--brand-button)" }}
                 >
-                  + Create Vehicle
+                  {t("checkpointD.driverTracking.createVehicle")}
                 </Link>
               ) : null}
               {drivers.length === 0 ? (
@@ -202,7 +204,7 @@ export default function DriverTrackingPage() {
                   to="/logistics/drivers"
                   className="rounded-lg border px-3 py-1.5 text-xs font-bold"
                 >
-                  + Create Driver
+                  {t("checkpointD.driverTracking.createDriver")}
                 </Link>
               ) : null}
             </div>
@@ -214,7 +216,7 @@ export default function DriverTrackingPage() {
           className="w-full rounded-xl border bg-transparent px-3 py-3 text-sm"
           disabled={tracking}
         >
-          <option value="">Select vehicle</option>
+          <option value="">{t("checkpointD.driverTracking.selectVehicle")}</option>
           {vehicles.map((v) => (
             <option key={v.id} value={v.id}>
               {v.plate_number} {v.model ? `· ${v.model}` : ""}
@@ -227,7 +229,7 @@ export default function DriverTrackingPage() {
           className="w-full rounded-xl border bg-transparent px-3 py-3 text-sm"
           disabled={tracking}
         >
-          <option value="">Select driver (optional)</option>
+          <option value="">{t("checkpointD.driverTracking.selectDriver")}</option>
           {drivers.map((d) => (
             <option key={d.id} value={d.id}>
               {d.full_name}
@@ -247,7 +249,7 @@ export default function DriverTrackingPage() {
               className="flex-1 rounded-xl py-3 font-bold text-white"
               style={{ backgroundColor: "var(--brand-button)" }}
             >
-              Start live GPS
+              {t("checkpointD.driverTracking.start")}
             </button>
           ) : (
             <button
@@ -255,7 +257,7 @@ export default function DriverTrackingPage() {
               onClick={stopTracking}
               className="flex-1 rounded-xl bg-red-600 py-3 font-bold text-white"
             >
-              Stop tracking
+              {t("checkpointD.driverTracking.stop")}
             </button>
           )}
         </div>

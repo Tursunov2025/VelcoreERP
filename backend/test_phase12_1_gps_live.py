@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+import pytest
 
 TMP = Path(tempfile.mkdtemp(prefix="azmus_phase121_"))
 TEST_DB = TMP / "azmus_test.db"
@@ -53,6 +54,22 @@ def auth_headers(client: TestClient) -> dict[str, str]:
     r = client.post("/auth/login", json={"username": "admin", "password": "1234"})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _prepared_database():
+    setup_db()
+    yield
+
+
+@pytest.fixture(scope="module")
+def client() -> TestClient:
+    return TestClient(app)
+
+
+@pytest.fixture(scope="module")
+def headers(client: TestClient) -> dict[str, str]:
+    return auth_headers(client)
 
 
 def test_haversine_and_dedup() -> None:

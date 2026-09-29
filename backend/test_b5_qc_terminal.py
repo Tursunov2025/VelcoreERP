@@ -202,6 +202,20 @@ def run_tests() -> None:
     )
     assert r.status_code == 200, r.text
     assert r.json()["overall_progress_pct"] == 50.0
+    assert r.json()["qc_parts"][0]["completed_before_qc"] == 2.0
+    # Standalone retry is absolute and must not double count.
+    retry = client.put(
+        f"/mes/terminal/qc/jobs/{job_id}/quantities", headers=headers,
+        json={"lines": [{"bom_line_id": bom_line.id, "accepted_quantity": 1}]},
+    )
+    assert retry.status_code == 200 and retry.json()["overall_progress_pct"] == 50.0
+    excessive = client.put(
+        f"/mes/terminal/qc/jobs/{job_id}/quantities", headers=headers,
+        json={"lines": [{"bom_line_id": bom_line.id, "accepted_quantity": 2, "rejected_quantity": 1}]},
+    )
+    assert excessive.status_code in (400, 409)
+    db.expire_all(); bom_line = db.query(MesJobBomLine).filter(MesJobBomLine.job_id == job_id).first()
+    assert float(bom_line.accepted_quantity or 0) == 1 and float(bom_line.rejected_quantity or 0) == 0
 
     reason_id = reasons[0]["id"]
     r = client.post(

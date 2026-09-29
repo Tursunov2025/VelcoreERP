@@ -7,20 +7,9 @@ import PageHeader from "../../components/ui/PageHeader";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
 
-function formatDate(value) {
-  if (!value) return "";
-  return new Date(value).toLocaleString();
-}
-
-function formatQty(value) {
-  const n = Number(value);
-  if (Number.isNaN(n)) return "0";
-  return Number.isInteger(n) ? String(n) : n.toFixed(2);
-}
-
 export default function MaterialsConsumptionsPage() {
   const { hasPermission, isAdmin } = useAuth();
-  const { t } = useLocale();
+  const { t, formatCurrency, formatDateTime, formatNumber } = useLocale();
   const canView = isAdmin || hasPermission("materials_view");
 
   const [consumptions, setConsumptions] = useState([]);
@@ -67,7 +56,7 @@ export default function MaterialsConsumptionsPage() {
           <p className="text-xs text-[var(--brand-muted)]">{t("materials.consumedTodayCount")}</p>
         </div>
         <div className="rounded-2xl border bg-[var(--brand-card)] p-4 text-center">
-          <p className="text-2xl font-black">{totalCost.toLocaleString()}</p>
+          <p className="text-2xl font-black">{formatCurrency(totalCost)}</p>
           <p className="text-xs text-[var(--brand-muted)]">{t("materials.consumedCostToday")}</p>
         </div>
       </div>
@@ -84,12 +73,12 @@ export default function MaterialsConsumptionsPage() {
                 </p>
               </div>
               <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800">
-                -{formatQty(c.quantity)} {c.material_unit}
+                -{formatNumber(c.quantity, { maximumFractionDigits: 2 })} {c.material_unit}
               </span>
             </div>
             <div className="mt-2 flex justify-between text-sm">
-              <span className="text-[var(--brand-muted)]">{formatDate(c.consumed_at)}</span>
-              <strong>{c.line_cost?.toLocaleString()} so'm</strong>
+              <span className="text-[var(--brand-muted)]">{formatDateTime(c.consumed_at)}</span>
+              <strong>{formatCurrency(c.line_cost || 0)}</strong>
             </div>
           </div>
         ))}

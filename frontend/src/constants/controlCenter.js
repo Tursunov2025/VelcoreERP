@@ -8,7 +8,6 @@ export const MENU_NAV_KEYS = [
     labelKey: `nav.${item.iconKey}`,
   })),
   { iconKey: "controlCenter", path: "/control-center", labelKey: "nav.controlCenter" },
-  { iconKey: "invoices", path: "/invoices", labelKey: "nav.invoices" },
   { iconKey: "displaySettings", path: "/display-center/settings", labelKey: "nav.displaySettings" },
 ];
 

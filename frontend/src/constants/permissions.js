@@ -44,6 +44,22 @@ export const EXPORT_PERMISSIONS = [
   { id: "export_manage", label: "Export — Boshqarish" },
 ];
 
+export const PLATFORM_ADMIN_PERMISSIONS = [
+  { id: "platform_admin_view", label: "Platform Administration — View" },
+  { id: "platform_admin_manage", label: "Platform Administration — Configure" },
+  { id: "platform_admin_roles", label: "Platform Administration — Roles" },
+  { id: "platform_admin_audit", label: "Platform Administration — Audit" },
+  { id: "platform_admin_backup", label: "Platform Administration — Backup" },
+  { id: "platform_admin_security", label: "Platform Administration — Security" },
+];
+
+export const TRACEABILITY_PERMISSIONS = [
+  { id: "traceability_view", label: "Traceability — Ko‘rish" },
+  { id: "traceability_generate_qr", label: "Traceability — QR yaratish" },
+  { id: "traceability_print_labels", label: "Traceability — Yorliqlarni chop etish" },
+  { id: "traceability_view_public_token", label: "Traceability — Ochiq passport" },
+];
+
 export const NOTIFICATION_EVENTS = [
   { id: "new_order", label: "Yangi zakaz" },
   { id: "order_completed", label: "Zakaz tayyor" },

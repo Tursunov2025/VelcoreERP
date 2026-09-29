@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from auth.deps import get_current_user
@@ -14,7 +14,7 @@ from auth.security import (
     verify_password,
 )
 from database import get_db
-from models import User
+from models import User, UserIdentitySession
 from schemas import (
     LoginRequest,
     LoginUserOption,
@@ -50,9 +50,11 @@ def _authenticate_user(db: Session, username: str, password: str) -> User | None
     return None
 
 
-def _token_response(user: User) -> TokenResponse:
+def _token_response(user: User, session_id: int | None = None) -> TokenResponse:
     dept = user.department or ("Admin" if user.role == "admin" else "Kesish")
     data = {"sub": user.username, "role": user.role, "department": dept}
+    if session_id is not None:
+        data["sid"] = session_id
     try:
         return TokenResponse(
             access_token=create_access_token(data),
@@ -95,8 +97,20 @@ def _login_candidates_for_phone(phone: str) -> list[str]:
     return list(dict.fromkeys(candidates))
 
 
+def _start_identity_session(db: Session, user: User, request: Request) -> UserIdentitySession:
+    agent = (request.headers.get("user-agent") or "")[:160]
+    session = UserIdentitySession(
+        user_id=user.id,
+        device=(request.headers.get("x-device-name") or "")[:160],
+        browser=agent,
+        ip_address=(request.client.host if request.client else "")[:64],
+    )
+    db.add(session); db.commit(); db.refresh(session)
+    return session
+
+
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: Session = Depends(get_db)):
+def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = _authenticate_user(db, data.username, data.password)
     if not user:
         raise HTTPException(
@@ -104,11 +118,11 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             detail="Login yoki parol xato",
         )
     record_login(db, user)
-    return _token_response(user)
+    return _token_response(user, _start_identity_session(db, user, request).id)
 
 
 @router.post("/login-by-phone", response_model=TokenResponse)
-def login_by_phone(data: PhoneLoginRequest, db: Session = Depends(get_db)):
+def login_by_phone(data: PhoneLoginRequest, request: Request, db: Session = Depends(get_db)):
     """Driver mobile — login with phone number (username = phone digits in ERP)."""
     candidates = _login_candidates_for_phone(data.phone)
     if not candidates:
@@ -120,7 +134,7 @@ def login_by_phone(data: PhoneLoginRequest, db: Session = Depends(get_db)):
         user = _authenticate_user(db, username, data.password)
         if user:
             record_login(db, user)
-            return _token_response(user)
+            return _token_response(user, _start_identity_session(db, user, request).id)
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Telefon yoki parol xato",
@@ -142,7 +156,12 @@ def refresh_token(data: RefreshRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
-    return _token_response(user)
+    session_id = payload.get("sid")
+    if session_id is not None:
+        session = db.get(UserIdentitySession, int(session_id))
+        if not session or not session.is_active or session.user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked")
+    return _token_response(user, session_id)
 
 
 @router.get("/me", response_model=UserPublic)
@@ -174,8 +193,13 @@ def update_ui_preferences(
     user: User = Depends(get_current_user),
 ):
     if data.ui_language is not None:
-        user.ui_language = data.ui_language
-    if data.ui_theme is not None:
+        language = "uz" if data.ui_language in {"uz", "uz_latn"} else data.ui_language
+        if language not in {"uz", "ru"}:
+            raise HTTPException(status_code=422, detail={"code": "invalid_ui_language", "params": {"allowed": ["uz", "ru"]}, "fallback": "Unsupported UI language"})
+        user.ui_language = language
+    if data.inherit_theme:
+        user.ui_theme = None
+    elif data.ui_theme is not None:
         user.ui_theme = data.ui_theme
     if data.ui_clock_format is not None:
         user.ui_clock_format = data.ui_clock_format

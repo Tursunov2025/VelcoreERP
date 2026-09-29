@@ -5,6 +5,7 @@ import ErrorAlert from "../components/ui/ErrorAlert";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import PageHeader from "../components/ui/PageHeader";
 import { useAuth } from "../context/AuthContext";
+import { useLocale } from "../context/LocaleContext";
 import {
   downloadShipmentPdf,
   printShipmentPdf,
@@ -12,6 +13,7 @@ import {
 
 export default function ShippingPage() {
   const { isAdmin, isOmbor } = useAuth();
+  const { t, formatDateTime, formatNumber } = useLocale();
   const [items, setItems] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -70,7 +72,7 @@ export default function ShippingPage() {
 
   const dispatch = async () => {
     if (!selected.length) {
-      setError("Mahsulot tanlang");
+      setError(t("shipping.selectProduct"));
       return;
     }
     setLoading(true);
@@ -78,7 +80,7 @@ export default function ShippingPage() {
       const res = await api.dispatchShipment({
         warehouse_item_ids: selected,
         destination,
-        comment: comment || "Yuk chiqarildi",
+        comment: comment || t("shipping.dispatched"),
         responsible_operator: responsible,
       });
       setSelected([]);
@@ -98,7 +100,7 @@ export default function ShippingPage() {
   };
 
   if (!isAdmin && !isOmbor) {
-    return <p className="text-center text-red-500 py-12">Ruxsat yo&apos;q</p>;
+    return <p className="text-center text-red-500 py-12">{t("errors.accessDenied")}</p>;
   }
 
   if (loading && !items.length && !groups.length) {
@@ -108,8 +110,8 @@ export default function ShippingPage() {
   return (
     <div>
       <PageHeader
-        title="Yuk chiqarish"
-        subtitle="Guruhlangan yuk jo'natish va doimiy arxiv"
+        title={t("shipping.title")}
+        subtitle={t("shipping.subtitle")}
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -120,7 +122,7 @@ export default function ShippingPage() {
             tab === "dispatch" ? "bg-black text-white" : "bg-gray-200"
           }`}
         >
-          Yuk chiqarish
+          {t("shipping.dispatch")}
         </button>
         <button
           type="button"
@@ -129,7 +131,7 @@ export default function ShippingPage() {
             tab === "archive" ? "bg-black text-white" : "bg-gray-200"
           }`}
         >
-          Arxiv ({groups.length})
+          {t("shipping.archiveCount", { count: groups.length })}
         </button>
       </div>
 
@@ -139,30 +141,30 @@ export default function ShippingPage() {
         <>
           <Card className="mb-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-bold">Tanlangan: {selected.length}</h2>
+              <h2 className="font-bold">{t("shipping.selected", { count: selected.length })}</h2>
               <button
                 type="button"
                 onClick={selectAll}
                 className="text-sm font-semibold text-blue-600"
               >
-                {selected.length === items.length ? "Bekor qilish" : "Hammasini tanlash"}
+                {selected.length === items.length ? t("common.cancel") : t("shipping.selectAll")}
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <input
-                placeholder="Manzil / destination"
+                placeholder={t("shipping.destination")}
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
                 className="rounded-2xl border px-4 py-3"
               />
               <input
-                placeholder="Mas'ul operator"
+                placeholder={t("shipping.responsibleOperator")}
                 value={responsible}
                 onChange={(e) => setResponsible(e.target.value)}
                 className="rounded-2xl border px-4 py-3"
               />
               <input
-                placeholder="Izoh"
+                placeholder={t("orders.comment")}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 className="rounded-2xl border px-4 py-3 sm:col-span-2 lg:col-span-1"
@@ -174,13 +176,13 @@ export default function ShippingPage() {
               disabled={loading || !selected.length}
               className="mt-4 w-full rounded-2xl bg-green-600 py-4 font-bold text-white disabled:opacity-50 sm:w-auto sm:px-10"
             >
-              Yuk chiqarildi
+              {t("shipping.dispatchAction")}
             </button>
           </Card>
 
           <div className="space-y-3">
             {items.length === 0 && (
-              <p className="text-center text-gray-500 py-8">Omborda tayyor mahsulot yo&apos;q</p>
+              <p className="text-center text-gray-500 py-8">{t("shipping.noReadyProducts")}</p>
             )}
             {items.map((item) => (
               <label
@@ -202,7 +204,7 @@ export default function ShippingPage() {
                   <p className="text-sm text-gray-500">{item.destination}</p>
                 </div>
                 <p className="font-black text-green-600 shrink-0">
-                  {Number(item.amount).toLocaleString()}
+                  {formatNumber(item.amount)}
                 </p>
               </label>
             ))}
@@ -213,13 +215,13 @@ export default function ShippingPage() {
           <Card className="mb-6">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <input
-                placeholder="Qidiruv / shipment ID"
+                placeholder={t("shipping.searchShipment")}
                 value={filters.q}
                 onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
                 className="rounded-xl border px-3 py-2 text-sm"
               />
               <input
-                placeholder="Operator"
+                placeholder={t("stock.operator")}
                 value={filters.operator}
                 onChange={(e) =>
                   setFilters((f) => ({ ...f, operator: e.target.value }))
@@ -227,7 +229,7 @@ export default function ShippingPage() {
                 className="rounded-xl border px-3 py-2 text-sm"
               />
               <input
-                placeholder="Manzil"
+                placeholder={t("shipping.destination")}
                 value={filters.destination}
                 onChange={(e) =>
                   setFilters((f) => ({ ...f, destination: e.target.value }))
@@ -235,7 +237,7 @@ export default function ShippingPage() {
                 className="rounded-xl border px-3 py-2 text-sm"
               />
               <input
-                placeholder="Mahsulot / mijoz"
+                placeholder={t("shipping.productCustomer")}
                 value={filters.product}
                 onChange={(e) =>
                   setFilters((f) => ({ ...f, product: e.target.value }))
@@ -263,35 +265,35 @@ export default function ShippingPage() {
                 onClick={load}
                 className="rounded-xl bg-black px-4 py-2 text-sm font-bold text-white"
               >
-                Qidirish
+                {t("common.search")}
               </button>
             </div>
           </Card>
 
           <div className="space-y-4">
             {groups.length === 0 && (
-              <p className="text-center text-gray-500 py-8">Arxiv bo&apos;sh</p>
+              <p className="text-center text-gray-500 py-8">{t("shipping.emptyArchive")}</p>
             )}
             {groups.map((group) => (
               <Card key={group.id} className={group.deleted_at ? "opacity-60" : ""}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-lg font-black">Yuk #{group.id}</p>
+                    <p className="text-lg font-black">{t("shipping.shipmentNumber", { id: group.id })}</p>
                     <p className="text-sm text-gray-500">
                       {group.shipped_at
-                        ? new Date(group.shipped_at).toLocaleString()
+                        ? formatDateTime(group.shipped_at)
                         : ""}
                     </p>
                     <p className="text-sm">
-                      <span className="font-semibold">Manzil:</span>{" "}
+                      <span className="font-semibold">{t("shipping.destination")}:</span>{" "}
                       {group.destination || "—"}
                     </p>
                     <p className="text-xs text-gray-400">
-                      Ombor: {group.warehouse_operator} | Mas&apos;ul:{" "}
+                      {t("shipping.warehouseOperator")}: {group.warehouse_operator} | {t("shipping.responsibleOperator")}:{" "}
                       {group.responsible_operator}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-green-700">
-                      {group.total_products_count} ta mahsulot
+                      {t("shipping.productCount", { count: group.total_products_count })}
                     </p>
                     {group.comment && (
                       <p className="mt-1 text-sm italic text-gray-500">{group.comment}</p>
@@ -305,7 +307,7 @@ export default function ShippingPage() {
                       }
                       className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold"
                     >
-                      {expandedId === group.id ? "Yopish" : "Mahsulotlar"}
+                      {expandedId === group.id ? t("common.close") : t("shipping.products")}
                     </button>
                     <button
                       type="button"
@@ -319,7 +321,7 @@ export default function ShippingPage() {
                       onClick={() => printShipmentPdf(group)}
                       className="rounded-xl bg-gray-800 px-3 py-2 text-xs font-bold text-white"
                     >
-                      Chop etish
+                      {t("shipping.print")}
                     </button>
                   </div>
                 </div>
@@ -330,11 +332,11 @@ export default function ShippingPage() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="p-2 text-left">#</th>
-                          <th className="p-2 text-left">Mijoz</th>
-                          <th className="p-2 text-left">Telefon</th>
-                          <th className="p-2 text-right">Summa</th>
-                          <th className="p-2 text-center">Soni</th>
-                          <th className="p-2 text-left">Manzil</th>
+                          <th className="p-2 text-left">{t("crm.customer")}</th>
+                          <th className="p-2 text-left">{t("orders.phone")}</th>
+                          <th className="p-2 text-right">{t("crm.amount")}</th>
+                          <th className="p-2 text-center">{t("stock.quantity")}</th>
+                          <th className="p-2 text-left">{t("shipping.destination")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -344,7 +346,7 @@ export default function ShippingPage() {
                             <td className="p-2 font-medium">{item.client}</td>
                             <td className="p-2">{item.phone}</td>
                             <td className="p-2 text-right font-bold">
-                              {Number(item.amount).toLocaleString()}
+                              {formatNumber(item.amount)}
                             </td>
                             <td className="p-2 text-center">{item.quantity}</td>
                             <td className="p-2">{item.product_destination}</td>

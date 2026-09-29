@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from auth.security import decode_token
 from constants import user_can_access_stage
 from database import get_db
-from models import User
+from models import User, UserIdentitySession
 from services.activity import touch_activity
 from services.permissions import user_has_permission
 
@@ -41,6 +41,18 @@ def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account deactivated",
         )
+
+    session_id = payload.get("sid")
+    if session_id is not None:
+        try:
+            session = db.get(UserIdentitySession, int(session_id))
+        except (TypeError, ValueError):
+            session = None
+        if not session or not session.is_active or session.user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session revoked",
+            )
 
     try:
         touch_activity(db, user)

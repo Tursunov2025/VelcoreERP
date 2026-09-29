@@ -38,6 +38,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
             ["Lazer", "Kesish"],
             ["Svarshik", "Svarka"],
             ["Kraska", "Kraska"],
+            ["Yig‘ish", "Yig‘ish"],
             ["Nazorat", "Tekshiruv"],
             ["Upakovka", "Upakovka"],
             ["Sklad", "Ombor"],
@@ -59,7 +60,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "materials_default_unit": "dona",
     "materials_low_stock_default": "5",
     "materials_auto_consume_enabled": "true",
-    "materials_auto_consume_stages_json": json.dumps(["Lazer", "Kraska"], ensure_ascii=False),
+    "materials_auto_consume_stages_json": json.dumps(["Lazer", "Kraska", "Yig‘ish"], ensure_ascii=False),
     "materials_categories_json": json.dumps(
         [[code, name] for code, name in DEFAULT_CATEGORIES], ensure_ascii=False
     ),

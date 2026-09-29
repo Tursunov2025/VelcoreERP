@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime, time
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session, joinedload
 
 from models import (
     MesDispatch,
     MesDispatchPackage,
     MesFinishedGoodsInventory,
+    MesFinishedGoodsPlacement,
     MesInventoryMovement,
     MesJobPackage,
     MesJobRouteStep,
@@ -17,6 +19,7 @@ from models import (
     MesProductionStage,
 )
 from services.audit import log_value_change
+from services.project_execution import ExecutionError, project_progress, synchronize_project
 from services.mes_terminal_common import (
     QUEUE_JOB_STATUSES,
     get_active_step,
@@ -25,6 +28,7 @@ from services.mes_terminal_common import (
     serialize_route_step,
     sort_queue,
     terminal_step_state,
+    project_terminal_metadata,
 )
 
 DISPATCH_STAGE_NAME = "Yuklash"
@@ -143,6 +147,8 @@ def serialize_dispatch_package(dp: MesDispatchPackage) -> dict:
         "loaded_by": dp.loaded_by,
         "shipped_at": dp.shipped_at,
         "delivered_at": dp.delivered_at,
+        "passport_serials": [p.serial_number for p in sorted(getattr(pkg, "product_passports", []), key=lambda passport: passport.unit_index)] if pkg else [],
+        "passport_count": len(getattr(pkg, "product_passports", [])) if pkg else 0,
         **extra,
     }
 
@@ -184,6 +190,7 @@ def serialize_terminal_job(
         "id": job.id,
         "job_number": job.job_number,
         "customer_name": job.customer_name or "",
+        **project_terminal_metadata(job),
         "order_reference": job.order_reference or "",
         "template_id": job.template_id,
         "template_code": job.template.code if job.template else None,
@@ -343,6 +350,12 @@ def _create_dispatch_packages(
             created_at=datetime.utcnow(),
         )
         db.add(dp)
+        placement = db.query(MesFinishedGoodsPlacement).filter_by(package_id=pkg.id).first()
+        if placement and placement.status == "placed":
+            placement.status = "assigned"
+            placement.version += 1
+            placement.updated_by = username
+            placement.updated_at = datetime.utcnow()
 
     dispatch.package_count = len(packages)
     log_value_change(
@@ -384,6 +397,9 @@ def accept_dispatch(
             created_at=now,
             updated_at=now,
             created_by=username,
+            project_id=job.project_id,
+            destination_city=job.project.destination_city if job.project else "",
+            site_name=job.project.site_name if job.project else "",
         )
         db.add(dispatch)
         db.flush()
@@ -494,16 +510,61 @@ def load_dispatch_package(
     if not step.started_at:
         raise ValueError("Start loading before assigning packages")
 
-    dp = next((p for p in (dispatch.packages or []) if p.package_id == package_id), None)
+    dp = db.query(MesDispatchPackage).with_for_update().filter_by(
+        dispatch_id=dispatch.id, package_id=package_id
+    ).first()
     if not dp:
         raise ValueError("Package not on this dispatch")
     if dp.status != "pending":
         raise ValueError("Package already loaded")
+    if job.project_id:
+        pkg = dp.package
+        inventory = db.query(MesFinishedGoodsInventory).filter_by(id=dp.inventory_id).first() if dp.inventory_id else None
+        expected_destination = (
+            (job.project.destination_city or "").strip().casefold(),
+            (job.project.site_name or "").strip().casefold(),
+        )
+        actual_destination = (
+            (dispatch.destination_city or "").strip().casefold(),
+            (dispatch.site_name or "").strip().casefold(),
+        )
+        mismatch = (
+            not pkg
+            or dispatch.project_id != job.project_id
+            or pkg.project_id != job.project_id
+            or pkg.project_line_id != job.project_line_id
+            or pkg.project_release_snapshot_id != job.project_release_snapshot_id
+            or pkg.job_id != job.id
+            or not inventory
+            or inventory.project_id != job.project_id
+            or inventory.project_line_id != job.project_line_id
+            or inventory.project_release_snapshot_id != job.project_release_snapshot_id
+            or inventory.template_id != job.template_id
+            or actual_destination != expected_destination
+        )
+        if mismatch:
+            raise ExecutionError(
+                "dispatch_package_mismatch",
+                "Package project, line, product, release, or destination does not match dispatch",
+            )
 
+    claimed = db.execute(
+        update(MesDispatchPackage)
+        .where(MesDispatchPackage.id == dp.id, MesDispatchPackage.status == "pending")
+        .values(status="loaded")
+    ).rowcount
+    if claimed != 1:
+        raise ExecutionError("operation_already_recorded", "Package was already loaded")
+    db.expire(dp); db.refresh(dp)
     now = datetime.utcnow()
-    old = dp.status
-    dp.status = "loaded"
+    old = "pending"
     dp.loaded_at = now
+    placement = db.query(MesFinishedGoodsPlacement).filter_by(package_id=package_id).first()
+    if placement:
+        placement.status = "loaded"
+        placement.version += 1
+        placement.updated_by = username
+        placement.updated_at = now
     log_value_change(
         db, username, "load", "mes_dispatch_package", dp.id, "status", old, dp.status
     )
@@ -518,6 +579,8 @@ def load_dispatch_package(
     )
     dispatch.updated_at = now
     job.updated_at = now
+    if job.project_id:
+        synchronize_project(db, job.project_id)
     return dp
 
 
@@ -532,6 +595,17 @@ def mark_shipped(
     pending = [p for p in (dispatch.packages or []) if p.status == "pending"]
     if pending:
         raise ValueError("Load all packages before shipping")
+
+    if job.project_id:
+        progress = project_progress(db, job.project)
+        if any(
+            line["loaded_quantity"] + 0.0001 < line["required_quantity"]
+            for line in progress["lines"]
+        ):
+            raise ExecutionError(
+                "shipment_incomplete",
+                "Partial project shipment is disabled; load every required product quantity",
+            )
 
     if not (dispatch.vehicle_number or "").strip():
         raise ValueError("Vehicle number is required before shipping")
@@ -553,8 +627,17 @@ def mark_shipped(
                     inv.status = "dispatched"
                     inv.updated_at = now
 
-    old_status = dispatch.status
-    dispatch.status = "shipped"
+    db.flush()
+
+    claimed = db.execute(
+        update(MesDispatch)
+        .where(MesDispatch.id == dispatch.id, MesDispatch.status == "loading")
+        .values(status="shipped")
+    ).rowcount
+    if claimed != 1:
+        raise ExecutionError("operation_already_recorded", "Dispatch was already confirmed")
+    db.expire(dispatch); db.refresh(dispatch)
+    old_status = "loading"
     dispatch.ship_date = now
     dispatch.updated_at = now
     log_value_change(
@@ -568,6 +651,8 @@ def mark_shipped(
         notes=f"Dispatch {dispatch.dispatch_number} shipped",
     )
     job.updated_at = now
+    if job.project_id:
+        synchronize_project(db, job.project_id)
     return dispatch
 
 

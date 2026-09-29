@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session, joinedload
 from models import MesJobBomLine, MesJobRouteStep, MesProductionJob, MesProductionStage
 from services.audit import log_value_change
 from services.mes_jobs import load_job
+from services.mes_terminal_common import project_terminal_metadata
+from services.project_execution import record_absolute_operation
 
 LAZER_STAGE_NAME = "Lazer"
 QUEUE_JOB_STATUSES = ("released", "in_progress")
@@ -154,6 +156,7 @@ def serialize_terminal_job(
         "id": job.id,
         "job_number": job.job_number,
         "customer_name": job.customer_name or "",
+        **project_terminal_metadata(job),
         "order_reference": job.order_reference or "",
         "template_id": job.template_id,
         "template_code": job.template.code if job.template else None,
@@ -222,7 +225,7 @@ def _require_lazer_step(
 def accept_lazer_job(db: Session, job: MesProductionJob, lazer_stage_id: int, username: str) -> None:
     step = _require_lazer_step(job, lazer_stage_id)
     if step.accepted_at:
-        raise ValueError("Job already accepted")
+        return
     now = datetime.utcnow()
     log_value_change(
         db,
@@ -243,7 +246,7 @@ def start_lazer_job(db: Session, job: MesProductionJob, lazer_stage_id: int, use
     if not step.accepted_at:
         raise ValueError("Accept the job before starting work")
     if step.started_at:
-        raise ValueError("Work already started")
+        return
     from services.material_auto_consumption import auto_consume_on_stage_start
 
     auto_consume_on_stage_start(db, job, "Lazer", username)
@@ -356,10 +359,6 @@ def update_lazer_quantities(
             raise ValueError(f"BOM line {bom_line_id} not found on job")
         allocated = float(line.allocated_quantity or 0)
         qty = max(0.0, float(new_qty))
-        if allocated > 0 and qty > allocated:
-            raise ValueError(
-                f"Completed quantity cannot exceed allocated ({line.part_number})"
-            )
         old_qty = float(line.completed_quantity or 0)
         if old_qty == qty:
             continue
@@ -374,6 +373,9 @@ def update_lazer_quantities(
             qty,
         )
         line.completed_quantity = qty
+        project_output = min(qty, float(line.production_required_quantity or 0)) if job.project_id else qty
+        record_absolute_operation(db, job, operation_type="lazer_completed", absolute_quantity=project_output,
+                                  username=username, terminal="lazer", job_line=line, route_step=step)
         changed = True
 
     if changed:

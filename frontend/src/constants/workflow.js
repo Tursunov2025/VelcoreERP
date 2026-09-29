@@ -108,8 +108,6 @@ export const NAV_ITEMS = [
 
   { path: "/mes/terminal/warehouse", label: "Tayyor mahsulot ombori", iconKey: "warehouseTerminal", permission: "mes_terminal_warehouse" },
 
-  { path: "/mes/terminal/dispatch", label: "Yuklash Terminal", iconKey: "dispatchTerminal", permission: "mes_terminal_dispatch" },
-
   { path: "/operators", label: "Operatorlar", iconKey: "operators", permission: "production" },
 
   { path: "/analytics", label: "Analitika", iconKey: "analytics", permission: "finance" },
@@ -149,6 +147,14 @@ const DISPLAY_CENTER_SECTION = {
   ],
 };
 
+const TRACEABILITY_SECTION = {
+  id: "traceability",
+  iconKey: "traceability",
+  emoji: "🔖",
+  path: "/traceability",
+  permission: "traceability_view",
+};
+
 export const NAV_SECTIONS = [
   {
     id: "dashboard",
@@ -162,10 +168,10 @@ export const NAV_SECTIONS = [
     iconKey: "platformAdministration",
     emoji: "⚙️",
     path: "/admin",
-    adminOnly: true,
-    permission: "settings",
+    permission: "platform_admin_view",
   },
   DISPLAY_CENTER_SECTION,
+  TRACEABILITY_SECTION,
   {
     id: "crm",
     iconKey: "crm",
@@ -179,24 +185,13 @@ export const NAV_SECTIONS = [
     ],
   },
   {
-    id: "orders",
-    iconKey: "orders",
-    emoji: "📦",
-    path: "/orders",
-    permission: "orders",
-    children: [
-      { path: "/orders", iconKey: "orders", permission: "orders" },
-      { path: "/control-center", iconKey: "controlCenter", adminOnly: true, permission: null },
-    ],
-  },
-  {
-    id: "production",
-    iconKey: "production",
+    id: "productionProjects",
+    iconKey: "productionProjects",
     emoji: "🏭",
-    path: "/production",
-    permission: "production",
+    path: "/production-projects",
+    permission: "production_projects_view",
     children: [
-      { path: "/production", iconKey: "production", permission: "production" },
+      { path: "/production-projects", iconKey: "productionProjects", permission: "production_projects_view" },
       { path: "/mes", iconKey: "mes", permission: "mes_view" },
       { path: "/operators", iconKey: "operators", permission: "production" },
     ],
@@ -221,6 +216,7 @@ export const NAV_SECTIONS = [
     permission: "warehouse",
     children: [
       { path: "/warehouse", iconKey: "warehouse", permission: "warehouse" },
+      { path: "/mes/finished-warehouse", iconKey: "finishedProductWarehouse", permission: "mes_terminal_warehouse" },
       { path: "/materials", iconKey: "materials", permission: "materials_view" },
       { path: "/materials/forecast", iconKey: "forecast", permission: "materials_view" },
       { path: "/mes/terminal/warehouse", iconKey: "warehouseTerminal", permission: "mes_terminal_warehouse" },
@@ -234,16 +230,13 @@ export const NAV_SECTIONS = [
     permission: "export_view",
     children: [
       { path: "/logistics", iconKey: "logisticsDashboard", permission: "export_view" },
-      { path: "/logistics/finished-warehouse", iconKey: "finishedWarehouse", permission: "export_view" },
-      { path: "/logistics/loading-plans", iconKey: "loadingPlans", permission: "export_view" },
-      { path: "/logistics/transports", iconKey: "transport", permission: "export_view" },
+      { path: "/logistics/shipments", iconKey: "shipments", permission: "export_view" },
+      { path: "/logistics/loading", iconKey: "loadingPlans", permission: "export_view" },
+      { path: "/logistics/transport", iconKey: "transport", permission: "export_view" },
       { path: "/logistics/drivers", iconKey: "drivers", permission: "export_view" },
       { path: "/logistics/gps", iconKey: "gpsMonitoring", permission: "export_view" },
-      { path: "/logistics/live-map", iconKey: "liveMap", permission: "export_view" },
-      { path: "/logistics/loading-control", iconKey: "loadingControl", permission: "export_view" },
-      { path: "/logistics/in-transit", iconKey: "inTransit", permission: "export_view" },
-      { path: "/logistics/delivered", iconKey: "deliveredLoads", permission: "export_view" },
-      { path: "/logistics/llp", iconKey: "llp", permission: "llp_view" },
+      { path: "/logistics/gps/tasks", iconKey: "gpsTasks", permission: "export_view" },
+      { path: "/logistics/delivery-history", iconKey: "deliveryHistory", permission: "export_view" },
     ],
   },
   {
@@ -258,15 +251,6 @@ export const NAV_SECTIONS = [
       { path: "/analytics", iconKey: "analytics", permission: "finance" },
       { path: "/invoices", iconKey: "invoices", permission: "finance" },
     ],
-  },
-  {
-    id: "settings",
-    iconKey: "settings",
-    emoji: "⚙️",
-    path: "/settings",
-    hidden: true,
-    adminOnly: true,
-    permission: "settings",
   },
 ];
 
@@ -297,15 +281,15 @@ export function filterNavSections(sections, permissions, isAdmin) {
 
 export const ADMIN_NAV_ITEM = {
 
-  path: "/settings",
+  path: "/admin",
 
-  label: "Sozlamalar",
+  label: "Platform Administration",
 
-  iconKey: "settings",
+  iconKey: "platformAdministration",
 
   adminOnly: true,
 
-  permission: "settings",
+  permission: "platform_admin_view",
 
 };
 

@@ -57,9 +57,29 @@ def serialize_route_step(step: MesJobRouteStep | None) -> dict | None:
         "completed_parts_count": int(step.completed_parts_count or 0),
         "started_at": step.started_at,
         "accepted_at": step.accepted_at,
+        "accepted_by_user_id": step.accepted_by_user_id,
+        "brigade_id": step.brigade_id,
         "completed_at": step.completed_at,
         "instructions": step.instructions or "",
         "state": terminal_step_state(step),
+    }
+
+
+def project_terminal_metadata(job: MesProductionJob) -> dict:
+    project = getattr(job, "project", None)
+    if not project:
+        return {"project_id": None, "project_line_id": None, "project": None}
+    return {
+        "project_id": job.project_id,
+        "project_line_id": job.project_line_id,
+        "project": {
+            "code": project.project_code,
+            "name": project.project_name,
+            "destination_city": project.destination_city or "",
+            "site_name": project.site_name or "",
+            "deadline": job.due_date or project.required_delivery_date,
+            "priority": job.priority or project.priority,
+        },
     }
 
 

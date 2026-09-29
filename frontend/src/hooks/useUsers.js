@@ -10,7 +10,7 @@ export function useUsers({ enabled = true, forLogin = false } = {}) {
   const mountedRef = useRef(true);
 
   const fetchUsers = useCallback(async () => {
-    setLoading(true);
+    if (users.length === 0) setLoading(true);
     setError("");
 
     try {
@@ -28,7 +28,7 @@ export function useUsers({ enabled = true, forLogin = false } = {}) {
         setLoading(false);
       }
     }
-  }, [forLogin]);
+  }, [forLogin, users.length]);
 
   useEffect(() => {
     mountedRef.current = true;

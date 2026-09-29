@@ -12,6 +12,7 @@ from models import (
     MaterialBomLine,
     MaterialReservation,
     MesJobBomLine,
+    MesJobYigishLine,
     MesProductPart,
     MesProductionJob,
 )
@@ -176,36 +177,68 @@ def get_part_material_bom_line(db: Session, part_id: int, line_id: int) -> Mater
 
 
 def calculate_job_material_requirements(db: Session, job: MesProductionJob) -> dict[int, float]:
-    """Aggregate required raw material by material_id for a job snapshot."""
+    """Aggregate required raw material by material_id for a job snapshot.
+
+    Requirements come from two sources:
+    1. Production BOM lines -> MaterialBomLine
+    2. Yigish snapshot lines that directly reference a material
+    """
     requirements: dict[int, float] = defaultdict(float)
+
+    # 1) Existing production BOM -> material requirements
     bom_lines = (
         db.query(MesJobBomLine)
         .filter(MesJobBomLine.job_id == job.id)
         .all()
     )
-    if not bom_lines:
-        return {}
 
-    part_ids = {line.part_id for line in bom_lines}
-    material_lines = (
-        db.query(MaterialBomLine)
+    if bom_lines:
+        part_ids = {line.part_id for line in bom_lines if line.part_id is not None}
+
+        if part_ids:
+            material_lines = (
+                db.query(MaterialBomLine)
+                .filter(
+                    MaterialBomLine.part_id.in_(part_ids),
+                    MaterialBomLine.is_active.is_(True),
+                )
+                .all()
+            )
+
+            by_part: dict[int, list[MaterialBomLine]] = defaultdict(list)
+            for ml in material_lines:
+                by_part[ml.part_id].append(ml)
+
+            for job_line in bom_lines:
+                if job_line.part_id is None:
+                    continue
+
+                parts_needed = float(job_line.allocated_quantity or 0)
+                for ml in by_part.get(job_line.part_id, []):
+                    requirements[ml.material_id] += (
+                        parts_needed * float(ml.quantity_per_part or 0)
+                    )
+
+    # 2) Yigish snapshot -> direct material requirements
+    yigish_lines = (
+        db.query(MesJobYigishLine)
         .filter(
-            MaterialBomLine.part_id.in_(part_ids),
-            MaterialBomLine.is_active.is_(True),
+            MesJobYigishLine.job_id == job.id,
+            MesJobYigishLine.material_id.isnot(None),
         )
         .all()
     )
-    by_part: dict[int, list[MaterialBomLine]] = defaultdict(list)
-    for ml in material_lines:
-        by_part[ml.part_id].append(ml)
 
-    for job_line in bom_lines:
-        parts_needed = float(job_line.allocated_quantity or 0)
-        for ml in by_part.get(job_line.part_id, []):
-            requirements[ml.material_id] += parts_needed * float(ml.quantity_per_part or 0)
+    for line in yigish_lines:
+        material_id = line.material_id
+        required = float(line.allocated_quantity or 0)
+
+        if material_id is None or required <= 0:
+            continue
+
+        requirements[material_id] += required
 
     return dict(requirements)
-
 
 def _available_for_reservation(
     db: Session,

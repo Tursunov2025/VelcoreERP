@@ -19,7 +19,8 @@ from services.mes_packaging_terminal import (
     start_packaging_job,
     update_packaging_data,
 )
-from services.permissions import user_has_permission
+from services.permissions import require_project_job_permission, user_has_permission
+from services.production_brigades import user_has_brigade_terminal_access
 
 router = APIRouter(prefix="/mes/terminal/packaging", tags=["mes-terminal-packaging"])
 
@@ -30,12 +31,33 @@ class PackagingDataUpdate(BaseModel):
     net_weight_kg: Optional[float] = Field(None, ge=0)
     gross_weight_kg: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
+    packaged_quantity: Optional[float] = Field(None, gt=0)
 
 
 def _require_packaging_terminal(db: Session, user: User) -> None:
     if user_has_permission(db, user, "mes_terminal_packaging"):
         return
-    raise HTTPException(status_code=403, detail="Permission required: mes_terminal_packaging")
+
+    stage = (
+        db.query(MesProductionStage)
+        .filter(
+            MesProductionStage.name == "Upakovka",
+            MesProductionStage.is_active.is_(True),
+        )
+        .first()
+    )
+
+    if stage and user_has_brigade_terminal_access(
+        db,
+        user_id=user.id,
+        stage_id=stage.id,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Bu terminalga kirish uchun terminal ruxsati yoki unga biriktirilgan faol brigada kerak",
+    )
 
 
 def _packaging_stages_or_503(db: Session):
@@ -101,6 +123,7 @@ def packaging_accept_job(
     job = load_packaging_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_package")
     try:
         accept_packaging_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -120,6 +143,7 @@ def packaging_start_job(
     job = load_packaging_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_package")
     try:
         start_packaging_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -139,6 +163,7 @@ def packaging_complete_job(
     job = load_packaging_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_package")
     try:
         complete_packaging_job(db, job, ids, user.username)
     except ValueError as exc:
@@ -159,6 +184,7 @@ def packaging_update_data(
     job = load_packaging_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    require_project_job_permission(db, user, job, "production_projects_package")
     try:
         update_packaging_data(
             db,
@@ -170,6 +196,7 @@ def packaging_update_data(
             net_weight_kg=data.net_weight_kg,
             gross_weight_kg=data.gross_weight_kg,
             notes=data.notes,
+            packaged_quantity=data.packaged_quantity,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

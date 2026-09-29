@@ -120,7 +120,15 @@ def reverse_geocode(lat: float, lng: float) -> dict[str, str]:
     if wait > 0:
         time.sleep(wait)
 
-    result = {"city": "", "country": "", "country_code": ""}
+    result = {
+        "display_name": "",
+        "road": "",
+        "house_number": "",
+        "city": "",
+        "state": "",
+        "country": "",
+        "country_code": "",
+    }
     try:
         _LAST_REQUEST_AT = time.time()
         with httpx.Client(timeout=8) as client:
@@ -132,6 +140,16 @@ def reverse_geocode(lat: float, lng: float) -> dict[str, str]:
             if resp.status_code == 200:
                 data: dict[str, Any] = resp.json()
                 addr = data.get("address") or {}
+
+                result["display_name"] = data.get("display_name") or ""
+                result["road"] = (
+                    addr.get("road")
+                    or addr.get("pedestrian")
+                    or addr.get("residential")
+                    or addr.get("industrial")
+                    or ""
+                )
+                result["house_number"] = addr.get("house_number") or ""
                 result["city"] = (
                     addr.get("city")
                     or addr.get("town")
@@ -140,6 +158,7 @@ def reverse_geocode(lat: float, lng: float) -> dict[str, str]:
                     or addr.get("state")
                     or ""
                 )
+                result["state"] = addr.get("state") or ""
                 result["country"] = addr.get("country") or ""
                 result["country_code"] = (addr.get("country_code") or "").upper()
     except Exception as exc:

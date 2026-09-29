@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import Toast from "../ui/Toast";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function SystemTab() {
+  const { t } = useLocale();
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -25,33 +27,30 @@ export default function SystemTab() {
   const save = async () => {
     try {
       await api.adminUpdateSystemSettings(settings);
-      setToast("Sozlamalar saqlandi");
+      setToast(t("legacySettings.saved"));
       load();
     } catch (e) {
       setToast(e.message);
     }
   };
 
-  if (loading) return <p>Yuklanmoqda...</p>;
+  if (loading) return <p>{t("common.loading")}</p>;
 
   const fields = [
-    { key: "company_phone", label: "Telefon" },
-    { key: "jwt_access_minutes", label: "JWT Access (daqiqa)" },
-    { key: "jwt_refresh_days", label: "JWT Refresh (kun)" },
-    { key: "auto_backup_enabled", label: "Avto backup (true/false)" },
-    { key: "auto_backup_interval_hours", label: "Avto backup interval (soat)" },
+    { key: "company_phone" }, { key: "jwt_access_minutes" }, { key: "jwt_refresh_days" },
+    { key: "auto_backup_enabled" }, { key: "auto_backup_interval_hours" },
   ];
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-black">Tizim sozlamalari</h2>
+      <h2 className="mb-4 text-xl font-black">{t("legacySettings.systemTitle")}</h2>
       <p className="mb-4 text-sm text-gray-500">
-        Dastur nomi va logolar &quot;Tashqi ko&apos;rinish&quot; bo&apos;limida boshqariladi.
+        {t("legacySettings.systemDescription")}
       </p>
       <div className="space-y-4 rounded-2xl border bg-white p-6">
-        {fields.map(({ key, label }) => (
+        {fields.map(({ key }) => (
           <div key={key}>
-            <label className="mb-1 block text-sm text-gray-600">{label}</label>
+            <label className="mb-1 block text-sm text-gray-600">{t(`legacySettings.domainFields.${key}`)}</label>
             <input
               value={settings[key] || ""}
               onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
@@ -65,7 +64,7 @@ export default function SystemTab() {
           className="brand-btn w-full py-3 font-bold text-white"
           style={{ backgroundColor: "var(--brand-button)" }}
         >
-          Saqlash
+          {t("common.save")}
         </button>
       </div>
       <Toast message={toast} onClose={() => setToast("")} />

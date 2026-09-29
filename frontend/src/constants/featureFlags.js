@@ -36,6 +36,7 @@ export function buildDefaultUiConfig() {
     dashboard_widgets: DEFAULT_DASHBOARD_WIDGETS,
     mobile_app: null,
     feature_flags: { ...DEFAULT_FEATURE_FLAGS },
+    module_states: {},
   };
 }
 
@@ -50,6 +51,7 @@ export function normalizeUiConfig(data) {
       ? data.dashboard_widgets
       : base.dashboard_widgets,
     feature_flags: normalizeFeatureFlags(data.feature_flags),
+    module_states: data.module_states || {},
     super_admin: data.super_admin || null,
   };
 }

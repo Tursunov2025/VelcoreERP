@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { isTruthySetting } from "../../constants/permissions";
 import Toast from "../ui/Toast";
+import { useLocale } from "../../context/LocaleContext";
 
 export default function TelegramTab() {
+  const { t } = useLocale();
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
@@ -27,7 +29,7 @@ export default function TelegramTab() {
   const save = async () => {
     try {
       await api.adminUpdateTelegramSettings(settings);
-      setToast("Telegram sozlamalari saqlandi");
+      setToast(t("legacySettings.telegramSaved"));
       load();
     } catch (e) {
       setToast(e.message);
@@ -38,7 +40,7 @@ export default function TelegramTab() {
     setTesting(true);
     try {
       await api.adminTestTelegram();
-      setToast("Test xabari yuborildi");
+      setToast(t("legacySettings.testSent"));
     } catch (e) {
       setToast(e.message);
     } finally {
@@ -46,17 +48,17 @@ export default function TelegramTab() {
     }
   };
 
-  if (loading) return <p>Yuklanmoqda...</p>;
+  if (loading) return <p>{t("common.loading")}</p>;
 
   const notificationsOn = isTruthySetting(settings.telegram_notifications_enabled);
   const globalOn = isTruthySetting(settings.notifications_enabled);
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-black">Telegram sozlamalari</h2>
+      <h2 className="mb-4 text-xl font-black">{t("legacySettings.telegramTitle")}</h2>
       <div className="space-y-4 rounded-2xl border bg-white p-6">
         <div>
-          <label className="mb-1 block text-sm text-gray-600">Bot Token</label>
+          <label className="mb-1 block text-sm text-gray-600">{t("legacySettings.botToken")}</label>
           <input
             value={settings.telegram_bot_token || ""}
             onChange={(e) =>
@@ -66,11 +68,11 @@ export default function TelegramTab() {
             className="w-full rounded-xl border px-4 py-3 font-mono text-sm"
           />
           <p className="mt-1 text-xs text-gray-400">
-            Bo&apos;sh qoldirsangiz, mavjud token saqlanadi
+            {t("legacySettings.tokenHint")}
           </p>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-gray-600">Chat ID</label>
+          <label className="mb-1 block text-sm text-gray-600">{t("legacySettings.chatId")}</label>
           <input
             value={settings.telegram_chat_id || ""}
             onChange={(e) =>
@@ -92,7 +94,7 @@ export default function TelegramTab() {
             }
             className="h-5 w-5 rounded"
           />
-          <span className="text-sm font-medium">Bildirishnomalar yoqilgan</span>
+          <span className="text-sm font-medium">{t("legacySettings.notificationsEnabled")}</span>
         </label>
         <label className="flex items-center gap-3">
           <input
@@ -106,7 +108,7 @@ export default function TelegramTab() {
             }
             className="h-5 w-5 rounded"
           />
-          <span className="text-sm font-medium">Telegram orqali yuborish</span>
+          <span className="text-sm font-medium">{t("legacySettings.sendViaTelegram")}</span>
         </label>
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
@@ -114,7 +116,7 @@ export default function TelegramTab() {
             onClick={save}
             className="flex-1 rounded-2xl bg-black py-3 font-bold text-white"
           >
-            Saqlash
+            {t("common.save")}
           </button>
           <button
             type="button"
@@ -122,7 +124,7 @@ export default function TelegramTab() {
             disabled={testing}
             className="flex-1 rounded-2xl border-2 border-black py-3 font-bold disabled:opacity-50"
           >
-            {testing ? "Yuborilmoqda..." : "Test xabari"}
+            {testing ? t("legacySettings.sending") : t("legacySettings.testMessage")}
           </button>
         </div>
       </div>

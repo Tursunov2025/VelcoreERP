@@ -32,11 +32,12 @@ _paths_log.info(
 )
 
 from fastapi import Depends, FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from database import Base, SessionLocal, engine, get_db, run_migrations, verify_engine_connection
+from database import Base, SessionLocal, backup_sqlite_before_schema_changes, engine, get_db, run_migrations, verify_engine_connection
 from models import (
     Expense,
     Income,
@@ -68,6 +69,7 @@ from routers import (
     llp_router,
     mes_jobs_router,
     mes_lazer_terminal_router,
+    mes_yigish_terminal_router,
     mes_kraska_terminal_router,
     mes_monitor_router,
     mes_qc_terminal_router,
@@ -75,13 +77,18 @@ from routers import (
     mes_warehouse_terminal_router,
     mes_dispatch_terminal_router,
     control_center_router,
+    mes_brigades_router,
     mes_router,
     mes_svarshik_terminal_router,
     migration_router,
     mobile_router,
     operators_router,
+    platform_admin_router,
     orders_router,
     production_router,
+    production_projects_router,
+    finished_logistics_router,
+    trip_tracking_router,
     shipping_router,
     tasks_router,
     telegram_router,
@@ -276,6 +283,9 @@ async def lifespan(app: FastAPI):
         raise
 
     try:
+        backup_path = backup_sqlite_before_schema_changes()
+        if backup_path:
+            startup_log.info("Pre-schema backup ready: %s", backup_path)
         Base.metadata.create_all(bind=engine)
         startup_log.info("Base.metadata.create_all() completed")
     except Exception:
@@ -344,6 +354,39 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+_MODULE_API_PREFIXES = [
+    ("/display-center", "display_center"), ("/materials", "materials"),
+    ("/mes/terminal/qc", "qc"), ("/mes/templates", "technology"), ("/mes", "mes"),
+    ("/gps", "gps"), ("/driver", "driver"), ("/llp", "llp"), ("/logistics", "logistics"),
+    ("/warehouse", "warehouse"), ("/production", "production"),
+    ("/finance", "finance"), ("/invoices", "finance"), ("/orders", "orders"), ("/crm", "crm"),
+    ("/chat", "chat"), ("/tasks", "tasks"), ("/analytics", "analytics"),
+]
+
+
+@app.middleware("http")
+async def enforce_module_state(request, call_next):
+    path = request.url.path
+    if path.startswith(("/admin", "/auth", "/branding", "/health", "/uploads")):
+        return await call_next(request)
+    module_key = next((key for prefix, key in _MODULE_API_PREFIXES if path == prefix or path.startswith(f"{prefix}/")), None)
+    if module_key:
+        import json
+        from models import SystemSetting
+
+        db = SessionLocal()
+        try:
+            row = db.query(SystemSetting).filter(SystemSetting.key == "platform_module_states_runtime").first()
+            states = json.loads(row.value) if row and row.value else {}
+        except (ValueError, TypeError):
+            states = {}
+        finally:
+            db.close()
+        state = states.get(module_key, "enabled")
+        if state != "enabled":
+            return JSONResponse(status_code=503 if state == "maintenance" else 404, content={"detail": f"Module {state}"})
+    return await call_next(request)
+
 upload_path = str(UPLOAD_PATH)
 UPLOAD_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -353,6 +396,9 @@ app.include_router(orders_router.router)
 app.include_router(warehouse_router.router)
 app.include_router(materials_router)
 app.include_router(production_router.router)
+app.include_router(production_projects_router.router)
+app.include_router(finished_logistics_router.router)
+app.include_router(trip_tracking_router.router)
 app.include_router(operators_router.router)
 app.include_router(analytics_router.router)
 app.include_router(finance_router.router)
@@ -375,8 +421,10 @@ app.include_router(branding_router.router)
 app.include_router(logistics_router.router)
 app.include_router(llp_router.router)
 app.include_router(mes_router.router)
+app.include_router(mes_brigades_router.router)
 app.include_router(mes_jobs_router.router)
 app.include_router(mes_lazer_terminal_router.router)
+app.include_router(mes_yigish_terminal_router.router)
 app.include_router(mes_svarshik_terminal_router.router)
 app.include_router(mes_monitor_router.router)
 app.include_router(mes_kraska_terminal_router.router)
@@ -394,6 +442,7 @@ app.include_router(traceability_router.public_router)
 app.include_router(printing_router.router)
 app.include_router(printing_router.admin_router)
 app.include_router(admin_router.router)
+app.include_router(platform_admin_router.router)
 app.include_router(enterprise_users_router)
 app.include_router(display_center_router)
 

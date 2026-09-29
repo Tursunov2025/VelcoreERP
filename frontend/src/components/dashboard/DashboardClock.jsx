@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocale } from "../../context/LocaleContext";
 
 const LOCALE_MAP = {
+  uz: "uz-Latn-UZ",
   uz_latn: "uz-UZ",
   uz_cyrl: "uz-UZ",
   ru: "ru-RU",
@@ -33,9 +34,8 @@ export default function DashboardClock() {
 
   const date = new Intl.DateTimeFormat(locale, {
     timeZone: clockTimezone,
-    weekday: "long",
     year: "numeric",
-    month: "long",
+    month: "2-digit",
     day: "numeric",
   }).format(now);
 

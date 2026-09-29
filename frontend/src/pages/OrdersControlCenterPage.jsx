@@ -160,7 +160,7 @@ export default function OrdersControlCenterPage() {
             onClick={exportCsv}
             className="min-h-[48px] rounded-xl border bg-white px-4 font-semibold"
           >
-            Excel (CSV)
+            {t("controlCenter.exportExcel")}
           </button>
           <button
             type="button"

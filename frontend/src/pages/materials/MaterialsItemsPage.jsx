@@ -1,22 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../../api/client";
+import { api, uploadUrl } from "../../api/client";
 import ErrorAlert from "../../components/ui/ErrorAlert";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import PageHeader from "../../components/ui/PageHeader";
 import Toast from "../../components/ui/Toast";
+import MaterialMasterForm from "../../components/materials/MaterialMasterForm";
 import { useAuth } from "../../context/AuthContext";
 import { useLocale } from "../../context/LocaleContext";
-
-const EMPTY_FORM = {
-  code: "",
-  name: "",
-  unit: "dona",
-  category_id: "",
-  minimum_stock: "0",
-  current_stock: "0",
-  unit_cost: "0",
-};
 
 export default function MaterialsItemsPage() {
   const { hasPermission, isAdmin } = useAuth();
@@ -26,28 +17,32 @@ export default function MaterialsItemsPage() {
 
   const [materials, setMaterials] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editId, setEditId] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [search, setSearch] = useState("");
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
     if (!canView) return;
+    const sequence = ++loadSequence.current;
     setError("");
     try {
       const [itemsRes, catRes] = await Promise.all([
         api.materialsItems(true),
         api.materialsCategories(),
       ]);
+      if (sequence !== loadSequence.current) return;
       setMaterials(itemsRes.materials || []);
       setCategories(catRes.categories || []);
+      setError("");
     } catch (e) {
-      setError(e.message);
+      if (sequence === loadSequence.current) setError(e.message);
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }, [canView]);
 
@@ -56,55 +51,75 @@ export default function MaterialsItemsPage() {
   }, [load]);
 
   const openCreate = () => {
-    setEditId(null);
-    setForm(EMPTY_FORM);
+    setSelected(null);
     setShowForm(true);
   };
 
   const openEdit = (mat) => {
-    setEditId(mat.id);
-    setForm({
-      code: mat.code || "",
-      name: mat.name || "",
-      unit: mat.unit || "dona",
-      category_id: mat.category_id ? String(mat.category_id) : "",
-      minimum_stock: String(mat.minimum_stock ?? 0),
-      current_stock: String(mat.current_stock ?? 0),
-      unit_cost: String(mat.unit_cost ?? 0),
-    });
+    setSelected(mat);
     setShowForm(true);
   };
 
-  const save = async () => {
+  const save = async (payload, imageFile = null) => {
     if (!canEdit) return;
     setBusy(true);
     setToast("");
     try {
-      const payload = {
-        code: form.code.trim(),
-        name: form.name.trim(),
-        unit: form.unit.trim() || "dona",
-        category_id: form.category_id ? Number(form.category_id) : null,
-        minimum_stock: Number(form.minimum_stock) || 0,
-        unit_cost: Number(form.unit_cost) || 0,
-      };
-      if (editId) {
-        await api.materialsUpdateItem(editId, payload);
+      let savedMaterial;
+
+      if (selected) {
+        savedMaterial = await api.materialsUpdateItem(selected.id, payload);
       } else {
-        await api.materialsCreateItem({
-          ...payload,
-          current_stock: Number(form.current_stock) || 0,
-        });
+        savedMaterial = await api.materialsCreateItem(payload);
       }
+
+      const materialId = savedMaterial?.id || selected?.id;
+
+      if (imageFile && materialId) {
+        await api.materialsUploadImage(materialId, imageFile);
+      }
+
       setShowForm(false);
       await load();
       setToast(t("materials.itemSaved"));
     } catch (e) {
-      setToast(e.message);
+      const translated = e.code ? t(`materialMaster.errors.${e.code}`) : "";
+      setToast(translated && !translated.startsWith("materialMaster.") ? translated : t("materialMaster.errors.generic"));
     } finally {
       setBusy(false);
     }
   };
+
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+
+  const filteredMaterials = normalizedSearch
+    ? materials.filter((mat) => {
+        const profileSize =
+          mat.material_type === "PROFILE"
+            ? `${mat.width_mm || ""}x${mat.height_mm || ""} Ø${mat.diameter_mm || ""} ${mat.thickness_mm || ""}`
+            : "";
+
+        const haystack = [
+          mat.code,
+          mat.name,
+          mat.category_name,
+          mat.material_type,
+          mat.profile_type,
+          mat.width_mm,
+          mat.height_mm,
+          mat.diameter_mm,
+          mat.thickness_mm,
+          mat.steel_grade,
+          mat.unit,
+          profileSize,
+        ]
+          .filter((value) => value !== null && value !== undefined)
+          .join(" ")
+          .toLocaleLowerCase();
+
+        return haystack.includes(normalizedSearch);
+      })
+    : materials;
 
   if (!canView) {
     return <p className="py-12 text-center text-red-500">{t("materials.noAccess")}</p>;
@@ -121,6 +136,34 @@ export default function MaterialsItemsPage() {
       {loading ? <LoadingSpinner /> : null}
       <ErrorAlert message={error} onRetry={load} />
 
+      <div className="mb-4 rounded-2xl border bg-[var(--brand-card)] p-3 sm:p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Material kodi, nomi, kategoriya yoki razmer bo‘yicha qidiring..."
+              className="min-h-[48px] w-full rounded-xl border bg-transparent px-4 pr-10 text-base outline-none focus:ring-2"
+              aria-label="Material qidirish"
+            />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 min-h-[40px] min-w-[40px] -translate-y-1/2 rounded-lg text-lg"
+                aria-label="Qidiruvni tozalash"
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
+          <div className="shrink-0 text-sm font-semibold text-[var(--brand-muted)]">
+            {filteredMaterials.length} / {materials.length}
+          </div>
+        </div>
+      </div>
+
       {canEdit ? (
         <button
           type="button"
@@ -132,116 +175,33 @@ export default function MaterialsItemsPage() {
         </button>
       ) : null}
 
-      {showForm && canEdit ? (
-        <div className="mb-4 space-y-2 rounded-2xl border bg-[var(--brand-card)] p-4">
-          <input
-            type="text"
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-            placeholder={t("materials.fieldCode")}
-            className="min-h-[48px] w-full rounded-xl border px-3 font-mono"
-            disabled={busy}
-          />
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder={t("materials.fieldName")}
-            className="min-h-[48px] w-full rounded-xl border px-3"
-            disabled={busy}
-          />
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              type="text"
-              value={form.unit}
-              onChange={(e) => setForm({ ...form, unit: e.target.value })}
-              placeholder={t("materials.fieldUnit")}
-              className="min-h-[48px] rounded-xl border px-3"
-              disabled={busy}
-            />
-            <select
-              value={form.category_id}
-              onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-              className="min-h-[48px] rounded-xl border px-3"
-              disabled={busy}
-            >
-              <option value="">{t("materials.noCategory")}</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={form.minimum_stock}
-              onChange={(e) => setForm({ ...form, minimum_stock: e.target.value })}
-              placeholder={t("materials.fieldMinStock")}
-              className="min-h-[48px] rounded-xl border px-3"
-              disabled={busy}
-            />
-            {!editId ? (
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={form.current_stock}
-                onChange={(e) => setForm({ ...form, current_stock: e.target.value })}
-                placeholder={t("materials.fieldCurrentStock")}
-                className="min-h-[48px] rounded-xl border px-3"
-                disabled={busy}
-              />
-            ) : null}
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={form.unit_cost}
-              onChange={(e) => setForm({ ...form, unit_cost: e.target.value })}
-              placeholder={t("materials.fieldUnitCost")}
-              className="min-h-[48px] rounded-xl border px-3"
-              disabled={busy}
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={save}
-              className="min-h-[48px] flex-1 rounded-xl font-bold text-white disabled:opacity-60"
-              style={{ backgroundColor: "var(--brand-button)" }}
-            >
-              {t("common.save")}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setShowForm(false)}
-              className="min-h-[48px] rounded-xl border px-6 font-bold"
-            >
-              {t("common.cancel")}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {showForm && canEdit ? <div className="mb-6"><MaterialMasterForm key={selected?.id || "new"} material={selected} categories={categories} busy={busy} onSubmit={save} onCancel={() => setShowForm(false)} /></div> : null}
 
       <div className="space-y-2">
-        {materials.map((mat) => (
+        {filteredMaterials.map((mat) => (
           <div
             key={mat.id}
             className={`rounded-xl border p-4 ${mat.low_stock ? "border-red-300 bg-red-50/50" : "bg-[var(--brand-card)]"}`}
           >
+            {mat.image_url ? (
+              <div className="mb-4 overflow-hidden rounded-2xl border bg-white">
+                <img
+                  src={uploadUrl(mat.image_url)}
+                  alt={mat.name || mat.code || "Material"}
+                  className="h-44 w-full object-contain sm:h-52"
+                  loading="lazy"
+                />
+              </div>
+            ) : null}
+
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-mono text-sm font-bold text-[var(--brand-primary)]">{mat.code}</p>
                 <p className="font-bold">{mat.name}</p>
                 <p className="text-sm text-[var(--brand-muted)]">
-                  {mat.category_name || t("materials.noCategory")} · {mat.unit}
+                  {mat.category_name || t("materials.noCategory")} · {t(`materialMaster.types.${mat.material_type || "CONSUMABLE"}`)} · {t(`materialMaster.units.${mat.unit || "dona"}`)}
                 </p>
+                {mat.material_type === "PROFILE" ? <p className="mt-1 text-xs text-[var(--brand-muted)]">{mat.profile_type ? t(`materialMaster.profiles.${mat.profile_type}`) : "—"} · {mat.width_mm ? `${mat.width_mm}×${mat.height_mm}` : `Ø${mat.diameter_mm}`}×{mat.thickness_mm} mm · {mat.steel_grade || "—"}</p> : null}
               </div>
               {canEdit ? (
                 <button
@@ -271,8 +231,18 @@ export default function MaterialsItemsPage() {
                 <strong>{mat.inventory_value?.toLocaleString()}</strong>
               </div>
             </div>
+            {mat.material_type === "PROFILE" && mat.length_lot_summary ? <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full bg-blue-50 px-3 py-1 text-blue-800">{mat.length_lot_summary.total_pieces} {t("materialMaster.units.pcs")}</span><span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-800">{mat.length_lot_summary.total_meters} m</span><span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{(mat.length_lot_summary.lengths_m || []).join(" / ") || "—"} m</span></div> : null}
           </div>
         ))}
+
+        {!loading && filteredMaterials.length === 0 ? (
+          <div className="rounded-2xl border bg-[var(--brand-card)] px-4 py-10 text-center">
+            <p className="font-semibold">Qidiruv bo‘yicha material topilmadi</p>
+            <p className="mt-1 text-sm text-[var(--brand-muted)]">
+              Kod, nom yoki profil razmerini boshqacha yozib ko‘ring.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <Toast message={toast} onClose={() => setToast("")} />

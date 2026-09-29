@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { api } from "../../api/client";
 import Modal from "./Modal";
+import { useLocale } from "../../context/LocaleContext";
+import LocalizedFileInput from "../ui/LocalizedFileInput";
 
 export default function OrderModal({ onClose, onSave }) {
+  const { t } = useLocale();
   const [client, setClient] = useState("");
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
@@ -24,7 +27,7 @@ export default function OrderModal({ onClose, onSave }) {
       const result = await api.uploadImage(file);
       setImageUrls((prev) => [...prev, result.url]);
     } catch (err) {
-      setError(err.message || "Rasm yuklanmadi");
+      setError(err.message || t("orders.imageUploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -32,7 +35,7 @@ export default function OrderModal({ onClose, onSave }) {
 
   const handleSave = async () => {
     if (!client.trim() || !amount.trim()) {
-      setError("Mijoz nomi va summa majburiy");
+      setError(t("orders.customerAmountRequired"));
       return;
     }
 
@@ -54,7 +57,7 @@ export default function OrderModal({ onClose, onSave }) {
       });
       onClose();
     } catch (err) {
-      setError(err.message || "Zakazni saqlab bo'lmadi");
+      setError(err.message || t("orders.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -62,39 +65,39 @@ export default function OrderModal({ onClose, onSave }) {
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="mb-6 text-2xl font-black">Yangi zakaz</h2>
-      <p className="mb-4 text-sm text-gray-500">Avtomatik Kesish bo&apos;limiga tushadi</p>
+      <h2 className="mb-6 text-2xl font-black">{t("orders.newOrder")}</h2>
+      <p className="mb-4 text-sm text-gray-500">{t("orders.autoCuttingStage")}</p>
 
       <div className="space-y-4">
         <input
           value={client}
           onChange={(e) => setClient(e.target.value)}
-          placeholder="Mijoz nomi *"
+          placeholder={t("orders.customerRequired")}
           className="w-full rounded-2xl border px-5 py-4"
         />
         <input
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="Telefon"
+          placeholder={t("orders.phone")}
           className="w-full rounded-2xl border px-5 py-4"
         />
         <input
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="Summa *"
+          placeholder={t("orders.amountRequired")}
           type="number"
           className="w-full rounded-2xl border px-5 py-4"
         />
         <input
           value={destination}
           onChange={(e) => setDestination(e.target.value)}
-          placeholder="Manzil / destination"
+          placeholder={t("orders.destination")}
           className="w-full rounded-2xl border px-5 py-4"
         />
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Izoh"
+          placeholder={t("orders.comment")}
           rows={2}
           className="w-full rounded-2xl border px-5 py-4"
         />
@@ -104,8 +107,8 @@ export default function OrderModal({ onClose, onSave }) {
           onChange={(e) => setEstimatedFinish(e.target.value)}
           className="w-full rounded-2xl border px-5 py-4"
         />
-        <input type="file" accept="image/*" onChange={handleImage} />
-        {uploading && <p className="text-sm text-gray-500">Yuklanmoqda...</p>}
+        <LocalizedFileInput accept="image/*" onChange={handleImage} disabled={uploading} />
+        {uploading && <p className="text-sm text-gray-500">{t("common.loading")}</p>}
         {preview && (
           <img src={preview} alt="" className="h-24 rounded-2xl object-cover" />
         )}
@@ -116,7 +119,7 @@ export default function OrderModal({ onClose, onSave }) {
           disabled={saving || uploading}
           className="w-full rounded-2xl bg-black py-4 font-bold text-white disabled:opacity-60"
         >
-          {saving ? "Saqlanmoqda..." : "Saqlash"}
+          {saving ? t("common.saving") : t("common.save")}
         </button>
       </div>
     </Modal>

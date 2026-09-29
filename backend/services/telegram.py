@@ -195,6 +195,42 @@ def format_gps_destination_alert(plate: str, driver, city: str, destination: str
     )
 
 
+def format_gps_overspeed_alert(
+    plate: str,
+    driver,
+    speed_kmh: float,
+    limit_kmh: float,
+    latitude: float,
+    longitude: float,
+) -> str:
+    return (
+        f"🚨 <b>Tezlik limiti oshdi</b>\n"
+        f"Vehicle: {plate}\n"
+        f"Driver: {_driver_line(driver)}\n"
+        f"Tezlik: {speed_kmh:.1f} km/h\n"
+        f"Limit: {limit_kmh:.1f} km/h\n"
+        f"Koordinata: {latitude:.6f}, {longitude:.6f}"
+    )
+
+
+def format_gps_geofence_alert(
+    plate: str,
+    driver,
+    distance_m: float,
+    radius_m: float,
+    latitude: float,
+    longitude: float,
+) -> str:
+    return (
+        f"🚨 <b>Geofence buzildi</b>\n"
+        f"Vehicle: {plate}\n"
+        f"Driver: {_driver_line(driver)}\n"
+        f"Markazdan masofa: {distance_m:.0f} m\n"
+        f"Ruxsat etilgan radius: {radius_m:.0f} m\n"
+        f"Koordinata: {latitude:.6f}, {longitude:.6f}"
+    )
+
+
 def format_gps_border_alert(
     plate: str, driver, from_country: str, to_country: str, location: str
 ) -> str:

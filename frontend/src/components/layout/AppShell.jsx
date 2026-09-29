@@ -4,6 +4,7 @@ import LogoutButton from "./LogoutButton";
 import MobileNav from "./MobileNav";
 import Sidebar from "./Sidebar";
 import UiQuickControls from "./UiQuickControls";
+import ModuleStateGate from "./ModuleStateGate";
 
 export default function AppShell({ children }) {
   const { username, role, department } = useAuth();
@@ -13,7 +14,7 @@ export default function AppShell({ children }) {
     <div
       className="brand-page-enter flex min-h-screen"
       style={{
-      backgroundColor: "var(--erp-background)"
+      backgroundColor: "var(--brand-background)"
       }}
     >
       <Sidebar username={username} role={department || role} />
@@ -21,7 +22,7 @@ export default function AppShell({ children }) {
         <header
   className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 px-4 py-3 backdrop-blur md:hidden"
   style={{
-      backgroundColor: "var(--erp-sidebar)"
+      backgroundColor: "var(--brand-header)"
       }}
 >
           <div>
@@ -37,10 +38,10 @@ export default function AppShell({ children }) {
     className="flex-1 p-4 md:p-8"
     style={{
         color: "var(--brand-text)",
-        backgroundColor: "var(--erp-background)"
+        backgroundColor: "var(--brand-background)"
     }}
 >
-    {children}
+    <ModuleStateGate>{children}</ModuleStateGate>
 </main>
       </div>
       <MobileNav />

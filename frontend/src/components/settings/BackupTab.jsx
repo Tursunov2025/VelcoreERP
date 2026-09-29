@@ -1,22 +1,25 @@
 import { useState } from "react";
 import { api, authenticatedFetch } from "../../api/client";
 import Toast from "../ui/Toast";
+import { useLocale } from "../../context/LocaleContext";
+import LocalizedFileInput from "../ui/LocalizedFileInput";
 
 export default function BackupTab() {
+  const { t } = useLocale();
   const [toast, setToast] = useState("");
   const [importing, setImporting] = useState(false);
 
   const exportDb = async () => {
     try {
       const res = await authenticatedFetch("/admin/backup/export");
-      if (!res.ok) throw new Error("Backup failed");
+      if (!res.ok) throw new Error(t("legacySettings.backupFailed"));
       const blob = await res.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `azmus_backup_${Date.now()}.db`;
       link.click();
       URL.revokeObjectURL(link.href);
-      setToast("Backup yuklab olindi");
+      setToast(t("legacySettings.backupDownloaded"));
     } catch (e) {
       setToast(e.message);
     }
@@ -28,7 +31,7 @@ export default function BackupTab() {
     setImporting(true);
     try {
       await api.adminImportBackup(file);
-      setToast("Backup import qilindi. API ni qayta ishga tushiring.");
+      setToast(t("legacySettings.backupImported"));
     } catch (err) {
       setToast(err.message);
     } finally {
@@ -45,7 +48,7 @@ export default function BackupTab() {
       link.download = `velcore_settings_${Date.now()}.json`;
       link.click();
       URL.revokeObjectURL(link.href);
-      setToast("Sozlamalar JSON eksport qilindi");
+      setToast(t("legacySettings.settingsExported"));
     } catch (e) {
       setToast(e.message);
     }
@@ -62,7 +65,7 @@ export default function BackupTab() {
         settings: bundle.settings || bundle,
         merge: true,
       });
-      setToast("Sozlamalar import qilindi");
+      setToast(t("legacySettings.settingsImported"));
     } catch (err) {
       setToast(err.message);
     } finally {
@@ -72,52 +75,50 @@ export default function BackupTab() {
 
   return (
     <div className="pb-8">
-      <h2 className="mb-4 text-xl font-black">Backup fayl</h2>
+      <h2 className="mb-4 text-xl font-black">{t("legacySettings.backupFile")}</h2>
       <div className="space-y-4 rounded-2xl border bg-[var(--brand-card)] p-4 sm:p-6">
         <div>
-          <h3 className="font-bold">Baza eksport</h3>
+          <h3 className="font-bold">{t("legacySettings.databaseExport")}</h3>
           <p className="mb-3 text-sm text-[var(--brand-muted)]">
-            SQLite bazasini fayl sifatida yuklab oling
+            {t("legacySettings.databaseExportDescription")}
           </p>
           <button
             type="button"
             onClick={exportDb}
             className="min-h-[48px] w-full rounded-xl bg-black px-6 py-3 font-bold text-white sm:w-auto"
           >
-            Bazani eksport qilish
+            {t("legacySettings.exportDatabase")}
           </button>
         </div>
         <hr />
         <div>
-          <h3 className="font-bold">Baza import</h3>
+          <h3 className="font-bold">{t("legacySettings.databaseImport")}</h3>
           <p className="mb-3 text-sm text-[var(--brand-muted)]">
-            Backup faylni tiklash (avvalgi nusxa saqlanadi)
+            {t("legacySettings.databaseImportDescription")}
           </p>
-          <input type="file" accept=".db" onChange={importDb} disabled={importing} className="w-full" />
+          <LocalizedFileInput accept=".db" onChange={importDb} disabled={importing} />
         </div>
         <hr />
         <div>
-          <h3 className="font-bold">Sozlamalar JSON</h3>
+          <h3 className="font-bold">{t("legacySettings.settingsJson")}</h3>
           <p className="mb-3 text-sm text-[var(--brand-muted)]">
-            Markaziy sozlamalarni alohida eksport/import (migratsiya ZIP ichida ham bor)
+            {t("legacySettings.settingsJsonDescription")}
           </p>
           <button
             type="button"
             onClick={exportSettings}
             className="mb-3 min-h-[48px] w-full rounded-xl border px-6 py-3 font-bold sm:w-auto"
           >
-            Sozlamalarni eksport
+            {t("legacySettings.exportSettings")}
           </button>
-          <input
-            type="file"
+          <LocalizedFileInput
             accept=".json,application/json"
             onChange={importSettings}
             disabled={importing}
-            className="w-full"
           />
         </div>
         <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-          Avtomatik backup va JWT sozlamalari &quot;Backup&quot; markaziy bo&apos;limida. To&apos;liq migratsiya ZIP uchun Migratsiya bo&apos;limiga o&apos;ting.
+          {t("legacySettings.backupNotice")}
         </div>
       </div>
       <Toast message={toast} onClose={() => setToast("")} />
